@@ -1,0 +1,110 @@
+(
+(Imports
+  (Prelude Prelude) ;Prelude = import("Prelude")
+)
+
+;Tipos importados de otros módulos
+;A pesar del nombre, esta no es la única sección que define tipos
+(Types
+  (Int Prelude Int) ;Int = Prelude.Int
+  (String Prelude String)
+  (CmdArgs Prelude CmdArgs)
+
+  ; Funciones importadas
+  (add Prelude add-i-i) ;add = Prelude.add-i-i
+  (print Prelude print)
+  (itos Prelude i-to-s) ;Int to String
+)
+
+;Esta sección define más tipos
+(Structs
+  (SELF (
+    (a Int)
+    (b Int)
+  ))
+)
+
+;Definiciones de funciones
+;Las Funciones son tipos, así que esta sección define tipos
+(Functions
+  (sum
+    ; Struct de los argumentos (y valores devueltos)
+    ; En el contexto de esta función, ARGS se refiere a este Struct.
+    ; El resto del programa no conoce la estructura interna de la función,
+    ; pero cuando interactúa con ella, asume que es este Struct.
+    (Struct (
+      (a Int)
+      (b Int)
+    ))
+    (Struct ( ;Registros
+      ; Especiales
+      (module SELF)
+      (args ARGS)
+
+      ; Variables
+      (a Int)
+      (b Int)
+      (r Int)
+      (rs String)
+
+      ; Funciones
+      (add add)
+      (print print)
+      (itos itos)
+    ))
+    (Code (
+      (get a args a)  ;a = args.a
+      (get b args b)  ;a = args.b
+      (new add)
+      (set add a a)   ;add.a = a
+      (set add b b)   ;add.b = b
+      (call add)
+      (get r add r)   ;r = add.r
+      (new itos)
+      (set itos a r)  ;itos.a = r
+      (call itos)
+      (get rs itos r)   ;rs = itos.r
+      (new print)
+      (set print a rs)  ;print.a = rs
+      (call print)
+      (end)
+    ))
+    ; Código legible:
+    ; r = add(args.a, args.b)
+    ; print(itos(r))
+  )
+
+  (MAIN
+    (Struct (
+      (args CmdArgs)
+    ))
+    (Struct (
+      (module SELF)
+      (args ARGS)
+      (a Int)
+      (b Int)
+      (sum sum)
+    ))
+    (Code (
+      (get a module a)  ;a = module.a
+      (get b module b)  ;b = module.b
+      (new sum)
+      (set sum a a) ;sum.a = a
+      (set sum b b) ;sum.b = b
+      (call sum)    ;sum()
+      (end)
+    ))
+  )
+)
+
+; Constantes del módulo
+(Constants
+  (a (int 4))
+  (b (int 5))
+)
+; Esto en realidad debería ser un Array diferente, y que la función LOAD
+; se encargue de asignar las constantes al módulo.
+; Pero eso complicaría un poco las cosas con los tipos, habría que crear un
+; tipo automático para representar el objeto de constantes, o habría que
+; pasarle a LOAD un array de valores sin tipo, ambas alternativas son feas.
+)
