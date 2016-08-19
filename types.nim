@@ -1,4 +1,12 @@
-type # Tipos Básicos
+# Aquí incluyo todos los tipos y sus constructores.
+
+# Los tipos se pueden agrupar en diferentes secciones, por ejemplo el tipo
+# State también podría ir en machine.nim, pero la relacion entre todos los
+# tipos es algo compleja, muchos tipos dependen de muchos otros tipos, por
+# lo tanto debo agruparlos todos en la misma declaración type.
+
+type
+  #=== Tipos Básicos ===#
   RegInfo = tuple[s: string, t: Type]
   Struct = ref object of RootObj
     name: string
@@ -8,7 +16,7 @@ type # Tipos Básicos
     data: seq[Value]
 
   TypeKind = enum
-    numberType, codeType, structType, stringType
+    nilType = 0, numberType, codeType, structType, stringType
   Type = object
     case kind: TypeKind
     of structType: struct: Struct
@@ -16,6 +24,7 @@ type # Tipos Básicos
     else: discard
   Value = object
     case kind: TypeKind
+    of nilType: discard
     of numberType: num: float
     of stringType: str: string
     of structType, codeType:
@@ -32,13 +41,37 @@ type # Tipos Básicos
       module: Module
     of nativeCode: prc: CodeProc
 
+  #=== Tipos de la Máquina ===#
+  State = ref object of RootObj
+    run: bool
+    pc: int
+    code: Code
+    regs: Object
+    jump: tuple[b: bool, i: int]
   Module = ref object of RootObj
     name: string
     struct: Struct
     data: Object
 
-  Inst = ref object of RootObj
 
+  KeyKind = enum intKey, strKey
+  Key = object
+    case kind: KeyKind
+    of intKey: i: int
+    of strKey: s: string
+  Addr = distinct Key
+
+  InstKind = enum
+    inop, iget, iset, icall, inew, iend, ijmp, iif, iifn
+  Inst = object
+    kind: InstKind
+    a: Key
+    b: Key
+    c: Key
+    i: Addr
+
+
+#=== Constructores ===#
 
 proc newStruct(name: string, info: seq[RegInfo]): Struct =
   return Struct(name: name, info: info)
@@ -56,15 +89,15 @@ proc NumberValue(n: float): Value = return Value(kind: numberType, num: n)
 proc StructValue(o: Object): Value = return Value(kind: structType, obj: o)
 proc CodeValue(o: Object): Value = return Value(kind: codeType, obj: o)
 
-proc typeRepr(t: Type): string =
-  case t.kind:
-  of numberType: return "Number"
-  of stringType: return "String"
-  of structType: return "Struct[" & t.struct.name & "]"
-  of codeType:
-    let args = "[" & t.code.args.name & "]"
-    case t.code.kind
-    of nativeCode: return "NativeCode" & args
-    of machineCode: return "MachineCode" & args
+proc StrKey (str: string): Key = return Key(kind: strKey, s: str)
 
-
+const IEnd = Inst(kind: iend)
+const INop = Inst(kind: inop)
+proc IGet(a: string, b: string, c: string): Inst =
+  return Inst(kind: iget, a: StrKey(a), b: StrKey(b), c: StrKey(c))
+proc ISet(a: string, b: string, c: string): Inst =
+  return Inst(kind: iset, a: StrKey(a), b: StrKey(b), c: StrKey(c))
+proc INew(a: string): Inst =
+  return Inst(kind: inew, a: StrKey(a))
+proc ICall(a: string): Inst =
+  return Inst(kind: icall, a: StrKey(a))
