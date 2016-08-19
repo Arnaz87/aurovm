@@ -61,6 +61,7 @@ proc dbgRepr(t: Type, deep: bool = false): string =
   of nilType: return "NilType"
   of numberType: return "Number"
   of stringType: return "String"
+  of typeType: return "Type"
   of structType: return "Struct[" & t.struct.dbgRepr(deep) & "]"
   of codeType:
     let args = "[" & t.code.args.dbgRepr(deep) & "]"
@@ -70,9 +71,12 @@ proc dbgRepr(t: Type, deep: bool = false): string =
 proc dbgRepr(struct: Struct, deep: bool = false): string =
   if not deep: return struct.name
   result = ""
+  var first = true
   for i in (0 .. struct.info.high):
     let info = struct.info[i]
-    result.add(info.s & ": " & info.t.dbgRepr(false) & "\n")
+    if first: first = false
+    else: result.add(",")
+    result.add(info.s & ": " & info.t.dbgRepr(false))
 
 proc dbgRepr(obj: Object, deep: bool = false): string
 proc dbgRepr(v: Value, deep: bool = false): string =
@@ -80,6 +84,7 @@ proc dbgRepr(v: Value, deep: bool = false): string =
   of nilType: return "nil"
   of numberType: return $v.num
   of stringType: return $v.str
+  of typeType: return v.tp.dbgRepr
   of structType, codeType: return v.obj.dbgRepr(deep)
 proc dbgRepr(obj: Object, deep: bool = false): string =
   if not deep: return "Object[" & obj.struct.name & "]"

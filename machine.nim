@@ -1,7 +1,19 @@
 # Aquí están los componentes de la máquina como tal, lo que necesita
 # para ejecutar código y mantener estado.
 
-import tables
+# necesita importar tables para funcionar
+
+var states: seq[State] = @[] # Es un Stack. Usar add y pop.
+var modules: Table[string, Module] = initTable[string, Module](8)
+
+proc addModule(m: Module) =
+  modules[m.name] = m
+proc addState*(code: Code) =
+  var st = State(run:true, pc: 0, jump: (false, 0))
+  st.code = code
+  st.regs = makeObject(code.regs)
+  st.regs["SELF"] = StructValue(code.module.data)
+  states.add(st)
 
 proc run(inst: Inst, st: State) =
   case inst.kind
@@ -43,23 +55,13 @@ proc run(inst: Inst, st: State) =
     of nativeCode:
       code.prc(args)
     of machineCode:
-      raise newException(Exception, "Not yet implemented, Call machine code")
+      addState(code)
+      var nst = states[states.high]
+      nst.regs["ARGS"] = StructValue(args)
+      #raise newException(Exception, "Not yet implemented, Call machine code")
   else:
     let msg = "Unimplemented Instruction for " & $inst
     raise newException(Exception, msg)
-
-
-var states: seq[State] = @[] # Es un Stack. Usar add y pop.
-var modules: Table[string, Module] = initTable[string, Module](8)
-
-proc addModule(m: Module) =
-  modules[m.name] = m
-proc addState*(code: Code) =
-  var st = State(run:true, pc: 0, jump: (false, 0))
-  st.code = code
-  st.regs = makeObject(code.regs)
-  st.regs["SELF"] = StructValue(code.module.data)
-  states.add(st)
 
 proc run() =
   while states.len > 0:

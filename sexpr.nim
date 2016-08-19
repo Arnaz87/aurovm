@@ -151,7 +151,7 @@ proc parseString(parser: Parser): string =
     else: result.add(parser.get)
   discard parser.getifin({'"'})
 proc parseWord(parser: Parser): string =
-  const notvalid = {'(', ')', '"'} + Whitespace
+  const notvalid = {'(', ')', '"', ';'} + Whitespace
   result = ""
   while not parser.eof and parser.peek notin notvalid:
     result.add(parser.get)
@@ -159,9 +159,30 @@ proc parseWord(parser: Parser): string =
 
 type Node* = ref object of RootObj
 type Atom* = ref object of Node
-  str: string
+  str*: string
 type List* = ref object of Node
-  children: seq[Node]
+  children*: seq[Node]
+
+
+proc str*(node: Node): string = return Atom(node).str
+proc `[]`*(list: List, i: int): Node = return list.children[i]
+proc `[]`*(node: Node, i: int): Node = return List(node).children[i]
+iterator items*(node: Node): Node =
+  let list = List(node)
+  var i = 0
+  while i < list.children.len:
+    yield list.children[i]
+    i.inc
+proc head*(node: Node): Node = return List(node).children[0]
+proc tail*(node: Node): seq[Node] =
+  let children = List(node).children
+  return children[1 .. children.high]
+iterator tail*(node: Node): Node =
+  let list = List(node)
+  var i = 1
+  while i < list.children.len:
+    yield list.children[i]
+    i.inc
 
 proc quote(str: string): string =
   if str.contains({'"', '\\', '\L', '\t', ' '}):
@@ -172,6 +193,7 @@ proc quote(str: string): string =
     result = result.replace("\t", "\\t")
     return '"' & result & '"'
   else: return str
+
 method nodeRepr*(node: Node): string {.base.} =
   return "<Unkown Node Type>"
 method nodeRepr*(node: Atom): string =
@@ -210,12 +232,12 @@ proc parseNodeList(parser: Parser): seq[Node] =
     result.add(parser.parseNode)
     discard parser.consumeWhite
 
-proc parseLisp*(str: string): Node =
+proc parseSexpr*(str: string): Node =
   var parser = newStrParser(str)
   return parser.parseNode
 
-proc parseLisp*(file: File): Node =
-  return parseLisp(file.readAll)
+proc parseSexpr*(file: File): Node =
+  return parseSexpr(file.readAll)
 
 when isMainModule:
   import parseopt2
@@ -261,9 +283,9 @@ when isMainModule:
       )
     """
     echo demostr
-    echo parseLisp(demostr)
+    echo parseSexpr(demostr)
   of strOpt:
-    echo parseLisp(str)
+    echo parseSexpr(str)
   of fileOpt:
-    echo parseLisp(open(str))
+    echo parseSexpr(open(str))
 

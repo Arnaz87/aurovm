@@ -1,6 +1,6 @@
 (
 (Imports
-  (Prelude Prelude) ;Prelude = import("Prelude")
+  Prelude ;import "Prelude"
 )
 
 ;Tipos importados de otros módulos
@@ -11,50 +11,63 @@
   (CmdArgs Prelude CmdArgs)
 
   ; Funciones importadas
-  (add Prelude add-i-i) ;add = Prelude.add-i-i
+  (add Prelude add ;(add-i-i)) ;add = Prelude.add-i-i
   (print Prelude print)
-  (itos Prelude i-to-s) ;Int to String
+  (itos Prelude itos ;(i-to-s)) ;Int to String
 )
 
 ;Esta sección define más tipos
 (Structs
-  (SELF (
+  (SELF 
     (a Int)
     (b Int)
-  ))
+    (MAIN MAIN)
+  )
+  (sum-args
+    (a Int)
+    (b Int)
+  )
+  (sum-regs
+    ; Especiales
+    (SELF SELF)
+    (ARGS sum-args)
+
+    ; Variables
+    (a Int)
+    (b Int)
+    (r Int)
+    (rs String)
+
+    ; Funciones
+    (add add)
+    (print print)
+    (itos itos)
+  )
+  (main-regs
+    (SELF SELF)
+    (ARGS empty-args)
+    (a Int)
+    (b Int)
+    (sum sum) ; sum está en la sección Functions, no está definido aún...
+  )
+  (empty-args) ; Struct vacío
 )
 
 ;Definiciones de funciones
-;Las Funciones son tipos, así que esta sección define tipos
+;Las Funciones son tipos, así que esta sección define más tipos
 (Functions
   (sum
     ; Struct de los argumentos (y valores devueltos)
-    ; En el contexto de esta función, ARGS se refiere a este Struct.
-    ; El resto del programa no conoce la estructura interna de la función,
-    ; pero cuando interactúa con ella, asume que es este Struct.
-    (Struct (
-      (a Int)
-      (b Int)
-    ))
-    (Struct ( ;Registros
-      ; Especiales
-      (module SELF)
-      (args ARGS)
-
-      ; Variables
-      (a Int)
-      (b Int)
-      (r Int)
-      (rs String)
-
-      ; Funciones
-      (add add)
-      (print print)
-      (itos itos)
-    ))
-    (Code (
-      (get a args a)  ;a = args.a
-      (get b args b)  ;a = args.b
+    ;   Esta es la estructura que el resto del programa asume cuando usa
+    ;   esta función, pero no es compatible con el Struct original.
+    sum-args
+    ; Estructura interna de la función
+    ;   El resto del programa no sabe la estructura interna de la función,
+    ;   y no hay manera de aceder a este Struct.
+    sum-regs
+    (Code
+      (get a ARGS a)  ;a = ARGS.a
+      (get b ARGS b)  ;a = ARGS.b
       (new add)
       (set add a a)   ;add.a = a
       (set add b b)   ;add.b = b
@@ -68,39 +81,44 @@
       (set print a rs)  ;print.a = rs
       (call print)
       (end)
-    ))
+    )
     ; Código legible:
-    ; r = add(args.a, args.b)
+    ; r = add(ARGS.a, ARGS.b)
     ; print(itos(r))
   )
 
   (MAIN
-    (Struct (
-      (args CmdArgs)
-    ))
-    (Struct (
-      (module SELF)
-      (args ARGS)
-      (a Int)
-      (b Int)
-      (sum sum)
-    ))
-    (Code (
-      (get a module a)  ;a = module.a
-      (get b module b)  ;b = module.b
+    empty-args
+    main-regs
+    (Code
+      (get a SELF a)  ;a = SELF.a
+      (get b SELF b)  ;b = SELF.b
       (new sum)
       (set sum a a) ;sum.a = a
       (set sum b b) ;sum.b = b
       (call sum)    ;sum()
       (end)
-    ))
+    )
   )
 )
 
 ; Constantes del módulo
 (Constants
-  (a (int 4))
-  (b (int 5))
+  (a num 4)
+  (b num 5)
+  ; En estas dos, "num" es la operación. Existen más operaciones:
+
+  ; int recibe un número, devuelve un valor tipo Prelude.Int
+  ; string recibe un string, devuelve un valor tipo Prelude.String
+  ; type recibe un tipo, devuelve un valor tipo Prelude.Type
+  ; function recibe un tipo función, devuelve un valor tipo Prelude.Function
+
+  ; type y function son diferentes porque type es solo información de tipo,
+  ; es para que lo usen los módulos y para reflexión, en cambio function
+  ; es un objeto ejecutable, es para usar funciones como valores, como en
+  ; los lenguajes con funciones de primera clase.
+
+  ; La operacion num no debería existir, solo int y float
 )
 ; Esto en realidad debería ser un Array diferente, y que la función LOAD
 ; se encargue de asignar las constantes al módulo.

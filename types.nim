@@ -16,7 +16,7 @@ type
     data: seq[Value]
 
   TypeKind = enum
-    nilType = 0, numberType, codeType, structType, stringType
+    nilType = 0, numberType, codeType, structType, stringType, typeType
   Type = object
     case kind: TypeKind
     of structType: struct: Struct
@@ -29,6 +29,7 @@ type
     of stringType: str: string
     of structType, codeType:
       obj: Object
+    of typeType: tp: Type
 
   CodeProc = proc(args: Object)
   CodeKind = enum nativeCode, machineCode
@@ -62,7 +63,7 @@ type
   Addr = distinct Key
 
   InstKind = enum
-    inop, iget, iset, icall, inew, iend, ijmp, iif, iifn
+    inop, iget, iset, icall, inew, iend, ijmp, iif, iifn, ilbl
   Inst = object
     kind: InstKind
     a: Key
@@ -80,14 +81,17 @@ proc newNativeCode(args: Struct, prc: CodeProc): Code =
 proc newMachineCode(args: Struct, regs: Struct, code: seq[Inst]): Code =
   return Code(args: args, kind: machineCode, regs: regs, code: code)
 
+const NilType = Type(kind: nilType)
 const NumberType = Type(kind: numberType)
 const StringType = Type(kind: stringType)
+const TypeType = Type(kind: typeType)
 proc CodeType(code: Code): Type = Type(kind: codeType, code: code)
 proc StructType(struct: Struct): Type = Type(kind: structType, struct: struct)
 
 proc NumberValue(n: float): Value = return Value(kind: numberType, num: n)
 proc StructValue(o: Object): Value = return Value(kind: structType, obj: o)
 proc CodeValue(o: Object): Value = return Value(kind: codeType, obj: o)
+proc TypeValue(t: Type): Value = return Value(kind: typeType, tp: t)
 
 proc StrKey (str: string): Key = return Key(kind: strKey, s: str)
 
@@ -101,3 +105,5 @@ proc INew(a: string): Inst =
   return Inst(kind: inew, a: StrKey(a))
 proc ICall(a: string): Inst =
   return Inst(kind: icall, a: StrKey(a))
+#proc ILbl(str: string): Inst =
+#  return Inst(kind: ilbl, i: Key(kind: strKey, s: str))
