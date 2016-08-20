@@ -39,7 +39,7 @@ if paramCount() == 0:
     ISet("print", "a", "rs"),
     ICall("print"),
     IEnd ]
-  let mainCode = newMachineCode(mainArgs, mainRegs, mainInst)
+  let mainCode = newMachineCode("MAIN", mainArgs, mainRegs, mainInst)
   let mainType = CodeType(mainCode)
 
   let moduleStruct = Struct(name: "MAIN", info: @[
@@ -114,10 +114,14 @@ else:
             of "set": ISet(nd[1].str, nd[2].str, nd[3].str)
             of "new": INew(nd[1].str)
             of "call": ICall(nd[1].str)
+            of "lbl": ILbl(nd[1].str)
+            of "jmp": IJmp(nd[1].str)
+            of "if" : Iif (nd[1].str)
+            of "ifn": Iifn(nd[1].str, nd[2].str)
             of "end": IEnd
             else: INop
           insts.add(inst)
-        var code = newMachineCode(args, regs, insts)
+        var code = newMachineCode(name, args, regs, insts)
         code.module = module
         types[name] = CodeType(code)
     of "Constants":

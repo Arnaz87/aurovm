@@ -9,11 +9,20 @@ var modules: Table[string, Module] = initTable[string, Module](8)
 proc addModule(m: Module) =
   modules[m.name] = m
 proc addState*(code: Code) =
-  var st = State(run:true, pc: 0, jump: (false, 0))
+  var st = State(run:true, pc: 0, jump: false)
   st.code = code
   st.regs = makeObject(code.regs)
   st.regs["SELF"] = StructValue(code.module.data)
   states.add(st)
+
+proc findLabel(code: Code, str: string): int =
+  for i in 0..code.code.high:
+    let inst = code.code[i]
+    if (inst.kind == ilbl) and (inst.i.s == str):
+      return i
+  let msg = "Label " & str & " not found in " & code.name
+  raise newException(Exception, msg)
+
 
 proc run(inst: Inst, st: State) =
   case inst.kind
@@ -59,6 +68,19 @@ proc run(inst: Inst, st: State) =
       var nst = states[states.high]
       nst.regs["ARGS"] = StructValue(args)
       #raise newException(Exception, "Not yet implemented, Call machine code")
+  of ijmp:
+    st.jump = true
+    st.pc = st.code.findLabel(inst.i.s)
+  of iif:
+    if (st.regs[inst.a].b):
+      st.jump = true
+      st.pc = st.code.findLabel(inst.i.s)
+  of iifn:
+    if not (st.regs[inst.a].b):
+      st.jump = true
+      st.pc = st.code.findLabel(inst.i.s)
+  of inop, ilbl:
+    discard
   else:
     let msg = "Unimplemented Instruction for " & $inst
     raise newException(Exception, msg)
@@ -69,9 +91,8 @@ proc run() =
     if st.run:
       var inst = st.code.code[st.pc]
       inst.run(st)
-      if st.jump.b:
-        st.pc = st.jump.i
-        st.jump.b = false
+      if st.jump:
+        st.jump = false
       else:
         st.pc.inc()
     else:
@@ -95,7 +116,7 @@ proc start() =
 
     let st = states[states.high]
 
-    echo "State code:"
+    echo "State code: " & st.code.name
     echo "pc: " & $st.pc
     echo "instructions:"
     for i in (0 .. st.code.code.high):
