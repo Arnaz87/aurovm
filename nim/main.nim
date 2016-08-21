@@ -106,6 +106,9 @@ else:
         let codeNode = functionNode[3]
         # assert(codeNode.head.str == "Code")
 
+        proc unrecognized(nm: string): Inst =
+          raise newException(Exception, "Unrecognized instruction " & nm)
+
         var insts: seq[Inst] =
           codeNode.tail.map do (nd: Node) -> Inst:
             case nd.head.str
@@ -118,9 +121,7 @@ else:
             of "if" : Iif (nd[1].str)
             of "ifn": Iifn(nd[1].str, nd[2].str)
             of "end": IEnd
-            else:
-              msg = "Unrecognized instruction " & nd.head.str
-              raise newException(Exception, msg)
+            else: unrecognized(nd.head.str)
 
         var code = newMachineCode(name, args, regs, insts)
         code.module = module
@@ -129,7 +130,7 @@ else:
       # Las constantes se deben calcular después de todos los tipos
       constantsNode = sectionNode.tail
     else:
-      echo "Unrecognized Section " & sectionNode.head.str & ":"
+      echo "Unrecognized Section: " & sectionNode.head.str
 
   for fut in futures:
     # Los futures solo hacen falta para Structs.
