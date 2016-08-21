@@ -2,9 +2,7 @@
 #   (Aunque técnicamente casi todos son procedures, no métodos, pero método
 #   en el sentido de que le pertenecen a un tipo)
 
-# Este método es muy importante. Podría considerarse también un Constructor.
-# Pero lo incluyo aquí porque siempre lo siento más como un método
-# (de Object, no de Struct).
+# Esto podría ser un constructor, pero lo siento más como un método de Object
 proc makeObject(struct: Struct): Object =
   result = Object(struct: struct)
   newSeq(result.data, struct.info.len)

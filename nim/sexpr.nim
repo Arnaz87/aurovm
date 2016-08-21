@@ -183,6 +183,8 @@ iterator tail*(node: Node): Node =
   while i < list.children.len:
     yield list.children[i]
     i.inc
+proc toSeq*(node: Node): seq[Node] =
+  return List(node).children
 
 proc quote(str: string): string =
   if str.contains({'"', '\\', '\L', '\t', ' '}):

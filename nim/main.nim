@@ -2,6 +2,7 @@ import tables
 import os
 import sexpr
 import strutils
+import sequtils
 
 include types
 include methods
@@ -69,9 +70,9 @@ else:
 
   let module = Module(name: "MAIN")
 
-  # Los Structs a veces dependen de sí mismos, y de las funciones, hay que 
-  # crear el Struct pero los tipos se deben asignar después de haber 
-  # creado todos los tipos.
+  # Los Structs a veces dependen de sí mismos, y de las funciones, así que
+  # hay que crear el Struct, pero los tipos de sus campos se deben asignar
+  # después de haber creado todos los tipos del módulo.
   type Future = tuple[tp: string, reg: string, val: string]
   var futures: seq[Future] = @[]
 
@@ -81,10 +82,7 @@ else:
   for sectionNode in fileNode:
     case sectionNode.head.str
     of "Imports":
-      discard """
-      No hace falta una tabla de imports porque se puede usar la propia tabla
-      de módulos de la máquina. Pero solo por ahora.
-      """
+      discard # Por ahora se puede usar la tabla de módulos de la máquina
     of "Types":
       for typeNode in sectionNode.tail:
         let modData: Object = modules[typeNode[1].str].data
@@ -107,9 +105,10 @@ else:
         let regs = types[functionNode[2].str].struct
         let codeNode = functionNode[3]
         # assert(codeNode.head.str == "Code")
-        var insts: seq[Inst] = @[]
-        for nd in codeNode.tail:
-          var inst = case nd.head.str
+
+        var insts: seq[Inst] =
+          codeNode.tail.map do (nd: Node) -> Inst:
+            case nd.head.str
             of "get": IGet(nd[1].str, nd[2].str, nd[3].str)
             of "set": ISet(nd[1].str, nd[2].str, nd[3].str)
             of "new": INew(nd[1].str)
@@ -119,20 +118,21 @@ else:
             of "if" : Iif (nd[1].str)
             of "ifn": Iifn(nd[1].str, nd[2].str)
             of "end": IEnd
-            else: INop
-          insts.add(inst)
+            else:
+              msg = "Unrecognized instruction " & nd.head.str
+              raise newException(Exception, msg)
+
         var code = newMachineCode(name, args, regs, insts)
         code.module = module
         types[name] = CodeType(code)
     of "Constants":
-      # Esto se debe hacer después de haber hecho los tipos
+      # Las constantes se deben calcular después de todos los tipos
       constantsNode = sectionNode.tail
     else:
       echo "Unrecognized Section " & sectionNode.head.str & ":"
 
   for fut in futures:
-    # Los futures solo hacen falta para Structs, por lo que nunca se van a
-    # referir a un tipo que no sea StructType.
+    # Los futures solo hacen falta para Structs.
     let struct = types[fut.tp].struct
     for i in 0..struct.info.high:
       if struct.info[i].s == fut.reg:
@@ -150,16 +150,19 @@ else:
     of "type":
       module.data[name] = TypeValue(types[node[2].str])
     else:
-      echo "Unrecognized operation: " & node[1].str
+      echo "Unrecognized constant operation: " & node[1].str
 
-  echo "# Types"
-  for k, v in types:
-    echo k & ": " & v.dbgRepr(true)
-  echo()
-  echo "# Module"
-  for val in module.data.data:
-    echo val.dbgRepr
-  echo()
+  discard """
+    # Imprimir el contenido del módulo
+    echo "# Types"
+    for k, v in types:
+      echo k & ": " & v.dbgRepr(true)
+    echo()
+    echo "# Module"
+    for val in module.data.data:
+      echo val.dbgRepr
+    echo()
+  """
 
   addModule(module)
 
