@@ -25,4 +25,7 @@ lazy val lua = (project in file("lua")).
   ).
   dependsOn(root, codegen)
 
+lazy val sexpr = (project in file("sexpr")).
+  settings(commonSettings: _*)
+
 // Para correr lua, se usa lua/run
