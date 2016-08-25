@@ -16,7 +16,7 @@ lazy val root = (project in file(".")).
 
 lazy val codegen = (project in file("codegen")).
   settings(commonSettings: _*).
-  dependsOn(root)
+  dependsOn(root, sexpr)
 
 lazy val lua = (project in file("lua")).
   settings(commonSettings: _*).

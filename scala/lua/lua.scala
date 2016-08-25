@@ -2,8 +2,9 @@ package arnaud.myvm.lua
 
 //import scala.io.Source
 //import fastparse.all._
-import arnaud.myvm._
-import arnaud.myvm.codegen.Codegen
+
+//import arnaud.myvm._
+//import arnaud.myvm.codegen
 
 object Ast {
   sealed abstract class Op
@@ -56,44 +57,56 @@ object Ast {
   case class If (ifs: Seq[IfBlock], orelse: Block) extends stmt
   case class While (cond: expr, body: Block) extends stmt
 
-  def Generate (node: Node): Codegen.Node = {
-    import arnaud.myvm.codegen.Codegen.{Nodes => CG}
+  def Generate (node: Node): arnaud.myvm.codegen.Node = {
+    import arnaud.myvm.codegen.{Nodes => CG}
     node match {
-      case Num(v) => CG.Constant(v)
-      case Str(v) => CG.Constant(v)
-      case Bool(v) => CG.Constant(v)
+      case Num(v) => CG.Num(v)
+      case Str(v) => CG.Str(v)
+      case Bool(v) => CG.Bool(v)
+      case Nil => CG.Nil
 
-      case Var(name) => CG.GlobalDynVar(name)
-      case Binop(l, r, op) =>
-        val $l = Generate(l)
-        val $r = Generate(r)
+      case Var(name) => CG.Ident(name)
+      case Binop(ll, rr, op) =>
+        val l = Generate(ll)
+        val r = Generate(rr)
         op match {
-          //case Or  => CG.Bin(Machine.Or , $l, $r)
-          //case And => CG.Bin(Machine.And, $l, $r)
+          case And => CG.Call(CG.Ident("$and"), Array(l, r))
+          case Or  => CG.Call(CG.Ident("$or" ), Array(l, r))
 
-          case Add => CG.Bin(Instruction.Add, $l, $r)
-          case Sub => CG.Bin(Instruction.Sub, $l, $r)
-          case Mul => CG.Bin(Instruction.Mul, $l, $r)
-          case Div => CG.Bin(Instruction.Div, $l, $r)
+          case Add => CG.Call(CG.Ident("$add"), Array(l, r))
+          case Sub => CG.Call(CG.Ident("$sub"), Array(l, r))
+          case Mul => CG.Call(CG.Ident("$mul"), Array(l, r))
+          case Div => CG.Call(CG.Ident("$div"), Array(l, r))
 
-          case Eq  => CG.Bin(Instruction.Eq , $l, $r)
-          case Neq => CG.Bin(Instruction.Neq, $l, $r)
-          case Lt  => CG.Bin(Instruction.Lt , $l, $r)
-          case Lte => CG.Bin(Instruction.Lte, $l, $r)
-          case Gt  => CG.Bin(Instruction.Lt , $r, $l)
-          case Gte => CG.Bin(Instruction.Lte, $r, $l)
+          case Eq  => CG.Call(CG.Ident("$eq" ), Array(l, r))
+          case Neq => CG.Call(CG.Ident("$neq"), Array(l, r))
+          case Lt  => CG.Call(CG.Ident("$lt" ), Array(l, r))
+          case Lte => CG.Call(CG.Ident("$lte"), Array(l, r))
+          case Gt  => CG.Call(CG.Ident("$lt" ), Array(r, l))
+          case Gte => CG.Call(CG.Ident("$lte"), Array(r, l))
 
-          case App => CG.Call(CG.Var("_append"), CG.Narr(Array($l, $r)))
+          case Mod => CG.Call(CG.Ident("$mod"), Array(l, r))
+          case Pow => CG.Call(CG.Ident("$pow"), Array(l, r))
+
+          case App => CG.Call(CG.Ident("$app"), Array(l, r))
         }
-      case Call(f, args) => CG.Call(Generate(f), CG.Narr(args.map{Generate _}))
-      case Assign(l, r) => CG.Assign(Generate(l.head), Generate(r.head))
-
-      case Block(xs) => CG.Block(xs.map{Generate _})
+      case Field(l, f) =>
+        CG.Call(CG.Ident("$get"), Array(Generate(l), Generate(f)))
+      case Assign(ls,rs) => {
+        val l = Generate(ls.head)
+        val r = Generate(rs.head)
+        CG.Block(Array(
+          CG.Undeclared(l, CG.DeclareGlobal(l)),
+          CG.Assign(l, r)
+        ))
+      }
+      case Block(xs) => CG.Block(xs.map(Generate _))
       case While(cons, body) => CG.While(Generate(cons), Generate(body))
       case If(conds, orelse) => conds.head match {
         case IfBlock(cond, block) =>
           CG.If(Generate(cond), Generate(block), Generate(orelse))
       }
+      case Call(f, args) => CG.Call(Generate(f), args.map(Generate _))
     }
   }
 }
@@ -429,6 +442,8 @@ object Main {
     if (params.has("print-parsed")) { println(parsed) }
     val debug = params.get("debug", "0").toInt
     val _codenode = Ast.Generate(parsed)
+    if (params.has("print-nodes")) { println(_codenode) }
+    /*
     val codenode = _codenode match {
       case Codegen.Nodes.Block(xs) =>
         Codegen.Nodes.Block(
@@ -474,5 +489,6 @@ object Main {
         e.printStackTrace()
       }
     }
+    */
   }
 }

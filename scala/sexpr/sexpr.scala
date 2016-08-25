@@ -16,21 +16,24 @@ final class AtomNode (_str: String) extends Node {
     var result = ""
     val iter: Iterator[Char] = str.toIterator
     while (iter.hasNext) {
-      result += iter.next match {
+      val cc = iter.next match {
         case '"' => "\\\""
         case '\\' => "\\\\"
         case '\n' => "\\n"
         case '\t' => "\\t"
         case ch => ch
       }
+      result += cc
     }
     result
   }
 
-  override def lispRepr() = "\"" + escaped + "\""
+  override def lispRepr() =
+    if (escaped.length > str.length)
+    { "\"" + escaped + "\"" } else { str }
 }
-final class ListNode(_items: Traversable[Node]) extends Node with Traversable[Node] {
-  val items: Traversable[Node] =
+final class ListNode(_items: Seq[Node]) extends Node with Seq[Node] {
+  val items: Seq[Node] =
     if (_items.isInstanceOf[ListNode]) {
       _items.asInstanceOf[ListNode].items
     } else { _items }
@@ -38,14 +41,27 @@ final class ListNode(_items: Traversable[Node]) extends Node with Traversable[No
   override def asList () = Some(this)
 
   override def foreach[T] (f: Node => T) = items.foreach(f)
+  override def apply(i: Int) = items(i)
+  override def iterator = items.iterator
+  override def length = items.length
 
   override def lispRepr() = "(" + items.map(_.lispRepr).mkString(" ") + ")"
 
-  // Sin esto, scala usa la definición de Traversable
+  // Sin esto, scala usaría la definición de Seq
   override def toString () = super[Node].toString
 }
+object AtomNode {
+  def apply (str: String) = new AtomNode(str)
+}
+object ListNode {
+  def apply (lst: Node*) = new ListNode(lst)
+}
+object Implicits {
+  implicit def atomNode(str: String) = new AtomNode(str)
+  implicit def listNode(sq: Seq[Node]) = new ListNode(sq)
+}
 
-class Parser (_iter: Iterator[Char]) {
+final class Parser (_iter: Iterator[Char]) {
   var iter = _iter
   var head: Option[Char] =
     if (iter.hasNext) { Some(iter.next) } else { None }
