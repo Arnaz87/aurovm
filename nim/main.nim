@@ -9,6 +9,7 @@ include methods
 include machine
 
 include prelude
+include lua
 
 if paramCount() == 0:
   let mainArgs = newStruct("main-args", @[])
@@ -112,6 +113,7 @@ else:
         var insts: seq[Inst] =
           codeNode.tail.map do (nd: Node) -> Inst:
             case nd.head.str
+            of "cpy": ICpy(nd[1].str, nd[2].str)
             of "get": IGet(nd[1].str, nd[2].str, nd[3].str)
             of "set": ISet(nd[1].str, nd[2].str, nd[3].str)
             of "new": INew(nd[1].str)
@@ -148,6 +150,9 @@ else:
     of "num":
       let n = parseFloat(node[2].str)
       module.data[name] = NumberValue(n)
+    of "str":
+      let s = node[2].str
+      module.data[name] = StringValue(s)
     of "type":
       module.data[name] = TypeValue(types[node[2].str])
     else:

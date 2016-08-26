@@ -25,7 +25,7 @@
     (a Num)
     (b Num)
     (zero Num)
-    (MAIN MAIN)
+    (MAIN MAIN) ;Es necesario exportar la función MAIN, con el nombre MAIN
   )
   (mult-args
     (a Num)

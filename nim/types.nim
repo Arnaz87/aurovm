@@ -70,7 +70,7 @@ type
     of strKey: s: string
 
   InstKind = enum
-    inop, iget, iset, icall, inew, iend, ijmp, iif, iifn, ilbl
+    inop, icpy, iget, iset, icall, inew, iend, ijmp, iif, iifn, ilbl
   Inst = object
     kind: InstKind
     a: Key
@@ -97,16 +97,20 @@ proc CodeType(code: Code): Type = Type(kind: codeType, code: code)
 proc StructType(struct: Struct): Type = Type(kind: structType, struct: struct)
 
 proc NumberValue(n: float): Value = return Value(kind: numberType, num: n)
+proc StringValue(s: string): Value = return Value(kind: stringType, str: s)
 proc StructValue(o: Object): Value = return Value(kind: structType, obj: o)
 proc CodeValue(o: Object): Value = return Value(kind: codeType, obj: o)
 proc TypeValue(t: Type): Value = return Value(kind: typeType, tp: t)
 proc BoolValue(b: bool): Value = return Value(kind: boolType, b: b)
+const NilValue = Value(kind: nilType)
 
 proc StrKey (str: string): Key = return Key(kind: strKey, s: str)
 proc StrAddr (str: string): Addr = return Addr(kind: strKey, s: str)
 
 const IEnd = Inst(kind: iend)
 const INop = Inst(kind: inop)
+proc ICpy(a: string, b: string): Inst =
+  return Inst(kind: icpy, a: StrKey(a), b: StrKey(b))
 proc IGet(a: string, b: string, c: string): Inst =
   return Inst(kind: iget, a: StrKey(a), b: StrKey(b), c: StrKey(c))
 proc ISet(a: string, b: string, c: string): Inst =

@@ -28,6 +28,8 @@ proc run(inst: Inst, st: State) =
   case inst.kind
   of iend:
     st.run = false
+  of icpy:
+    st.regs[inst.a] = st.regs[inst.b]
   of iget:
     var obj = st.regs[inst.b].obj
     var val = obj[inst.c]

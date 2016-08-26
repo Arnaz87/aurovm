@@ -452,19 +452,23 @@ object Main {
     val codenode = Ast.Generate(parsed)
     if (params.has("print-nodes")) { println(codenode) }
     val codestate = new Codegen.State()
+
     codestate.addImport("$add", "Lua", "add")
     codestate.addImport("$sub", "Lua", "sub")
     codestate.addImport("$eq" , "Lua", "eq")
     codestate.addImport("$lt" , "Lua", "lt")
     codestate.addImport("$app", "Lua", "append")
     codestate.addImport("print", "Lua", "print")
+
     codestate.addFunction("$add")
     codestate.addFunction("$sub")
     codestate.addFunction("$eq")
     codestate.addFunction("$lt")
     codestate.addFunction("$app")
     codestate.addFunction("print")
+
     codestate.process(codenode)
+    
     if (params.has("print-code")) {
       println("  Imports:")
       println(codestate.imports)
@@ -474,6 +478,18 @@ object Main {
       println(codestate.constants)
       println("  Code:")
       codestate.code.foreach(println _)
+    }
+
+    val compiled = codestate.compile()
+
+    val output = compiled.prettyRepr
+    if (params.has("o")) {
+      import java.io._
+      val pw = new PrintWriter(new File(params("o")))
+      pw.write(output)
+      pw.close
+    } else {
+      print(output)
     }
     
 

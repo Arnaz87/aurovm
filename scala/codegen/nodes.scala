@@ -1,6 +1,6 @@
 package arnaud.myvm.codegen
 
-import collection.mutable.{Map, Stack, Buffer, ArrayBuffer}
+import collection.mutable.{Map, Stack, Buffer, ArrayBuffer, Set}
 
 abstract class Node {}
 object Nodes {
@@ -56,7 +56,7 @@ object Nodes {
       case Assign(nm, _r) =>
         val l = st.scopes(nm)
         val r = get(st, _r)
-        st.code += Inst.Mov(l.realname, r.realname)
+        st.code += Inst.Cpy(l.realname, r.realname)
         l
       case Call(func, args) =>
         var aChar = 'a'
@@ -107,7 +107,7 @@ object Nodes {
 
 sealed abstract class Inst
 object Inst {
-  case class Mov(a: String, b: String) extends Inst
+  case class Cpy(a: String, b: String) extends Inst
   case class Get(a: String, o: String, k: String) extends Inst
   case class Set(o: String, k: String, b: String) extends Inst
   case class New(f: String) extends Inst
@@ -171,6 +171,7 @@ class State {
   val constants: Map[String, Any] = Map()
 
   val functions: Buffer[String] = new ArrayBuffer()
+  val regs: Buffer[String] = new ArrayBuffer()
   val imports: Map[String, (String, String)] = Map()
 
   val varCounts: Map[String, Int] = Map()
@@ -200,6 +201,7 @@ class State {
       case None => { varCounts(inm) = 0; 1 }
     }
     val nm = inm + "$" + count
+    regs += nm
     new RegInfo(nm)
   }
 
@@ -225,7 +227,79 @@ class State {
 
   def compile(): arnaud.sexpr.Node = {
     import arnaud.sexpr._
-    ???
+    import arnaud.sexpr.Implicits._
+    type Node = arnaud.sexpr.Node
+
+    // Estos dos tipos son necesarios por ahora...
+    addImport("Any", "Prelude", "Any")
+    addImport("Empty", "Prelude", "Empty")
+
+    val mods: Set[String] = Set()
+    val modules: Buffer[Node] = ArrayBuffer("Imports")
+    val imported: Buffer[Node] = ArrayBuffer("Types")
+    val constNode: Buffer[Node] = ArrayBuffer("Constants")
+
+    val selfType: Buffer[Node] = ArrayBuffer("SELF")
+    val regsType: Buffer[Node] = ArrayBuffer("main-regs")
+    val codeNode: Buffer[Node] = ArrayBuffer("Code")
+
+    // La máquina necesita que exportemos una función MAIN, y dentro del
+    // módulo, esa función se llama MAIN
+    selfType += ListNode("MAIN", "MAIN")
+
+    // Para una función cualquiera, la máquina siempre asigna el módulo al
+    // que pertenece la función a su registro SELF
+    regsType += ListNode("SELF", "SELF")
+    // Y al registro ARGS asigna los argumentos.
+    // Por ahora, por simplicidad, la función MAIN no recibe argumentos,
+    // por lo tanto recibe un Struct Vacío, definido en Prelude
+    regsType += ListNode("ARGS", "Empty")
+
+    imports.foreach{ case(k,(m, f)) =>
+      imported += ListNode(k, m, f)
+      mods += m
+    }
+    mods.foreach{modules += _}
+
+    constants.foreach{case (k,v) =>
+      selfType += ListNode(k, "Any")
+      regsType += ListNode(k, "Any")
+      val tp = v match {
+        case _:String => "str"
+        case _:Float => "num"
+        case _:Double => "num"
+        case _:Int => "num"
+      }
+      constNode += ListNode(k, tp, v.toString)
+    }
+    functions.foreach{fn => regsType += ListNode(fn, fn)}
+    regs.foreach{rg => regsType += ListNode(rg, "Any")}
+
+    code.foreach{inst =>
+      codeNode += (inst match {
+        case Inst.Cpy(a, b) => ListNode("cpy", a, b)
+        case Inst.Get(a, b, c) => ListNode("get", a, b, c)
+        case Inst.Set(a, b, c) => ListNode("set", a, b, c)
+        case Inst.New(a) => ListNode("new", a)
+        case Inst.Call(a) => ListNode("call", a)
+
+        case Inst.Lbl(l) => ListNode("lbl", l)
+        case Inst.Jmp(l) => ListNode("jmp", l)
+        case Inst.If (l, a) => ListNode("if" , l, a)
+        case Inst.Ifn(l, a) => ListNode("ifn", l, a)
+      })
+    }
+    codeNode += ListNode("end")
+
+    ListNode(
+      modules,
+      imported,
+      ListNode("Structs", selfType, regsType),
+      ListNode("Functions",
+        ListNode("MAIN", "Empty", "main-regs", codeNode)
+      ),
+      constNode
+    )
   }
 }
 
