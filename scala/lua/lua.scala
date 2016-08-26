@@ -65,48 +65,55 @@ object Ast {
       case Bool(v) => CG.Bool(v)
       case Nil => CG.Nil
 
-      case Var(name) => CG.Ident(name)
+      case Var(name) => CG.Var(name)
       case Binop(ll, rr, op) =>
         val l = Generate(ll)
         val r = Generate(rr)
         op match {
-          case And => CG.Call(CG.Ident("$and"), Array(l, r))
-          case Or  => CG.Call(CG.Ident("$or" ), Array(l, r))
+          case And => CG.Call("$and", Array(l, r))
+          case Or  => CG.Call("$or" , Array(l, r))
 
-          case Add => CG.Call(CG.Ident("$add"), Array(l, r))
-          case Sub => CG.Call(CG.Ident("$sub"), Array(l, r))
-          case Mul => CG.Call(CG.Ident("$mul"), Array(l, r))
-          case Div => CG.Call(CG.Ident("$div"), Array(l, r))
+          case Add => CG.Call("$add", Array(l, r))
+          case Sub => CG.Call("$sub", Array(l, r))
+          case Mul => CG.Call("$mul", Array(l, r))
+          case Div => CG.Call("$div", Array(l, r))
 
-          case Eq  => CG.Call(CG.Ident("$eq" ), Array(l, r))
-          case Neq => CG.Call(CG.Ident("$neq"), Array(l, r))
-          case Lt  => CG.Call(CG.Ident("$lt" ), Array(l, r))
-          case Lte => CG.Call(CG.Ident("$lte"), Array(l, r))
-          case Gt  => CG.Call(CG.Ident("$lt" ), Array(r, l))
-          case Gte => CG.Call(CG.Ident("$lte"), Array(r, l))
+          case Eq  => CG.Call("$eq" , Array(l, r))
+          case Neq => CG.Call("$neq", Array(l, r))
+          case Lt  => CG.Call("$lt" , Array(l, r))
+          case Lte => CG.Call("$lte", Array(l, r))
+          case Gt  => CG.Call("$lt" , Array(r, l))
+          case Gte => CG.Call("$lte", Array(r, l))
 
-          case Mod => CG.Call(CG.Ident("$mod"), Array(l, r))
-          case Pow => CG.Call(CG.Ident("$pow"), Array(l, r))
+          case Mod => CG.Call("$mod", Array(l, r))
+          case Pow => CG.Call("$pow", Array(l, r))
 
-          case App => CG.Call(CG.Ident("$app"), Array(l, r))
+          case App => CG.Call("$app", Array(l, r))
         }
       case Field(l, f) =>
-        CG.Call(CG.Ident("$get"), Array(Generate(l), Generate(f)))
+        CG.Call("$get", Array(Generate(l), Generate(f)))
       case Assign(ls,rs) => {
-        val l = Generate(ls.head)
         val r = Generate(rs.head)
-        CG.Block(Array(
-          CG.Undeclared(l, CG.DeclareGlobal(l)),
-          CG.Assign(l, r)
-        ))
+        ls.head match {
+          case Var(nm) => CG.Block(Array(
+            CG.Undeclared(nm, CG.DeclareGlobal(nm)),
+            CG.Assign(nm, r)
+          ))
+          // TODO: Manejar el otro caso: Field
+        }
       }
-      case Block(xs) => CG.Block(xs.map(Generate _))
+      case Block(xs) => CG.Scope(CG.Block(xs.map(Generate _)))
       case While(cons, body) => CG.While(Generate(cons), Generate(body))
       case If(conds, orelse) => conds.head match {
         case IfBlock(cond, block) =>
           CG.If(Generate(cond), Generate(block), Generate(orelse))
       }
-      case Call(f, args) => CG.Call(Generate(f), args.map(Generate _))
+      case Call(f, args) =>
+        f match {
+          case Var(nm) => CG.Call(nm, args.map(Generate _))
+          // TODO: las funciones en lua no son estáticas. Hay que Manejar
+          // las funciones como si siempre fueran objetos, porque lo son.
+        }
     }
   }
 }
@@ -424,6 +431,7 @@ object Main {
   }
 
   def main (args: Array[String]) {
+    import arnaud.myvm.{codegen => Codegen}
     val params = new Params(args.toList)
     /*val parsed = args(0) match {
       case "-f" => parse_file(args(1))
@@ -441,8 +449,34 @@ object Main {
       else { manual() }
     if (params.has("print-parsed")) { println(parsed) }
     val debug = params.get("debug", "0").toInt
-    val _codenode = Ast.Generate(parsed)
-    if (params.has("print-nodes")) { println(_codenode) }
+    val codenode = Ast.Generate(parsed)
+    if (params.has("print-nodes")) { println(codenode) }
+    val codestate = new Codegen.State()
+    codestate.addImport("$add", "Lua", "add")
+    codestate.addImport("$sub", "Lua", "sub")
+    codestate.addImport("$eq" , "Lua", "eq")
+    codestate.addImport("$lt" , "Lua", "lt")
+    codestate.addImport("$app", "Lua", "append")
+    codestate.addImport("print", "Lua", "print")
+    codestate.addFunction("$add")
+    codestate.addFunction("$sub")
+    codestate.addFunction("$eq")
+    codestate.addFunction("$lt")
+    codestate.addFunction("$app")
+    codestate.addFunction("print")
+    codestate.process(codenode)
+    if (params.has("print-code")) {
+      println("  Imports:")
+      println(codestate.imports)
+      println("  Functions:")
+      println(codestate.functions)
+      println("  Constants:")
+      println(codestate.constants)
+      println("  Code:")
+      codestate.code.foreach(println _)
+    }
+    
+
     /*
     val codenode = _codenode match {
       case Codegen.Nodes.Block(xs) =>

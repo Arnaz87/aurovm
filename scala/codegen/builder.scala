@@ -1,12 +1,13 @@
-package arnaud.myvm.codegen
+package arnaud.myvm.codegen.builder
 
-import collection.mutable.{Buffer, ArrayBuffer}
+import collection.mutable.{Buffer, ArrayBuffer, Map, Set}
 import arnaud.sexpr._
 import arnaud.sexpr.Implicits._
 import arnaud.sexpr.{Node => SNode}
 
 class Module {
   var types: Buffer[Type] = new ArrayBuffer[Type]
+  var constants: Map[String, Any] = Map()
 
   def update(nm: String, tp: Type) {
     tp.name = nm
@@ -17,11 +18,11 @@ class Module {
     types.find{_.name == nm}.get
 
   def toSexpr(): SNode = {
-    val modules = new ArrayBuffer[SNode]
+    val mods: Set[String] = Set()
+
     val imported = new ArrayBuffer[SNode]
     val structs = new ArrayBuffer[SNode]
     val functions = new ArrayBuffer[Function]
-    modules += "Import"
     imported += "Types"
     structs += "Structs"
 
@@ -29,14 +30,31 @@ class Module {
       tp match {
         case mp: Imported =>
           imported += mp.toSexpr
-          modules += mp.module
+          mods += mp.module
         case st: Struct =>
           structs += st.toSexpr
         case _ =>
       }
     }
 
-    ListNode(modules, imported, structs)
+    val modules = new ArrayBuffer[SNode]
+    modules += "Imports"
+    mods.foreach{md => modules += md}
+
+    val consts = new ArrayBuffer[SNode]
+    consts += "Constants"
+    constants.foreach{case (nm, value) =>
+      val tp = value match {
+        case _:String => "str"
+        case _:Float => "num"
+        case _:Double => "num"
+        case _:Int => "num"
+      }
+      consts += ListNode(nm, tp, value.toString)
+    }
+
+
+    ListNode(modules, imported, structs, consts)
   }
 }
 
@@ -87,6 +105,7 @@ object Inst {
   case object End extends Inst
 }
 
+/*
 object Main {
   def main (args: Array[String]) {
     val module = new Module
@@ -111,6 +130,11 @@ object Main {
       "zero" -> module("Num")
     ))
 
+    module.constants("a") = 5
+    module.constants("b") = 3
+    module.constants("zero") = 0
+
     println(module.toSexpr)
   }
 }
+*/
