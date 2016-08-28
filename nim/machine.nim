@@ -69,7 +69,6 @@ proc run(inst: Inst, st: State) =
       addState(code)
       var nst = states[states.high]
       nst.regs["ARGS"] = StructValue(args)
-      #raise newException(Exception, "Not yet implemented, Call machine code")
   of ijmp:
     st.jump = true
     st.pc = st.code.findLabel(inst.i.s)
@@ -83,9 +82,6 @@ proc run(inst: Inst, st: State) =
       st.pc = st.code.findLabel(inst.i.s)
   of inop, ilbl:
     discard
-  else:
-    let msg = "Unimplemented Instruction for " & $inst
-    raise newException(Exception, msg)
 
 proc run() =
   while states.len > 0:

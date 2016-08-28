@@ -8,24 +8,25 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.8"
 )
 
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
-  settings(
-    scalaSource in Compile := baseDirectory.value / "machine"
-  )
-
 lazy val codegen = (project in file("codegen")).
   settings(commonSettings: _*).
-  dependsOn(root, sexpr)
+  dependsOn(sexpr)
+
+lazy val sexpr = (project in file("sexpr")).
+  settings(commonSettings: _*)
 
 lazy val lua = (project in file("lua")).
   settings(commonSettings: _*).
   settings(
     libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
   ).
-  dependsOn(root, codegen)
+  dependsOn(codegen)
 
-lazy val sexpr = (project in file("sexpr")).
-  settings(commonSettings: _*)
+lazy val cuc = (project in file("cuc")).
+  settings(commonSettings: _*).
+  settings(
+    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
+  ).
+  dependsOn(codegen)
 
 // Para correr lua, se usa lua/run
