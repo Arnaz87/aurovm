@@ -22,7 +22,7 @@ lazy val lua = (project in file("lua")).
   ).
   dependsOn(codegen)
 
-lazy val cuc = (project in file("cuc")).
+lazy val cu = (project in file("cu")).
   settings(commonSettings: _*).
   settings(
     libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")

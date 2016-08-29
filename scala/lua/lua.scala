@@ -406,8 +406,8 @@ object Main {
 
   def manual (): Nothing = {
     println("Usage: (-i <code> | -f <filename>) [-debug <level>] [-print-parsed] [-print-nodes] [-print-code]")
-    System.exit(0)
-    return ???
+    System.exit(0) // System exit es de java, no es Nothing sino void
+    return ??? // ??? es de scala, y si puede ser Nothing
   }
 
   class Params (input: List[String]) {
@@ -433,14 +433,6 @@ object Main {
   def main (args: Array[String]) {
     import arnaud.myvm.{codegen => Codegen}
     val params = new Params(args.toList)
-    /*val parsed = args(0) match {
-      case "-f" => parse_file(args(1))
-      case "-i" => parse_text(args(1))
-      case _ => manual()
-    }
-    var nextparam = 2
-    val debug = if (args.length >= 4 && args(2) == "-debug")
-      {args(3).toInt} else {0}*/
     val parsed =
       if (params.has("f"))
       { parse_file(params("f")) }
@@ -491,54 +483,5 @@ object Main {
     } else {
       print(output)
     }
-    
-
-    /*
-    val codenode = _codenode match {
-      case Codegen.Nodes.Block(xs) =>
-        Codegen.Nodes.Block(
-          Codegen.Nodes.Assign(
-            Codegen.Nodes.DynVar("_append"),
-            Codegen.Nodes.Mod("Lua", "append")
-          ) +:
-          Codegen.Nodes.Assign(
-            Codegen.Nodes.DynVar("print"),
-            Codegen.Nodes.Mod("Lua", "print")
-          ) +: xs
-        )
-    }
-    if (params.has("print-nodes")) { println(codenode) }
-    val codestate = new Codegen.State()
-    val luamodule = Map(
-      "print" -> Runnable({ (_args) =>
-        //Machine.states.top.regs.printValues()
-        val args = _args.asInstanceOf[Dict]
-        println(args("0"))
-      }),
-      "append" -> Runnable({ (_args) =>
-        val args = _args.asInstanceOf[Dict]
-        val a = args("0").toString
-        val b = args("1").toString
-        a + b
-      })
-    )
-    Machine.modules("Lua") = Codegen.makeModule(luamodule, "Lua")
-    Machine.modules("Main") = codestate.generate(codenode)
-    if (params.has("print-code")) {
-      Machine.modules("Main").data.dyn("main").asInstanceOf[Code].printValues
-    }
-    Machine.debug(debug)
-    try {
-      Machine.start()
-    } catch {
-      case e: Throwable => {
-        println("ERROR!")
-        println("REGISTER VALUES")
-        Machine.states.top.regs.printValues()
-        println("STACK TRACE")
-        e.printStackTrace()
-      }
-    }
-    */
   }
 }
