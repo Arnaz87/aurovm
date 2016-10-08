@@ -12,6 +12,8 @@ class Printer () {
   def write (str: String) {
     text += (" " * spaces * identLevel) + str + "\n"
   }
+  def space () { text += (" " * spaces * identLevel) }
+  def append (str: String) { text += str }
 }
 
 object Repr {

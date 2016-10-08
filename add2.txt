@@ -1,14 +1,7 @@
-
 (
-; Este formato está obsoleto, la manera en que se representan las funciones
-; y se interactúa con ellas cambió. El archivo actualizado está en add2.txt
-
 (Imports
   Prelude ;import "Prelude"
 )
-
-;Tipos importados de otros módulos
-;A pesar del nombre, esta no es la única sección que define tipos
 (Types
   (Num Prelude Num) ;Num = Prelude.Num
   (Bool Prelude Bool)
@@ -22,8 +15,6 @@
   (print Prelude print)
   (itos Prelude itos) ;Num to String
 )
-
-;Esta sección define más tipos
 (Structs
   (SELF 
     (a Num)
@@ -38,7 +29,11 @@
   )
   (mult-regs
     (SELF SELF)
-    (ARGS sum-args)
+    ; Args
+    (a Num)
+    (b Num)
+    ; Return
+    (r Num)
 
     (n Num)
     (m Num)
@@ -84,42 +79,25 @@
 ;Las Funciones son tipos, así que esta sección define más tipos
 (Functions
   (mult
-    mult-args
+
+    ; El Struct que representa los registros de la función
+    ; Las funciones que interactúen con esta funcion no pueden leer ni
+    ; escribir los campos de este struct
     mult-regs
+
+    ;;; Registros de entrada
+    ; Estos registros se marcan como solo escritura para el código externo,
+    ; es decir una función que vaya a invocar esta función, puede escribir
+    ; estos campos (pero no leerlos), y no puede escribir ningún otro.
+    (in a b)
+
+    ;;; Registros de salida
+    ; Estos registros se marcan como solo lectura para el código externo,
+    ; es decir una función que vaya a invocar esta función, puede leer
+    ; estos campos (pero no escribirlos), y no puede leer ningún otro.
+    (out r)
+
     (Code
-
-      ;(function mult (n, m)
-        r = 0
-        repeat:
-          if not m>0 break
-          r = add(r, n)
-          m--
-        return r
-      end)
-
-      ;(
-        n = Args.a
-        m = Args.b
-        r = 0
-        :start
-        gtz.a = m
-        gtz()
-        cond = gtz.r
-        goto :end ifnot cond
-        add.a = r
-        add.b = n
-        add()
-        r = add.r
-        dec.a = m
-        dec()
-        m = dec.r
-        goto :start
-        :end
-        Args.r = r
-        return
-      )
-
-
       (get n ARGS a)
       (get m ARGS b)
       (get r SELF zero)
@@ -145,14 +123,6 @@
     )
   )
   (sum
-    ; Struct de los argumentos (y valores devueltos)
-    ;   Esta es la estructura que el resto del programa asume cuando usa
-    ;   esta función, pero no es compatible con el Struct original.
-    sum-args
-    ; Estructura interna de la función
-    ;   El resto del programa no sabe la estructura interna de la función,
-    ;   y no hay manera de aceder a este Struct.
-    sum-regs
     (Code
       (get a ARGS a)  ;a = ARGS.a
       (get b ARGS b)  ;a = ARGS.b
@@ -170,9 +140,6 @@
       (call print)
       (end)
     )
-    ; Código legible:
-    ; r = add(ARGS.a, ARGS.b)
-    ; print(itos(r))
   )
 
   (MAIN

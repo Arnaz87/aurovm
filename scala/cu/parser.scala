@@ -1,40 +1,5 @@
 package arnaud.culang
 
-object Ast {
-  sealed trait Node
-  sealed trait Expr extends Node
-  sealed trait Stmt extends Node
-  sealed trait Toplevel extends Node
-  sealed trait Literal extends Expr
-
-  case class Id (name: String)
-  case class Type (name: String)
-
-  case class Num (n: Double) extends Literal
-  case class Str (s: String) extends Literal
-  case class Bool (b: Boolean) extends Literal
-  case object Null extends Literal
-
-  case class Var (name: Id) extends Expr
-  case class Call (func: Id, args: Seq[Expr]) extends Expr with Stmt
-
-  case class Decl (tp: Type, nm: Id) extends Stmt
-  case class Assign (nm: Id, vl: Expr) extends Stmt
-  case class Block (stmts: Seq[Stmt]) extends Stmt
-  case class If (cond: Expr, body: Block, orelse: Option[Block]) extends Stmt
-  case class While (cond: Expr, body: Block) extends Stmt
-
-  case class Return (expr: Option[Expr]) extends Stmt
-  case object Break extends Stmt
-  case object Continue extends Stmt
-
-  case class ImportField (name: Id, imported: String)
-  case class Import (module: String, fields: Seq[ImportField]) extends Toplevel
-  case class Proc (name: Id, params: Seq[(Type, Id)], ret: Type, body: Block) extends Toplevel
-
-  case class Program (stmts: Seq[Toplevel]) extends Node
-}
-
 object Lexical {
   import fastparse.all._
   val number = {
@@ -106,9 +71,11 @@ object Lexical {
 
   val lineComment = P("//" ~ CharsWhile(_ != '\n'))
   val multiComment = P("/*" ~ (!("*/") ~ AnyChar).rep ~ "*/")
+  //val ws = P(CharsWhile(_.isSpaceChar))
   val ws = P(CharsWhile(" \n\t".toSet))
   val wscomment = P( (ws|lineComment|multiComment).rep )
 }
+
 import fastparse.noApi._
 object WsApi extends fastparse.WhitespaceApi.Wrapper(Lexical.wscomment)
 import WsApi._
@@ -116,9 +83,15 @@ import WsApi._
 import Lexical.{kw => Kw}
 
 object Expressions {
-  val variable = P(Lexical.ident).map(Ast.Var)
+  private val arg = P(Lexical.ident ~ "=" ~ expr) map Ast.Arg.tupled
+  private val args = P("(" ~/ arg.rep(sep = ",")  ~ ")")
+  val callbase = P(Lexical.ident ~ args)
+
+  val variable = P(Lexical.ident) map Ast.Var
   val const = P(Lexical.number | Lexical.const | Lexical.string)
-  val call = P(Lexical.ident ~ "(" ~/ expr.rep(sep = ",")  ~ ")").map(Ast.Call.tupled)
+  val call = P(callbase ~ "." ~ Lexical.ident) map {
+    case (func, args, field) => Ast.Call(func, args, Some(field))
+  }
 
   val expr: P[Ast.Expr] = P(const | call | variable | "(" ~ expr ~ ")");
 }
@@ -126,9 +99,13 @@ object Expressions {
 
 object Statements {
   // val decl = P(type ~ (ident ~ ("=" ~ expr).?).rep(sep = ","))
-  val decl = P(Lexical.typename ~ Lexical.ident ~ ";").map(Ast.Decl.tupled)
+  private val declpart = P(Lexical.ident ~ ("=" ~ Expressions.expr).?) map Ast.DeclPart.tupled
+
+  val decl = P(Lexical.typename ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
   val assign = P(Lexical.ident ~ "=" ~/ Expressions.expr ~ ";").map(Ast.Assign.tupled)
-  val call = P(Expressions.call ~ ";")
+  val call = P(Expressions.callbase ~ ";") map {
+    case (func, args) => Ast.Call(func, args, None)
+  }
 
   val block = P("{" ~ stmt.rep ~ "}").map(Ast.Block)
 
@@ -152,18 +129,19 @@ object Toplevel {
 
   val importfield =
     P(Lexical.ident ~ "=" ~ Lexical.name ~ ";").map(Ast.ImportField.tupled)
-  val importstmt = P(Kw("import") ~ moduleName ~
+  val importstmt = P(Kw("import") ~/ Lexical.name ~
     "{" ~ importfield.rep ~ "}").map(Ast.Import.tupled)
 
-  val params = P("(" ~ (Lexical.typename ~ Lexical.ident).rep(sep=",") ~ ")")
+  private val param = P(Lexical.typename ~ Lexical.ident) map Ast.Param.tupled
+  private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
+
   val proc =
-    P(Kw("proc") ~ Lexical.ident ~
-      params ~ Lexical.typename ~
+    P(Kw("proc") ~/ Lexical.ident ~ params ~ 
       Statements.block).map(Ast.Proc.tupled)
 
   val toplevel: P[Ast.Toplevel] = P(importstmt | proc)
 
-  val program = P(toplevel.rep).map(Ast.Program)
+  val program: P[Ast.Program] = P(toplevel.rep).map(Ast.Program)
 }
 
 
@@ -184,17 +162,40 @@ object Main {
   }
 
   def manual (): Nothing = {
-    println("Usage: (-i <code> | -f <filename>) [-debug <level>] [-print-parsed] [-print-nodes] [-print-code]")
+    println("Usage: (-i <code> | -f <filename>) [-o <output filename>]")
     System.exit(0)
     return ???
   }
 
   def main (args: Array[String]) {
+    import arnaud.myvm.codegen.ProgState
+    import arnaud.sexpr.Node
+
     val parsed = args(0) match {
       case "-f" => parse_file(args(1))
       case "-i" => parse_text(args(1))
       case _ => manual()
     }
-    println(parsed);
+    println(parsed)
+
+    println()
+
+    val cgnode = CodeGen.program(parsed)
+    println(arnaud.myvm.codegen.Nodes.sexpr(cgnode).prettyRepr)
+
+    val progstate = new ProgState()
+    progstate %% cgnode
+    val compiled = progstate.compile()
+    val output = compiled.prettyRepr
+    println(output)
+
+    if (args.length >= 4 && args(2) == "-o") {
+      import java.io._
+      val outname = args(3)
+      val pw = new PrintWriter(new File(outname))
+      pw.write(output)
+      pw.close
+      println(s"File $outname saved")
+    }
   }
 }

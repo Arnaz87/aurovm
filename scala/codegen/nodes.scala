@@ -12,6 +12,7 @@ object Nodes {
   // Usar una variable que ya esté declarada
   case class Var(name: String) extends Node
   case class Call(func: String, args: Seq[Node]) extends Node
+  case class NmCall(func: String, args: Seq[(String, Node)], field: Option[String]) extends Node
 
   // Declarar una variable local, oculta a cualquiera que ya exista
   case class Declare(name: String) extends Node
@@ -37,6 +38,47 @@ object Nodes {
 
   case class Narr(body: Seq[Node]) extends Node
 
+  case class TypeSet(name: String, nd: Node) extends Node
+  case class Import(mod: String, field: String) extends Node
+  case class Proc(params: Seq[String], body: Node) extends Node
+
+  def sexpr (nd: Node): arnaud.sexpr.Node = {
+    import arnaud.sexpr._
+    import arnaud.sexpr.Implicits._
+    type SNode = arnaud.sexpr.Node
+
+    nd match {
+      case Num(n) => ListNode("Num", n.toString)
+      case Str(s) => ListNode("Str", s)
+      case Bool(b) => ListNode("Bool", b.toString)
+      case Nil => ListNode("Nil")
+
+      case Var(nm) => ListNode("Var", nm)
+      case NmCall(func, args, field) =>
+        val nodes = new ArrayBuffer[SNode](8)
+        nodes += "Call"
+        nodes += func
+        args foreach {
+          case (nm, vl) =>
+            nodes += ListNode(nm, sexpr(vl))
+        }
+        nodes += AtomNode(field getOrElse "nil")
+        new ListNode(nodes)
+      case Assign(nm, nd) => ListNode("Assign", nm, sexpr(nd))
+      case Block(nds) => new ListNode(AtomNode("Block") +: (nds map (sexpr _)))
+      case Scope(blck) => ListNode("Scope", sexpr(blck))
+      case Declare(nm) => ListNode("Declare", nm)
+
+      case TypeSet(nm, nd) => ListNode("TypeSet", nm, sexpr(nd))
+      case Proc(ps, bd) => ListNode("Proc", new ListNode(ps map {new AtomNode(_)}), sexpr(bd))
+
+      case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
+      case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))
+
+      case x => ListNode(x.toString)
+    }
+  }
+
   def get (st: State, nd: Node): RegInfo = {
     nd match {
       case Num(n) => st.addConstant(n)
@@ -58,6 +100,9 @@ object Nodes {
         val r = get(st, _r)
         st.code += Inst.Cpy(l.realname, r.realname)
         l
+      // Este call por ahora funciona, pero es incorrecto.
+      // Las funciones no necesariamente van arecibir argumentos nombrados
+      // con letras desde la 'a' ni van a devolver un solo resultado 'r'.
       case Call(func, args) =>
         var aChar = 'a'
         st.code += Inst.New(func)
@@ -70,6 +115,14 @@ object Nodes {
         val reg = st.newReg("r")
         st.code += Inst.Get(reg.realname, func, "r")
         reg
+      case NmCall(func, args, field) =>
+        st.code += Inst.New(func)
+        args.foreach{ case (argnm, _arg) =>
+          val arg = get(st, _arg)
+          st.code += Inst.Set(func, argnm, arg.realname)
+        }
+        st.code += Inst.Call(func)
+        RegInfo.nil
       case Var(nm) => st.scopes(nm)
       case Scope(block) =>
         st.scopes.push()
@@ -324,6 +377,7 @@ object Main {
       ))
     }
     println(ast)
+    //println(Node.sexpr(ast).pretty)
 
     Nodes.get(st, ast)
 

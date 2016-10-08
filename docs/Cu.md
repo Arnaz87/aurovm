@@ -1,8 +1,8 @@
 # Cu
 
-Cu es un lenguaje tipo C o a Java con las características básicas de la máquina virtua Cobre. Lo estoy haciendo para probar las caracteísticas de la máquina, com subrutinas, sistema de tipos, importación de módulos, etc.
+Cu es un lenguaje como C o Java, con las características básicas de la máquina virtual Cobre. Lo estoy haciendo para probar las caracteísticas de la máquina, como subrutinas, sistema de tipos, importación de módulos, etc.
 
-El nombre es un juego de palabras con Cobre y con Lenguaje C: Cu es el símbolo del Cobre, y se parece a C.
+El nombre es un juego de palabras con Cobre y Lenguaje C.
 
 # Modulo
 
@@ -10,21 +10,21 @@ Por ahora no hay mecanismo para módulos, un programa Cu solo puede definir el m
 
 ## Futura definición de módulo
 
-Un archivo de código Cu define un módulo, el nombre del módulo es el mismo que el del archivo, ignorando la extensión `.cu`. Al compilar un programa Cu, el compilador automáticamente reconocea todos los módulos definidos en la carpeta del programa, pero no los importa, eso es tarea del programador.
+Un archivo de código Cu define un módulo, el nombre del módulo es el mismo que el del archivo, ignorando la extensión `.cu`. Al compilar un programa Cu, el compilador automáticamente reconoce todos los módulos definidos en la carpeta del programa, pero no los importa, eso es decisión del programador.
 
 # Declaraciones de nivel superior
 
-Las declaraciones de nivel superior son las que definen el contenido de un Módulo y su relación con otros módulos (es decir sus dependencias).
+Las declaraciones de nivel superior son las que definen el contenido de un Módulo y su relación con otros módulos (es decir, sus dependencias).
 
 ## Import
 
-Una declaración import indica qué valores de un módulo deben ser usables en el módulo actual, y con qué nombre se deben acceder.
+Una declaración import indica qué valores de un módulo externo deben ser usables en el módulo actual, y con qué nombre se deben acceder.
 
 `import := "import" externalModuleName "{" {id "=" id ";"} "}"`
 
 ## Procedimientos
 
-Los procedimientos son la unidad ejecutable de Cu. Pueden aceptar varios parámetros y devuelven un valor (en el futuro podrán devolver multiples valores).
+Los procedimientos son la unidad ejecutable de Cu. Pueden aceptar varios parámetros y devuelven un valor (en el futuro podrán devolver multiples valores, porque Cobre puede hacerlo).
 
 ```
 proc := "proc" id "(" paramList ")" type procBody
@@ -47,9 +47,9 @@ Son las unidades en las que se divide un procedimiento o un bloque, indican una 
 
 ## Declaración de variable
 
-Le indica al programa la información de una variable para que pueda ser usada luego. Una sola declaración puede declarar varias variables con el mismo tipo. Se puede asignar un valor a una variable en su propia declaración, en ese caso el resultado se calcula antes de todas las declaraciónes, es decir, en las expresiónes que devuelven el valor de las variables, ninguna de dichas variables se ha declarado.
+Le indica al programa la información de una variable para que pueda ser usada luego. Una sola declaración puede declarar varias variables con el mismo tipo. Se puede asignar un valor a una variable en su propia declaración, en ese caso el resultado se calcula antes de todas las declaraciónes, es decir, en las expresiónes que devuelven el valor de las variables, ninguna de dichas variables se ha declarado. Una declaración oculta cualquier variable declarada anteriormente, incluso si es en el mismo Scope.
 
-`decl := type id "=" expr {"," id "=" expr} ";"`
+`decl := type id ["=" expr {"," id "=" expr}] ";"`
 
 ## Asignación de variable
 
@@ -62,6 +62,17 @@ Cambia el valor de una variable por el resultado de una expresion.
 Ejecuta un procedimiento pasándole los argumentos indicados, y en caso de tener un resultado lo descarta. Las expresiones de los argumentos se ejecutan en el orden en el que aparecen.
 
 `call := id "(" [expr {"," expr}] ")" ";"`
+
+### Llamada Provisional
+
+Cobre no invoca funciones pasando una lista de argumentos, internamente Cu crea un objeto por medio del cual el invocador y el invocado se pueden comunicar, y ese objeto se usa como los demás objetos, asignando y revisando sus campos. Entonces, la invocación de Cu, para reflejar esa mecánica difiere del modo tradicional, tendré que usar esta mientras ideo una forma de resolverlo.
+
+```
+callstmt := call ";"
+callexpr := call "." id
+call := id "(" [arg {"," arg}] ")"
+arg := id "=" expr
+```
 
 ## Bloque
 
@@ -86,9 +97,9 @@ Si un procedimiento con resultado no termina con return o termina con un return 
 
 # Expresiones
 
-Las expresiones siempre tienen un valor, incluso si el valor es nulo, o el si cálculo del valor modifica el estado del programa, eso es un efecto secundario.
+Las expresiones siempre tienen un valor, incluso si es el valor nulo. A diferencia de las declaraciones, cuyo objetivo es cambiar el estado del programa y se descartan los posibles resultados, las expresiones existen por sus resultados, cambiar el estado del programa es un efecto secundario.
 
-Puede ser una constante (entero, real o texto), una variable o una llamada. La llamada funciona igual que la declaración de llamada, solo que el resultado se usa en vez de descartarse
+Puede ser una constante (entero, real o texto), una variable o una llamada. La llamada funciona igual que la declaración de llamada, solo que el resultado se usa en vez de descartarse.
 
 ```
 expr := const | var | call
@@ -105,8 +116,8 @@ call = id "(" [expr {"," expr}] ")"
 
 ## Operaciones
 
-Las operaciones solo son azúcar sintáctico para una función. No voy a implementarlas todavía porque esto es una característica del lenguaje, no de la máquina, y es complicado implementarlas por las precedencias.
+Las operaciones solo son azúcar sintáctico para una llamada a algunas funciones especiales. No voy a implementarlas todavía porque esto es una característica del lenguaje, no de la máquina, y es complicado implementarlas por las precedencias.
 
 ## Otras
 
-Por ahora, como no existen structs ni arrays, estas son todas las expresiones posibles.
+Por ahora, como no existen tipos compuestos como structs o arrays, así que estas son todas las expresiones posibles.

@@ -47,8 +47,8 @@ object Ast {
   case class Function (params: Seq[Var], body: Block) extends literal
 
   case class Var (name: String) extends expr with assignable
-  case class Binop (l: expr, r: expr, op: Op) extends expr
   case class Field (l: expr, name: expr) extends expr with assignable
+  case class Binop (l: expr, r: expr, op: Op) extends expr
   case class Call (l: expr, args: Seq[expr]) extends expr with stmt
 
   case class Block (stmts: Seq[stmt]) extends Node
@@ -99,11 +99,14 @@ object Ast {
             CG.Undeclared(nm, CG.DeclareGlobal(nm)),
             CG.Assign(nm, r)
           ))
-          // TODO: Manejar el otro caso: Field
+          /* TODO: Manejar el otro caso: Field
+          case Field(obj, field) =>
+            CG.Call("$set", Array(Generate(obj), Generate(field), r))
+          */
         }
       }
       case Block(xs) => CG.Scope(CG.Block(xs.map(Generate _)))
-      case While(cons, body) => CG.While(Generate(cons), Generate(body))
+      case While(cond, body) => CG.While(Generate(cond), Generate(body))
       case If(conds, orelse) => conds.head match {
         case IfBlock(cond, block) =>
           CG.If(Generate(cond), Generate(block), Generate(orelse))

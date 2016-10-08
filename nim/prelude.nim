@@ -99,6 +99,18 @@ let eqArgs = newStruct("eq-args", @[
 let eqCode = newNativeCode("eq", eqArgs, eqProc)
 let eqType = CodeType(eqCode)
 
+proc strcatProc(obj: Object) =
+  let a = obj["a"]
+  let b = obj["b"]
+  let r = a.num == b.num
+  obj["r"] = BoolValue(r)
+let strcatArgs = newStruct("strcat-args", @[
+  ("a", NumberType),
+  ("b", NumberType),
+  ("r", NumberType)])
+let strcatCode = newNativeCode("strcat", strcatArgs, strcatProc)
+let strcatType = CodeType(strcatCode)
+
 
 let preludeStruct = Struct(name: "Prelude", info: @[
   # Basic Types
@@ -114,6 +126,7 @@ let preludeStruct = Struct(name: "Prelude", info: @[
   ("inc", TypeType),
   ("dec", TypeType),
   ("gtz", TypeType),
+  ("strcat", TypeType),
 
   # Structs
   ("CmdArgs", TypeType),
@@ -134,6 +147,7 @@ preludeData["itos"] = TypeValue(itosType)
 preludeData["inc"] = TypeValue(incType)
 preludeData["dec"] = TypeValue(decType)
 preludeData["gtz"] = TypeValue(gtzType)
+preludeData["strcat"] = TypeValue(strcatType)
 
 preludeData["CmdArgs"] = TypeValue(NilType)
 preludeData["emptyStruct"] = TypeValue(emptyStructType)
