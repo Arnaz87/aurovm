@@ -14,7 +14,7 @@ class ProcState (val prog: ProgState) {
       stack find {_.contains(k)} map {_ apply k} match {
         case Some(v) => Some(v)
         case None => if (prog.globals contains k)
-          { Some(RegVar(RegId(prog.globals(k).name))) }
+          { Some(FieldVar(RegId("SELF"), RegId(k))) }
           else { None }
       }
     }
@@ -63,6 +63,10 @@ class ProcState (val prog: ProgState) {
     RegId(nm)
   }
 
+  def declGlobal (nm: String) {
+    prog.globals += nm
+  }
+
   def setParams (params: Seq[String]) {
     params foreach {p =>
       val r = FieldVar(RegId("ARGS"), RegId(p))
@@ -106,10 +110,34 @@ class ProcState (val prog: ProgState) {
             tmp
           case None => RegId("$nil")
         }
+      // Este call por ahora funciona, pero es incorrecto.
+      // Las funciones no necesariamente van arecibir argumentos nombrados
+      // con letras desde la 'a' ni van a devolver un solo resultado 'r'.
+      case Call(func, args) =>
+        regs += ((func, func))
+        var aChar = 'a'
+        code += Inst.New(func)
+        args.foreach{ _arg =>
+          val arg = %%(_arg)
+          code += Inst.Set(func, aChar.toString, arg.name)
+          aChar = (aChar + 1).toChar
+        }
+        code += Inst.Call(func)
+        val reg = newReg("r")
+        code += Inst.Get(reg.name, func, "r")
+        reg
       case Declare(nm) => // (nm, tp)
         val reg = newReg(nm)
         scopes(nm) = RegVar(reg)
         reg
+      case DeclareGlobal(nm) =>
+        prog.globals += nm
+        RegId("$nil")
+      case Undeclared(nm, nd) =>
+        scopes get nm match {
+          case None => %%(nd)
+          case _ => RegId("$nil")
+        }
       case Assign(nm, vnd) =>
         val v = %%(vnd)
         scopes(nm) match {
@@ -129,6 +157,17 @@ class ProcState (val prog: ProgState) {
         code += Inst.Jmp($start)
         code += Inst.Lbl($end)
         $body
+      case If(cond, body, orelse) =>
+        val $else = getLabel()
+        val $end  = getLabel()
+        val $cond = %%(cond)
+        code += Inst.Ifn($else, $cond.name)
+        %%(body)
+        code += Inst.Jmp($end)
+        code += Inst.Lbl($else)
+        %%(orelse)
+        code += Inst.Lbl($end)
+        RegId("$nil")
       /*
       case DeclareGlobal(nm) =>
         val reg = st.newReg(nm)
@@ -172,7 +211,7 @@ class ProcState (val prog: ProgState) {
         RegInfo.nil
       //case _ => RegInfo.nil
       */
-      case _ => RegId("$nil")
+      //case _ => RegId("$nil")
     }
   }
 }

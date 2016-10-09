@@ -434,7 +434,10 @@ object Main {
   }
 
   def main (args: Array[String]) {
+    import arnaud.myvm.codegen.ProgState
     import arnaud.myvm.{codegen => Codegen}
+    import arnaud.myvm.codegen.{Nodes => CG}
+
     val params = new Params(args.toList)
     val parsed =
       if (params.has("f"))
@@ -444,40 +447,30 @@ object Main {
       else { manual() }
     if (params.has("print-parsed")) { println(parsed) }
     val debug = params.get("debug", "0").toInt
-    val codenode = Ast.Generate(parsed)
-    if (params.has("print-nodes")) { println(codenode) }
-    val codestate = new Codegen.State()
 
-    codestate.addImport("$add", "Lua", "add")
-    codestate.addImport("$sub", "Lua", "sub")
-    codestate.addImport("$eq" , "Lua", "eq")
-    codestate.addImport("$lt" , "Lua", "lt")
-    codestate.addImport("$app", "Lua", "append")
-    codestate.addImport("print", "Lua", "print")
+    val mainnode = Ast.Generate(parsed)
 
-    codestate.addFunction("$add")
-    codestate.addFunction("$sub")
-    codestate.addFunction("$eq")
-    codestate.addFunction("$lt")
-    codestate.addFunction("$app")
-    codestate.addFunction("print")
+    def importnode(a: String, b: String, c: String) = CG.TypeSet(a, CG.Import(b, c))
+    val codenode = CG.Block(Array(
+      importnode("Any", "Prelude", "Any"),
+      importnode("$add", "Lua", "add"),
+      importnode("$sub", "Lua", "sub"),
+      importnode("$eq", "Lua", "eq"),
+      importnode("$lt", "Lua", "lt"),
+      importnode("$app", "Lua", "append"),
+      importnode("print", "Lua", "print"),
+      CG.TypeSet("MAIN", CG.Proc(Nil, mainnode))
+    ))
 
-    codestate.process(codenode)
-    
-    if (params.has("print-code")) {
-      println("  Imports:")
-      println(codestate.imports)
-      println("  Functions:")
-      println(codestate.functions)
-      println("  Constants:")
-      println(codestate.constants)
-      println("  Code:")
-      codestate.code.foreach(println _)
+    if (params.has("print-nodes")) {
+      println(arnaud.myvm.codegen.Nodes.sexpr(codenode).prettyRepr)
     }
 
-    val compiled = codestate.compile()
-
+    val progstate = new ProgState()
+    progstate %% codenode
+    val compiled = progstate.compile()
     val output = compiled.prettyRepr
+
     if (params.has("o")) {
       import java.io._
       val pw = new PrintWriter(new File(params("o")))

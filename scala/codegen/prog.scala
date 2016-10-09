@@ -8,16 +8,16 @@ class ProgState () {
   val imports: Map[String, (String, String)] = Map()
   val procs: Map[String, ProcState] = Map()
 
+  val globals: Set[String] = Set()
   val constants: Map[String, Any] = Map()
   var constantCount: Int = 0
   def addConstant(value: Any): RegId = {
     constantCount += 1
     val nm = "$const$" + constantCount
+    globals += nm
     constants(nm) = value
     RegId(nm)
   }
-
-  val globals: Map[String, RegId] = Map()
 
   def %% (tp: Node) {
     tp match {
@@ -30,11 +30,15 @@ class ProgState () {
             proc.setParams(params)
             procs(name) = proc
             proc %% body
-          // case _ => THROW_EXCEPTION
+          case x =>
+            val name = x.getClass.getSimpleName
+            throw new Exception(s"Node type '$name' is not a type node")
         }
       case ND.Block(nds) =>
         nds foreach (%% _)
-      // case _ => THROW_EXCEPTION
+      case x =>
+        val name = x.getClass.getSimpleName
+        throw new Exception(s"Node type '$name' is not a top-level node")
     }
   }
 
@@ -110,11 +114,11 @@ class ProgState () {
     }
 
     constnd += "Constants"
-    globals.foreach{ case(name, reg) => 
-      selfnd += ListNode(reg.name, "Any")
+    globals.foreach{ name =>
+      selfnd += ListNode(name, "Any")
     }
     constants.foreach{ case (name, v) =>
-      selfnd += ListNode(name, "Any")
+      //selfnd += ListNode(name, "Any")
       val tp = v match {
         case _:String => "str"
         case _:Float => "num"

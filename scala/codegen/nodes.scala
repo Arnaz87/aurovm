@@ -11,6 +11,7 @@ object Nodes {
 
   // Usar una variable que ya esté declarada
   case class Var(name: String) extends Node
+  // No puedo tener ambos, NmCall y Call. Uno de los dos debe ser el principal
   case class Call(func: String, args: Seq[Node]) extends Node
   case class NmCall(func: String, args: Seq[(String, Node)], field: Option[String]) extends Node
 
@@ -64,13 +65,17 @@ object Nodes {
         }
         nodes += AtomNode(field getOrElse "nil")
         new ListNode(nodes)
+      case Call(func, args) => ListNode("Call", func, new ListNode(args map (sexpr _)))
       case Assign(nm, nd) => ListNode("Assign", nm, sexpr(nd))
       case Block(nds) => new ListNode(AtomNode("Block") +: (nds map (sexpr _)))
       case Scope(blck) => ListNode("Scope", sexpr(blck))
       case Declare(nm) => ListNode("Declare", nm)
+      case DeclareGlobal(nm) => ListNode("DeclareGlobal", nm)
+      case Undeclared(nm, nd) => ListNode("Undeclared", nm, sexpr(nd))
 
       case TypeSet(nm, nd) => ListNode("TypeSet", nm, sexpr(nd))
       case Proc(ps, bd) => ListNode("Proc", new ListNode(ps map {new AtomNode(_)}), sexpr(bd))
+      case Import(mod, field) => ListNode("Import", mod, field)
 
       case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
       case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))
