@@ -102,14 +102,20 @@ let eqType = CodeType(eqCode)
 proc strcatProc(obj: Object) =
   let a = obj["a"]
   let b = obj["b"]
-  let r = a.num == b.num
-  obj["r"] = BoolValue(r)
+  obj["r"] = StringValue(a.str & b.str)
 let strcatArgs = newStruct("strcat-args", @[
   ("a", NumberType),
   ("b", NumberType),
   ("r", NumberType)])
 let strcatCode = newNativeCode("strcat", strcatArgs, strcatProc)
 let strcatType = CodeType(strcatCode)
+
+proc readProc(obj: Object) =
+  let s = readLine(stdin)
+  obj["r"] = StringValue(s)
+let readArgs = newStruct("read-args", @[("r", StringType)])
+let readCode = newNativeCode("read", readArgs, readProc)
+let readType = CodeType(readCode)
 
 
 let preludeStruct = Struct(name: "Prelude", info: @[
@@ -127,6 +133,7 @@ let preludeStruct = Struct(name: "Prelude", info: @[
   ("dec", TypeType),
   ("gtz", TypeType),
   ("strcat", TypeType),
+  ("read", TypeType),
 
   # Structs
   ("CmdArgs", TypeType),
@@ -148,6 +155,7 @@ preludeData["inc"] = TypeValue(incType)
 preludeData["dec"] = TypeValue(decType)
 preludeData["gtz"] = TypeValue(gtzType)
 preludeData["strcat"] = TypeValue(strcatType)
+preludeData["read"] = TypeValue(readType)
 
 preludeData["CmdArgs"] = TypeValue(NilType)
 preludeData["emptyStruct"] = TypeValue(emptyStructType)
