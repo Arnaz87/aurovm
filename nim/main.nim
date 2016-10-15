@@ -9,50 +9,39 @@ include methods
 include machine
 
 include prelude
-include lua
+#include lua
 
 if paramCount() == 0:
-  let mainArgs = newStruct("main-args", @[])
+  let mainArgs = Args(ins: @[], outs: @[])
   let mainRegs = newStruct("main-regs", @[
-    ("ARGS", StructType(mainArgs)),
     ("SELF", Type()),
-
     ("a", NumberType),
     ("b", NumberType),
     ("r", NumberType),
-    ("rs", StringType),
-
-    ("add", addType),
-    ("print", printType),
-    ("itos", itosType) ])
+    ("rs", StringType),])
   let mainInst = @[
     IGet("a", "SELF", "a"),
     IGet("b", "SELF", "b"),
-    INew("add"),
-    ISet("add", "a", "a"),
-    ISet("add", "b", "b"),
-    ICall("add"),
-    IGet("r", "add", "r"),
-    INew("itos"),
-    ISet("itos", "a", "r"),
-    ICall("itos"),
-    IGet("rs", "itos", "r"),
-    INew("print"),
-    ISet("print", "a", "rs"),
-    ICall("print"),
+    ICall(addCode, @["r"], @["a", "b"]),
+    ICall(itosCode, @["rs"], @["r"]),
+    ICall(printCode, @[], @["rs"]),
     IEnd ]
   let mainCode = newMachineCode("MAIN", mainArgs, mainRegs, mainInst)
-  let mainType = CodeType(mainCode)
 
   let moduleStruct = Struct(name: "MAIN", info: @[
     ("a", NumberType),
     ("b", NumberType),
-    ("MAIN", mainType)
+    ("MAIN", CodeType),
+
+    ("add", CodeType),
+    ("print", CodeType),
+    ("itos", CodeType)
   ])
   let moduleType = StructType(moduleStruct)
   let moduleData = makeObject(moduleStruct)
   moduleData["a"] = NumberValue(4)
   moduleData["b"] = NumberValue(5)
+  moduleData["MAIN"] = CodeValue(mainCode)
 
   var module = Module(name: "MAIN", struct: moduleStruct, data: moduleData)
 
@@ -75,9 +64,11 @@ else:
   # hay que crear el Struct, pero los tipos de sus campos se deben asignar
   # después de haber creado todos los tipos del módulo.
   type Future = tuple[tp: string, reg: string, val: string]
+  type FuncDef = tuple[code: Code, outc: int, inc: int]
   var futures: seq[Future] = @[]
 
   var types = initTable[string, Type]()
+  var funcs = initTable[string, FuncDef]()
   var constantsNode: seq[Node]
 
   for sectionNode in fileNode:
@@ -99,12 +90,22 @@ else:
           futures.add((name, rname, regNode[1].str))
         let struct = newStruct(name, regs)
         types[name] = StructType(struct)
+    of "FuncRefs":
+      for funcNode in sectionNode.tail:
+        let name = funcNode[0].str
+        let module: Object = modules[funcNode[1].str].data
+        let code: Code = module[funcNode[2].str].code
+        let outc = funcNode[3].str.parseInt
+        let inc  = funcNode[4].str.parseInt
+        funcs[name] = (code: code, outc: outc, inc: inc)
     of "Functions":
       for functionNode in sectionNode.tail:
         let name = functionNode[0].str
-        let args = types[functionNode[1].str].struct
-        let regs = types[functionNode[2].str].struct
-        let codeNode = functionNode[3]
+        let regs = types[functionNode[1].str].struct
+        let codeNode = functionNode[4]
+        var args = Args(ins: nil, outs: nil)
+        args.ins  = functionNode[2].tail.toStringSeq
+        args.outs = functionNode[3].tail.toStringSeq
         # assert(codeNode.head.str == "Code")
 
         proc unrecognized(nm: string): Inst =
@@ -117,17 +118,23 @@ else:
             of "get": IGet(nd[1].str, nd[2].str, nd[3].str)
             of "set": ISet(nd[1].str, nd[2].str, nd[3].str)
             of "new": INew(nd[1].str)
-            of "call": ICall(nd[1].str)
+            #of "call": ICall(nd[1].str, nd.tail)
             of "lbl": ILbl(nd[1].str)
             of "jmp": IJmp(nd[1].str)
             of "if" : Iif (nd[1].str)
             of "ifn": Iifn(nd[1].str, nd[2].str)
             of "end": IEnd
-            else: unrecognized(nd.head.str)
+            else:
+              let tail = nd.tail.toStringSeq
+              let fun = funcs[nd.head.str]
+              let outs = tail[0 .. (fun.outc-1)]
+              let ins = tail[fun.outc .. tail.high] # (func.outc+func.inc-1)
+              ICall(fun.code, outs, ins)
+            #else: unrecognized(nd.head.str)
 
         var code = newMachineCode(name, args, regs, insts)
         code.module = module
-        types[name] = CodeType(code)
+        funcs[name] = (code: code, outc: args.outs.len, inc: args.ins.len)
     of "Constants":
       # Las constantes se deben calcular después de todos los tipos
       constantsNode = sectionNode.tail
@@ -155,6 +162,8 @@ else:
       module.data[name] = StringValue(s)
     of "type":
       module.data[name] = TypeValue(types[node[2].str])
+    of "code":
+      module.data[name] = CodeValue(funcs[node[2].str].code)
     else:
       echo "Unrecognized constant operation: " & node[1].str
 

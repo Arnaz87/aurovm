@@ -3,84 +3,58 @@
   (Types
     (Any Prelude Any)
     (String Prelude String)
+    (Code Prelude Code)
+  )
+  (FuncRefs
+    ;(name module field outs ins)
 
-    (strcat Prelude strcat)
-    (print Prelude print)
-    (read Prelude read)
+    (strcat Prelude strcat 1 2)
+    (print Prelude print 0 1)
+    (read Prelude read 1 0)
   )
   (Structs
     (SELF
-      (MAIN MAIN)
+      (MAIN Code)
       (str1 String)
       (str2 String)
       (name String)
       (prompt String)
     )
-    (func$args (name String))
     (func$regs
       (SELF SELF)
-      (ARGS func$args)
-
       (a String)
       (b String)
-
-      (strcat strcat)
-      (print print)
+      (name String)
     )
-    (MAIN$args)
     (MAIN$regs
       (SELF SELF)
-      (ARGS MAIN$args)
-
       (nm String)
       (msg String)
-
-      (func func)
-      (print print)
-      (read read)
     )
   )
   (Functions
     (func
-      func$args
       func$regs
+      (in name) (out)
       (Code
         (get a SELF str1)
-        (get b ARGS name)
-        (new strcat)
-        (set strcat a a)
-        (set strcat b b)
-        (call strcat)
-        (get a strcat r)
+        (strcat a a name)
         (get b SELF str2)
-        (new strcat)
-        (set strcat a a)
-        (set strcat b b)
-        (call strcat)
-        (get a strcat r)
-        (new print)
-        (set print a a)
-        (call print)
+        (strcat a a b)
+        (print a)
         (end)
       )
     )
     (MAIN
-      MAIN$args
       MAIN$regs
+      (in) (out) ;Ambos Vacíos
       (Code
         ;(get nm SELF name)
 
         (get msg SELF prompt)
-        (new print)
-        (set print a msg)
-        (call print)
-        (new read)
-        (call read)
-        (get nm read r)
-
-        (new func)
-        (set func name nm)
-        (call func)
+        (print msg)
+        (read nm)
+        (func nm)
         (end)
       )
     )
@@ -90,5 +64,6 @@
     (str2 str "!")
     (prompt str "¿Cómo te llamas?: ")
     (name str "Arnaud")
+    (MAIN code MAIN)
   )
 )

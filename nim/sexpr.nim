@@ -1,4 +1,5 @@
 import strutils
+import sequtils
 
 type Parser = ref object of RootObj
 method eof(parser: Parser): bool {.base.} =
@@ -185,6 +186,11 @@ iterator tail*(node: Node): Node =
     i.inc
 proc toSeq*(node: Node): seq[Node] =
   return List(node).children
+
+proc toStringSeq*(nds: seq[Node]): seq[string] =
+  return nds.map do (nd: Node) -> string: nd.str
+proc toStringSeq*(nd: Node): seq[string] =
+  return List(nd).children.toStringSeq
 
 proc quote(str: string): string =
   if str.contains({'"', '\\', '\L', '\t', ' '}):

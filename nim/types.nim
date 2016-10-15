@@ -22,7 +22,6 @@ type
   Type = object
     case kind: TypeKind
     of structType: struct: Struct
-    of codeType: code: Code
     else: discard
   Value = object
     case kind: TypeKind
@@ -30,21 +29,26 @@ type
     of boolType: b: bool
     of numberType: num: float
     of stringType: str: string
-    of structType, codeType:
-      obj: Object
+    of structType: obj: Object
     of typeType: tp: Type
+    of codeType: code: Code
+
+  Args = object
+    ins: seq[string]
+    outs: seq[string]
 
   CodeProc = proc(args: Object)
   CodeKind = enum nativeCode, machineCode
   Code = ref object of RootObj
     name: string
-    args: Struct
+    args: Args
+    regs: Struct # significa algo diferente para machine y para native
     case kind: CodeKind
     of machineCode:
       code: seq[Inst]
-      regs: Struct
       module: Module
-    of nativeCode: prc: CodeProc
+    of nativeCode:
+      prc: CodeProc
 
   #=== Tipos de la Máquina ===#
   State = ref object of RootObj
@@ -53,6 +57,11 @@ type
     code: Code
     regs: Object
     jump: bool
+    outs: seq[string]
+    # Los outs se guardan en el estado invocado.
+    # Esto es importante porque el estado padre puede invocar muchas funciones
+    # con diferentes salidas, pero un estado esta amarrado a un código fijo,
+    # que tiene una estructura fija de salidas.
   Module = ref object of RootObj
     name: string
     struct: Struct
@@ -72,43 +81,54 @@ type
   InstKind = enum
     inop, icpy, iget, iset, icall, inew, iend, ijmp, iif, iifn, ilbl
   Inst = object
-    kind: InstKind
-    a: Key
-    b: Key
-    c: Key
-    i: Addr
+    case kind: InstKind
+    of icall:
+      code: Code
+      args: Args
+    else:
+      a: Key
+      b: Key
+      c: Key
+      i: Addr
 
 
 #=== Constructores ===#
 
+proc nArgs (ins: seq[string] = @[], outs: seq[string] = @[]): Args =
+  return Args(ins: ins, outs: outs)
+
 proc newStruct(name: string, info: seq[RegInfo]): Struct =
   return Struct(name: name, info: info)
-proc newNativeCode(name: string, args: Struct, prc: CodeProc): Code =
-  return Code(name: name, args: args, kind: nativeCode, prc: prc)
-proc newMachineCode(name: string, args: Struct, regs: Struct, code: seq[Inst]): Code =
-  return Code(name: name, args: args, kind: machineCode, regs: regs, code: code)
+proc newNativeCode(name: string, args: Args, regs: Struct, prc: CodeProc): Code =
+  return Code(name: name, kind: nativeCode, args: args, regs: regs, prc: prc)
+proc newMachineCode(name: string, args: Args, regs: Struct, code: seq[Inst]): Code =
+  return Code(name: name, kind: machineCode, args: args, regs: regs, code: code)
 
-const NilType = Type(kind: nilType)
-const NumberType = Type(kind: numberType)
-const StringType = Type(kind: stringType)
-const BoolType = Type(kind: boolType)
-const TypeType = Type(kind: typeType)
-proc CodeType(code: Code): Type = Type(kind: codeType, code: code)
+# Estos deberían ser const, pero Type tiene el campo struct, que es de tipo
+# ref object (Struct), por lo que no me deja hacer constantes con Type.
+let NilType = Type(kind: nilType)
+let NumberType = Type(kind: numberType)
+let StringType = Type(kind: stringType)
+let BoolType = Type(kind: boolType)
+let TypeType = Type(kind: typeType)
+let CodeType = Type(kind: codeType)
 proc StructType(struct: Struct): Type = Type(kind: structType, struct: struct)
 
+proc BoolValue(b: bool): Value = return Value(kind: boolType, b: b)
 proc NumberValue(n: float): Value = return Value(kind: numberType, num: n)
 proc StringValue(s: string): Value = return Value(kind: stringType, str: s)
 proc StructValue(o: Object): Value = return Value(kind: structType, obj: o)
-proc CodeValue(o: Object): Value = return Value(kind: codeType, obj: o)
 proc TypeValue(t: Type): Value = return Value(kind: typeType, tp: t)
-proc BoolValue(b: bool): Value = return Value(kind: boolType, b: b)
-const NilValue = Value(kind: nilType)
+proc CodeValue(c: Code): Value = return Value(kind: codeType, code: c)
+let NilValue = Value(kind: nilType)
 
 proc StrKey (str: string): Key = return Key(kind: strKey, s: str)
 proc StrAddr (str: string): Addr = return Addr(kind: strKey, s: str)
 
-const IEnd = Inst(kind: iend)
-const INop = Inst(kind: inop)
+# Estos también deberían ser const, pero el campo code no me deja proque
+# Code es ref
+let IEnd = Inst(kind: iend)
+let INop = Inst(kind: inop)
 proc ICpy(a: string, b: string): Inst =
   return Inst(kind: icpy, a: StrKey(a), b: StrKey(b))
 proc IGet(a: string, b: string, c: string): Inst =
@@ -117,8 +137,6 @@ proc ISet(a: string, b: string, c: string): Inst =
   return Inst(kind: iset, a: StrKey(a), b: StrKey(b), c: StrKey(c))
 proc INew(a: string): Inst =
   return Inst(kind: inew, a: StrKey(a))
-proc ICall(a: string): Inst =
-  return Inst(kind: icall, a: StrKey(a))
 proc IJmp(str: string): Inst =
   return Inst(kind: ijmp, i: StrAddr(str))
 proc ILbl(str: string): Inst =
@@ -127,3 +145,5 @@ proc IIf (str: string): Inst =
   return Inst(kind: iif , i: StrAddr(str))
 proc IIfn(i: string, a: string): Inst =
   return Inst(kind: iifn, i: StrAddr(i), a: StrKey(a))
+proc ICall(code: Code, outs: seq[string], ins: seq[string]): Inst =
+  return Inst(kind: icall, code: code, args: nArgs(ins, outs))

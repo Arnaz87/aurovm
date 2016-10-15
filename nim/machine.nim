@@ -47,28 +47,33 @@ proc run(inst: Inst, st: State) =
       let mstruct = mtype.struct
       let obj = makeObject(mstruct)
       st.regs[inst.a] = StructValue(obj)
-    of codeType:
-      let mstruct = mtype.code.args
-      let obj = makeObject(mstruct)
-      st.regs[inst.a] = CodeValue(obj)
     else:
       let msg = "Type at " & stStruct.name & "." & $inst.a & " is not Instantiable"
       raise newException(Exception, msg)
   of icall:
-    let stStruct = st.regs.struct
-    let mtype = stStruct.getType(inst.a)
-    if mtype.kind != codeType:
-      let msg = "Type at " & stStruct.name & "." & $inst.a & " is not Callable"
-      raise newException(Exception, msg)
-    let code = mtype.code
-    let args = st.regs[inst.a].obj
+    let code = inst.code
     case code.kind
     of nativeCode:
+      let args = makeObject(code.regs)
+
+      for i in (0 .. code.args.ins.high):
+        let an = code.args.ins[i]
+        let rn = inst.args.ins[i]
+        args[an] = st.regs[rn]
+
       code.prc(args)
+
+      for i in (0 .. code.args.outs.high):
+        let an = code.args.outs[i]
+        let rn = inst.args.outs[i]
+        st.regs[rn] = args[an]
     of machineCode:
       addState(code)
       var nst = states[states.high]
-      nst.regs["ARGS"] = StructValue(args)
+      for i in (0 .. code.args.ins.high):
+        let an = code.args.ins[i]
+        let rn = inst.args.ins[i]
+        nst.regs[an] = st.regs[rn]
   of ijmp:
     st.jump = true
     st.pc = st.code.findLabel(inst.i.s)
@@ -94,12 +99,25 @@ proc run() =
       else:
         st.pc.inc()
     else:
+      if states.len > 1:
+        var nst = states[states.high-1]
+
+        # Registros en el estado invocado
+        var cd_outs = st.code.args.outs
+
+        # Registros en el estado invocador
+        var st_outs = st.outs
+
+        for i in (0 .. cd_outs.high):
+          let oldnm = cd_outs[i]
+          let newnm = st_outs[i]
+          nst.regs[newnm] = st.regs[oldnm]
+
       discard states.pop()
 
 proc start() =
   let mainModule = modules["MAIN"]
-  let mainType = mainModule.struct.getType("MAIN")
-  let mainCode = mainType.code
+  let mainCode = mainModule.data["MAIN"].code
   addState(mainCode)
   try:
     run()

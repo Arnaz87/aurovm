@@ -1,88 +1,83 @@
 # Definición del módulo Prelude.
 
+let abrArgs = nArgs(@["a", "b"], @["r"])
+let arArgs = nArgs(@["a"], @["r"])
+
 proc printProc(obj: Object) =
   let val = obj["a"]
   echo val.str
-let printArgs = newStruct("print-args", @[("a", StringType)])
-let printCode = newNativeCode("print", printArgs, printProc)
-let printType = CodeType(printCode)
+let printRegs = newStruct("print-regs", @[("a", StringType)])
+let printCode = newNativeCode("print", nArgs(@["a"]), printRegs, printProc)
 
 proc addProc(obj: Object) =
   let a = obj["a"]
   let b = obj["b"]
   let r = a.num + b.num
   obj["r"] = NumberValue(r)
-let addArgs = newStruct("add-args", @[
+let addRegs = newStruct("add-regs", @[
   ("a", NumberType),
   ("b", NumberType),
   ("r", NumberType)])
-let addCode = newNativeCode("add", addArgs, addProc)
-let addType = CodeType(addCode)
+let addCode = newNativeCode("add", abrArgs, addRegs, addProc)
 
 proc subProc(obj: Object) =
   let a = obj["a"]
   let b = obj["b"]
   let r = a.num - b.num
   obj["r"] = NumberValue(r)
-let subArgs = newStruct("sub-args", @[
+let subRegs = newStruct("sub-regs", @[
   ("a", NumberType),
   ("b", NumberType),
   ("r", NumberType)])
-let subCode = newNativeCode("sub", subArgs, subProc)
-let subType = CodeType(subCode)
+let subCode = newNativeCode("sub", abrArgs, subRegs, subProc)
 
 proc itosProc(obj: Object) =
   let n = obj["a"]
   let s = $n.num
   obj["r"] = Value(kind: stringType, str: s)
-let itosArgs = newStruct("itos-args", @[
+let itosRegs = newStruct("itos-regs", @[
   ("a", NumberType),
   ("r", StringType)])
-let itosCode = newNativeCode("itos", itosArgs, itosProc)
-let itosType = CodeType(itosCode)
+let itosCode = newNativeCode("itos", arArgs, itosRegs, itosProc)
 
 proc incProc(obj: Object) =
   let n = obj["a"]
   let r = n.num + 1
   obj["r"] = NumberValue(r)
-let incArgs = newStruct("inc-args", @[
+let incRegs = newStruct("inc-regs", @[
   ("a", NumberType),
   ("r", NumberType)])
-let incCode = newNativeCode("inc", incArgs, incProc)
-let incType = CodeType(incCode)
+let incCode = newNativeCode("inc", arArgs, incRegs, incProc)
 
 proc decProc(obj: Object) =
   let n = obj["a"]
   let r = n.num - 1
   obj["r"] = NumberValue(r)
-let decArgs = newStruct("dec-args", @[
+let decRegs = newStruct("dec-regs", @[
   ("a", NumberType),
   ("r", NumberType)])
-let decCode = newNativeCode("dec", decArgs, decProc)
-let decType = CodeType(decCode)
+let decCode = newNativeCode("dec", arArgs, decRegs, decProc)
 
 proc ltProc(obj: Object) =
   let a = obj["a"]
   let b = obj["b"]
   let r = a.num < b.num
   obj["r"] = BoolValue(r)
-let ltArgs = newStruct("lt-args", @[
+let ltRegs = newStruct("lt-regs", @[
   ("a", NumberType),
   ("b", NumberType),
-  ("r", NumberType)])
-let ltCode = newNativeCode("lt", ltArgs, ltProc)
-let ltType = CodeType(ltCode)
+  ("r", BoolType)])
+let ltCode = newNativeCode("lt", abrArgs, ltRegs, ltProc)
 
 
 proc gtzProc(obj: Object) =
   let n = obj["a"]
   let r = n.num > 0
   obj["r"] = BoolValue(r)
-let gtzArgs = newStruct("gtz-args", @[
+let gtzRegs = newStruct("gtz-regs", @[
   ("a", NumberType),
   ("r", BoolType)])
-let gtzCode = newNativeCode("gtz", gtzArgs, gtzProc)
-let gtzType = CodeType(gtzCode)
+let gtzCode = newNativeCode("gtz", arArgs, gtzRegs, gtzProc)
 
 let emptyStruct = newStruct("empty-struct", @[])
 let emptyStructType = StructType(emptyStruct)
@@ -92,30 +87,27 @@ proc eqProc(obj: Object) =
   let b = obj["b"]
   let r = a.num == b.num
   obj["r"] = BoolValue(r)
-let eqArgs = newStruct("eq-args", @[
+let eqRegs = newStruct("eq-regs", @[
   ("a", NumberType),
   ("b", NumberType),
-  ("r", NumberType)])
-let eqCode = newNativeCode("eq", eqArgs, eqProc)
-let eqType = CodeType(eqCode)
+  ("r", BoolType)])
+let eqCode = newNativeCode("eq", abrArgs, eqRegs, eqProc)
 
 proc strcatProc(obj: Object) =
   let a = obj["a"]
   let b = obj["b"]
   obj["r"] = StringValue(a.str & b.str)
-let strcatArgs = newStruct("strcat-args", @[
-  ("a", NumberType),
-  ("b", NumberType),
-  ("r", NumberType)])
-let strcatCode = newNativeCode("strcat", strcatArgs, strcatProc)
-let strcatType = CodeType(strcatCode)
+let strcatRegs = newStruct("strcat-regs", @[
+  ("a", StringType),
+  ("b", StringType),
+  ("r", StringType)])
+let strcatCode = newNativeCode("strcat", abrArgs, strcatRegs, strcatProc)
 
 proc readProc(obj: Object) =
   let s = readLine(stdin)
   obj["r"] = StringValue(s)
-let readArgs = newStruct("read-args", @[("r", StringType)])
-let readCode = newNativeCode("read", readArgs, readProc)
-let readType = CodeType(readCode)
+let readRegs = newStruct("read-regs", @[("r", StringType)])
+let readCode = newNativeCode("read", nArgs(@[], @["r"]), readRegs, readProc)
 
 
 let preludeStruct = Struct(name: "Prelude", info: @[
@@ -123,22 +115,20 @@ let preludeStruct = Struct(name: "Prelude", info: @[
   ("Num", TypeType),
   ("Bool", TypeType),
   ("String", TypeType),
+
+  ("Code", TypeType),
+  ("Type", TypeType),
   ("Any", TypeType),
 
   # Functions
-  ("print", TypeType),
-  ("add", TypeType),
-  ("itos", TypeType),
-  ("inc", TypeType),
-  ("dec", TypeType),
-  ("gtz", TypeType),
-  ("strcat", TypeType),
-  ("read", TypeType),
-
-  # Structs
-  ("CmdArgs", TypeType),
-  ("emptyStruct", TypeType),
-  ("Empty", TypeType),
+  ("print", CodeType),
+  ("add", CodeType),
+  ("itos", CodeType),
+  ("inc", CodeType),
+  ("dec", CodeType),
+  ("gtz", CodeType),
+  ("strcat", CodeType),
+  ("read", CodeType),
   ])
 let preludeType = StructType(preludeStruct)
 let preludeData = makeObject(preludeStruct)
@@ -146,20 +136,19 @@ let preludeData = makeObject(preludeStruct)
 preludeData["Bool"] = TypeValue(BoolType)
 preludeData["Num"] = TypeValue(NumberType)
 preludeData["String"] = TypeValue(StringType)
+
+preludeData["Code"] = TypeValue(CodeType)
+preludeData["Type"] = TypeValue(TypeType)
 preludeData["Any"] = TypeValue(NilType)
 
-preludeData["print"] = TypeValue(printType)
-preludeData["add"] = TypeValue(addType)
-preludeData["itos"] = TypeValue(itosType)
-preludeData["inc"] = TypeValue(incType)
-preludeData["dec"] = TypeValue(decType)
-preludeData["gtz"] = TypeValue(gtzType)
-preludeData["strcat"] = TypeValue(strcatType)
-preludeData["read"] = TypeValue(readType)
-
-preludeData["CmdArgs"] = TypeValue(NilType)
-preludeData["emptyStruct"] = TypeValue(emptyStructType)
-preludeData["Empty"] = TypeValue(emptyStructType)
+preludeData["print"] = CodeValue(printCode)
+preludeData["add"] = CodeValue(addCode)
+preludeData["itos"] = CodeValue(itosCode)
+preludeData["inc"] = CodeValue(incCode)
+preludeData["dec"] = CodeValue(decCode)
+preludeData["gtz"] = CodeValue(gtzCode)
+preludeData["strcat"] = CodeValue(strcatCode)
+preludeData["read"] = CodeValue(readCode)
 
 
 var prelude = Module(name: "Prelude", struct: preludeStruct, data: preludeData)

@@ -53,7 +53,13 @@ proc `$`(a: Addr): string =
   of intKey: return $a.i
   of strKey: return a.s
 proc `$`(inst: Inst): string =
-  return $inst.kind & "{a:" & $inst.a & " b:" & $inst.b & " c:" & $inst.c & " i:" & $inst.i & "}"
+  case inst.kind
+  of icall:
+    let args = $inst.args.outs & " " & $inst.args.ins
+    return "call{" & inst.code.name & " " & args & "}"
+  else:
+    let cont = "a:" & $inst.a & " b:" & $inst.b & " c:" & $inst.c & " i:" & $inst.i
+    return $inst.kind & "{" & cont & "}"
 
 
 #=== Representación para Depuración ===#
@@ -66,11 +72,7 @@ proc dbgRepr(t: Type, deep: bool = false): string =
   of stringType: return "String"
   of typeType: return "Type"
   of structType: return "Struct[" & t.struct.dbgRepr(deep) & "]"
-  of codeType:
-    let data = if deep: "[" & t.code.args.dbgRepr(true) & "]" else: t.code.name
-    case t.code.kind
-    of nativeCode: return "NativeCode" & data
-    of machineCode: return "MachineCode" & data
+  of codeType: return "Code"
 proc dbgRepr(struct: Struct, deep: bool = false): string =
   if not deep: return struct.name
   result = ""
@@ -89,7 +91,12 @@ proc dbgRepr(v: Value, deep: bool = false): string =
   of numberType: return $v.num
   of stringType: return $v.str
   of typeType: return v.tp.dbgRepr
-  of structType, codeType: return v.obj.dbgRepr(deep)
+  of structType: return v.obj.dbgRepr(deep)
+  of codeType:
+    let name = "[" & v.code.name & "]"
+    case v.code.kind
+    of nativeCode: return "NativeCode" & name
+    of machineCode: return "MachineCode" & name
 proc dbgRepr(obj: Object, deep: bool = false): string =
   if not deep: return "Object[" & obj.struct.name & "]"
   result = "{\n"
