@@ -1,0 +1,130 @@
+
+(
+(Imports
+  Prelude ;import "Prelude"
+)
+
+;Tipos importados de otros módulos
+;A pesar del nombre, esta no es la única sección que define tipos
+(Types
+  (Num Prelude Num) ;Num = Prelude.Num
+  (Bool Prelude Bool)
+  (String Prelude String)
+  (Code Prelude Code)
+)
+
+;Funciones importadas de otros módulos
+(FuncRefs
+  ;(name module field outs ins)
+
+  (add Prelude add 1 2)
+  (gtz Prelude gtz 1 1)
+  (dec Prelude dec 1 1)
+  (print Prelude print 0 1)
+  (itos Prelude itos 1 1)
+)
+
+;Esta sección define más tipos
+(Structs
+  (SELF 
+    (MAIN Code) ;Es necesario exportar la función MAIN, con el nombre MAIN
+    (a Num)
+    (b Num)
+    (zero Num)
+  )
+  (mult-regs
+    (SELF SELF)
+
+    (n Num)
+    (m Num)
+    (r Num)
+    (cond Bool)
+  )
+  (sum-regs
+    (SELF SELF)
+
+    (a Num)
+    (b Num)
+    (r Num)
+    (rs Num)
+  )
+  (main-regs
+    (SELF SELF)
+    (a Num)
+    (b Num)
+  )
+)
+
+;Definiciones de funciones
+;Las Funciones son tipos, así que esta sección define más tipos
+(Functions
+  (mult
+    mult-regs
+    (in n m) (out r)
+    (Code
+
+      ;(function mult (n, m)
+        r = 0
+        repeat:
+          if not m>0 break
+          r = add(r, n)
+          m--
+        return r
+      end)
+
+      (get r SELF zero)
+      (lbl start)
+      (gtz cond m)
+      (ifn end cond)
+      (add r r n)
+      (dec m m)
+      (jmp start)
+      (lbl end)
+      (end)
+    )
+  )
+  (sum
+    sum-regs
+    (in a b) (out)
+    (Code
+      (mult r a b) ;r = mult(a, b)
+      (itos rs r)  ;rs = itos.r
+      (print rs)   ;print(rs)
+      (end)
+    )
+  )
+
+  (MAIN
+    main-regs
+    (in) (out) ;Sin argumentos ni resultados
+    (Code
+      (get a SELF a)
+      (get b SELF b)
+      (sum a b)
+      (end)
+    )
+  )
+)
+
+; Constantes del módulo
+(Constants
+  (a num 5)
+  (b num 3)
+  (zero num 0)
+  (MAIN code MAIN)
+  ; En estos, "num" es la operación. Existen más operaciones:
+
+  ; int recibe un número, devuelve un valor tipo Prelude.Num
+  ; float recibe un número, devuelve un valor tipo Prelude.Float
+  ; string recibe un string, devuelve un valor tipo Prelude.String
+  ; type recibe un tipo, devuelve un valor tipo Prelude.Type
+  ; function recibe un tipo función, devuelve un valor tipo Prelude.Function
+
+  ; type y function son diferentes porque type es solo información de tipo,
+  ; es para que lo usen los módulos y para reflexión, en cambio function
+  ; es un objeto ejecutable, es para usar funciones como valores, como en
+  ; los lenguajes con funciones de primera clase.
+
+  ; La operacion num no debería existir, solo int y float
+)
+)

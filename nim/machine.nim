@@ -70,6 +70,7 @@ proc run(inst: Inst, st: State) =
     of machineCode:
       addState(code)
       var nst = states[states.high]
+      nst.outs = code.args.outs
       for i in (0 .. code.args.ins.high):
         let an = code.args.ins[i]
         let rn = inst.args.ins[i]
