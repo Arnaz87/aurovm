@@ -5,6 +5,7 @@
 
 var states: seq[State] = @[] # Es un Stack. Usar add y pop.
 var modules: Table[string, Module] = initTable[string, Module](8)
+var machineStart: Code = nil
 
 proc addModule(m: Module) =
   modules[m.name] = m
@@ -12,7 +13,6 @@ proc addState*(code: Code) =
   var st = State(run:true, pc: 0, jump: false)
   st.code = code
   st.regs = makeObject(code.regs)
-  st.regs["SELF"] = StructValue(code.module.data)
   states.add(st)
 
 proc findLabel(code: Code, str: string): int =
@@ -38,6 +38,8 @@ proc run(inst: Inst, st: State) =
     var obj = st.regs[inst.a].obj
     var val = st.regs[inst.c]
     obj[inst.b] = val
+  of icns:
+    st.regs[inst.a] = st.code.module.data[inst.b.s]
   of inew:
     let stStruct = st.regs.struct
     let mtype = stStruct.getType(inst.a)
@@ -117,9 +119,9 @@ proc run() =
       discard states.pop()
 
 proc start() =
-  let mainModule = modules["MAIN"]
-  let mainCode = mainModule.data["MAIN"].code
-  addState(mainCode)
+  if machineStart == nil:
+    raise newException(Exception, "No machine start code indicated.")
+  addState(machineStart)
   try:
     run()
   except Exception:

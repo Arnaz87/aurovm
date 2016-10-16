@@ -109,29 +109,7 @@ proc readProc(obj: Object) =
 let readRegs = newStruct("read-regs", @[("r", StringType)])
 let readCode = newNativeCode("read", nArgs(@[], @["r"]), readRegs, readProc)
 
-
-let preludeStruct = Struct(name: "Prelude", info: @[
-  # Basic Types
-  ("Num", TypeType),
-  ("Bool", TypeType),
-  ("String", TypeType),
-
-  ("Code", TypeType),
-  ("Type", TypeType),
-  ("Any", TypeType),
-
-  # Functions
-  ("print", CodeType),
-  ("add", CodeType),
-  ("itos", CodeType),
-  ("inc", CodeType),
-  ("dec", CodeType),
-  ("gtz", CodeType),
-  ("strcat", CodeType),
-  ("read", CodeType),
-  ])
-let preludeType = StructType(preludeStruct)
-let preludeData = makeObject(preludeStruct)
+var preludeData = initTable[string, Value]()
 
 preludeData["Bool"] = TypeValue(BoolType)
 preludeData["Num"] = TypeValue(NumberType)
@@ -151,5 +129,5 @@ preludeData["strcat"] = CodeValue(strcatCode)
 preludeData["read"] = CodeValue(readCode)
 
 
-var prelude = Module(name: "Prelude", struct: preludeStruct, data: preludeData)
+var prelude = Module(name: "Prelude", data: preludeData)
 addModule(prelude)

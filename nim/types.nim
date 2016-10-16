@@ -64,8 +64,7 @@ type
     # que tiene una estructura fija de salidas.
   Module = ref object of RootObj
     name: string
-    struct: Struct
-    data: Object
+    data: Table[string, Value]
 
 
   KeyKind = enum intKey, strKey
@@ -79,7 +78,7 @@ type
     of strKey: s: string
 
   InstKind = enum
-    inop, icpy, iget, iset, icall, inew, iend, ijmp, iif, iifn, ilbl
+    inop, icpy, iget, iset, icall, inew, iend, ijmp, iif, iifn, ilbl, icns
   Inst = object
     case kind: InstKind
     of icall:
@@ -135,6 +134,8 @@ proc IGet(a: string, b: string, c: string): Inst =
   return Inst(kind: iget, a: StrKey(a), b: StrKey(b), c: StrKey(c))
 proc ISet(a: string, b: string, c: string): Inst =
   return Inst(kind: iset, a: StrKey(a), b: StrKey(b), c: StrKey(c))
+proc ICns(a: string, b: string): Inst =
+  return Inst(kind: icns, a: StrKey(a), b: StrKey(b))
 proc INew(a: string): Inst =
   return Inst(kind: inew, a: StrKey(a))
 proc IJmp(str: string): Inst =

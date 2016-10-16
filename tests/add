@@ -27,29 +27,23 @@
 ;Esta sección define más tipos
 (Structs
   (SELF 
-    (MAIN Code) ;Es necesario exportar la función MAIN, con el nombre MAIN
     (a Num)
     (b Num)
     (zero Num)
   )
   (mult-regs
-    (SELF SELF)
-
     (n Num)
     (m Num)
     (r Num)
     (cond Bool)
   )
   (sum-regs
-    (SELF SELF)
-
     (a Num)
     (b Num)
     (r Num)
     (rs Num)
   )
   (main-regs
-    (SELF SELF)
     (a Num)
     (b Num)
   )
@@ -62,17 +56,7 @@
     mult-regs
     (in n m) (out r)
     (Code
-
-      ;(function mult (n, m)
-        r = 0
-        repeat:
-          if not m>0 break
-          r = add(r, n)
-          m--
-        return r
-      end)
-
-      (get r SELF zero)
+      (cns r zero)
       (lbl start)
       (gtz cond m)
       (ifn end cond)
@@ -94,12 +78,12 @@
     )
   )
 
-  (MAIN
+  (main
     main-regs
     (in) (out) ;Sin argumentos ni resultados
     (Code
-      (get a SELF a)
-      (get b SELF b)
+      (cns a a)
+      (cns b b)
       (sum a b)
       (end)
     )
@@ -111,7 +95,6 @@
   (a num 5)
   (b num 3)
   (zero num 0)
-  (MAIN code MAIN)
   ; En estos, "num" es la operación. Existen más operaciones:
 
   ; int recibe un número, devuelve un valor tipo Prelude.Num
@@ -126,5 +109,11 @@
   ; los lenguajes con funciones de primera clase.
 
   ; La operacion num no debería existir, solo int y float
+)
+(Metadata
+  (name add)
+  (start main)
+  ;El único start que se ejecuta es el del primer módulo cargado.
+  ;El start de los modulos cargados como dependencias se ignora.
 )
 )

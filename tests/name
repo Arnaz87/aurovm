@@ -13,45 +13,34 @@
     (read Prelude read 1 0)
   )
   (Structs
-    (SELF
-      (MAIN Code)
-      (str1 String)
-      (str2 String)
-      (name String)
-      (prompt String)
-    )
-    (func$regs
-      (SELF SELF)
+    (func-regs
       (a String)
       (b String)
       (name String)
     )
-    (MAIN$regs
-      (SELF SELF)
+    (main-regs
       (nm String)
       (msg String)
     )
   )
   (Functions
     (func
-      func$regs
+      func-regs
       (in name) (out)
       (Code
-        (get a SELF str1)
+        (cns a str1)
         (strcat a a name)
-        (get b SELF str2)
+        (cns b str2)
         (strcat a a b)
         (print a)
         (end)
       )
     )
-    (MAIN
-      MAIN$regs
+    (main
+      main-regs
       (in) (out) ;Ambos Vacíos
       (Code
-        ;(get nm SELF name)
-
-        (get msg SELF prompt)
+        (cns msg prompt)
         (print msg)
         (read nm)
         (func nm)
@@ -63,7 +52,14 @@
     (str1 str "Hola ")
     (str2 str "!")
     (prompt str "¿Cómo te llamas?: ")
-    (name str "Arnaud")
-    (MAIN code MAIN)
+  )
+  (Metadata
+    ;Por ahora metadata solo tiene los datos del módulo, pero aquí también
+    ;van cosas como propiedades de los tipos (como si son mutables, o de valor,
+    ;etc) y de funciones (inline, puras, etc), también nombres de variables
+    ;etc, es decir, todo lo que sean metadatos del módulo
+
+    (name name)
+    (start main)
   )
 )

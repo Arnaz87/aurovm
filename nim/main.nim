@@ -14,38 +14,26 @@ include prelude
 if paramCount() == 0:
   let mainArgs = Args(ins: @[], outs: @[])
   let mainRegs = newStruct("main-regs", @[
-    ("SELF", Type()),
     ("a", NumberType),
     ("b", NumberType),
     ("r", NumberType),
     ("rs", StringType),])
   let mainInst = @[
-    IGet("a", "SELF", "a"),
-    IGet("b", "SELF", "b"),
+    ICns("a", "a"),
+    ICns("b", "b"),
     ICall(addCode, @["r"], @["a", "b"]),
     ICall(itosCode, @["rs"], @["r"]),
     ICall(printCode, @[], @["rs"]),
     IEnd ]
   let mainCode = newMachineCode("MAIN", mainArgs, mainRegs, mainInst)
 
-  let moduleStruct = Struct(name: "MAIN", info: @[
-    ("a", NumberType),
-    ("b", NumberType),
-    ("MAIN", CodeType),
-
-    ("add", CodeType),
-    ("print", CodeType),
-    ("itos", CodeType)
-  ])
-  let moduleType = StructType(moduleStruct)
-  let moduleData = makeObject(moduleStruct)
+  var moduleData = initTable[string, Value]()
   moduleData["a"] = NumberValue(4)
   moduleData["b"] = NumberValue(5)
   moduleData["MAIN"] = CodeValue(mainCode)
 
-  var module = Module(name: "MAIN", struct: moduleStruct, data: moduleData)
+  var module = Module(name: "MAIN", data: moduleData)
 
-  mainRegs.info[1].t = moduleType
   mainCode.module = module
 
   addModule(module)
@@ -58,7 +46,7 @@ else:
     echo "Error: The contents of " & filename & " is not a valid List."
     quit(QuitFailure)
 
-  let module = Module(name: "MAIN")
+  let module = Module()
 
   # Los Structs a veces dependen de sí mismos, y de las funciones, así que
   # hay que crear el Struct, pero los tipos de sus campos se deben asignar
@@ -77,8 +65,8 @@ else:
       discard # Por ahora se puede usar la tabla de módulos de la máquina
     of "Types":
       for typeNode in sectionNode.tail:
-        let modData: Object = modules[typeNode[1].str].data
-        let typeVal: Value  = modData[typeNode[2].str]
+        let modData = modules[typeNode[1].str].data
+        let typeVal = modData[typeNode[2].str]
         types[typeNode[0].str] = typeVal.tp
     of "Structs":
       for structNode in sectionNode.tail:
@@ -93,8 +81,8 @@ else:
     of "FuncRefs":
       for funcNode in sectionNode.tail:
         let name = funcNode[0].str
-        let module: Object = modules[funcNode[1].str].data
-        let code: Code = module[funcNode[2].str].code
+        let module = modules[funcNode[1].str].data
+        let code = module[funcNode[2].str].code
         let outc = funcNode[3].str.parseInt
         let inc  = funcNode[4].str.parseInt
         funcs[name] = (code: code, outc: outc, inc: inc)
@@ -117,6 +105,7 @@ else:
             of "cpy": ICpy(nd[1].str, nd[2].str)
             of "get": IGet(nd[1].str, nd[2].str, nd[3].str)
             of "set": ISet(nd[1].str, nd[2].str, nd[3].str)
+            of "cns": ICns(nd[1].str, nd[2].str)
             of "new": INew(nd[1].str)
             #of "call": ICall(nd[1].str, nd.tail)
             of "lbl": ILbl(nd[1].str)
@@ -138,6 +127,12 @@ else:
     of "Constants":
       # Las constantes se deben calcular después de todos los tipos
       constantsNode = sectionNode.tail
+    of "Metadata":
+      for dataNode in sectionNode.tail:
+        case dataNode.head.str
+        of "name": module.name = dataNode[1].str
+        of "start": machineStart = funcs[dataNode[1].str].code
+        else: discard
     else:
       echo "Unrecognized Section: " & sectionNode.head.str
 
@@ -148,8 +143,7 @@ else:
       if struct.info[i].s == fut.reg:
         struct.info[i].t = types[fut.val]
 
-  module.struct = types["SELF"].struct
-  module.data = makeObject(module.struct)
+  module.data = initTable[string, Value]()
 
   for node in constantsNode:
     let name = node[0].str
