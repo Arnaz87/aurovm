@@ -1,5 +1,4 @@
 import Prelude {
-  Void = Nil;
   print = print;
   gtz = gtz;
   concat = concat;
@@ -11,12 +10,12 @@ proc MAIN () {
 
   while (gtz(bottles)) {
     String plural = " bottles";
-    if (eq(bottles == 1)) {plural = " bottle"}
+    if (eq(bottles, 1)) { plural = " bottle"; }
 
     print(concat(concat(bottles, plural), " of beer on the wall"));
     print(concat(concat(bottles, plural), " of beer"));
     print("Take one down, pass it around");
-    bottles = dec(bottles, 1);
+    bottles = dec(bottles);
     print(concat(concat(bottles, plural), " of beer on the wall"));
     print("");
   }

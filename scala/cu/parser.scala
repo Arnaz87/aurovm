@@ -83,16 +83,9 @@ import WsApi._
 import Lexical.{kw => Kw}
 
 object Expressions {
-  private val arg = P(Lexical.ident ~ "=" ~ expr) map Ast.Arg.tupled
-  private val args = P("(" ~/ arg.rep(sep = ",")  ~ ")")
-  val callbase = P(Lexical.ident ~ args)
-
   val variable = P(Lexical.ident) map Ast.Var
   val const = P(Lexical.number | Lexical.const | Lexical.string)
-  val call = P(callbase ~ "." ~ Lexical.ident) map {
-    case (func, args, field) => Ast.Call(func, args, Some(field))
-  }
-
+  val call = P(Lexical.ident ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.Call.tupled
   val expr: P[Ast.Expr] = P(const | call | variable | "(" ~ expr ~ ")");
 }
 
@@ -103,9 +96,7 @@ object Statements {
 
   val decl = P(Lexical.typename ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
   val assign = P(Lexical.ident ~ "=" ~/ Expressions.expr ~ ";").map(Ast.Assign.tupled)
-  val call = P(Expressions.callbase ~ ";") map {
-    case (func, args) => Ast.Call(func, args, None)
-  }
+  val call = Expressions.call ~ ";"
 
   val block = P("{" ~ stmt.rep ~ "}").map(Ast.Block)
 
@@ -127,8 +118,9 @@ object Statements {
 object Toplevel {
   val moduleName = P(CharIn('a' to 'z', 'A' to 'Z').rep.!)
 
+  val importkind = P(Kw("proc") map (_ => Ast.ProcKind))
   val importfield =
-    P(Lexical.ident ~ "=" ~ Lexical.name ~ ";").map(Ast.ImportField.tupled)
+    P(importkind ~ Lexical.ident ~ "=" ~ Lexical.name ~ ";").map(Ast.ImportField.tupled)
   val importstmt = P(Kw("import") ~/ Lexical.name ~
     "{" ~ importfield.rep ~ "}").map(Ast.Import.tupled)
 
@@ -142,60 +134,4 @@ object Toplevel {
   val toplevel: P[Ast.Toplevel] = P(importstmt | proc)
 
   val program: P[Ast.Program] = P(toplevel.rep).map(Ast.Program)
-}
-
-
-object Main {
-
-  def parse_text (text: String) = {
-    P(Toplevel.program ~ End).parse(text) match {
-      case Parsed.Success(succ, _) => succ
-      case fail: Parsed.Failure =>
-        print(fail.extra.traced.trace)
-        System.exit(0)
-        ???
-    }
-  }
-
-  def parse_file (name: String) = {
-    parse_text(scala.io.Source.fromFile(name).mkString)
-  }
-
-  def manual (): Nothing = {
-    println("Usage: (-i <code> | -f <filename>) [-o <output filename>]")
-    System.exit(0)
-    return ???
-  }
-
-  def main (args: Array[String]) {
-    import arnaud.myvm.codegen.ProgState
-    import arnaud.sexpr.Node
-
-    val parsed = args(0) match {
-      case "-f" => parse_file(args(1))
-      case "-i" => parse_text(args(1))
-      case _ => manual()
-    }
-    println(parsed)
-
-    println()
-
-    val cgnode = CodeGen.program(parsed)
-    println(arnaud.myvm.codegen.Nodes.sexpr(cgnode).prettyRepr)
-
-    val progstate = new ProgState()
-    progstate %% cgnode
-    val compiled = progstate.compile()
-    val output = compiled.prettyRepr
-    println(output)
-
-    if (args.length >= 4 && args(2) == "-o") {
-      import java.io._
-      val outname = args(3)
-      val pw = new PrintWriter(new File(outname))
-      pw.write(output)
-      pw.close
-      println(s"File $outname saved")
-    }
-  }
 }

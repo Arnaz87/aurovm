@@ -44,7 +44,8 @@ object Implicits {
   implicit def listNode(sq: Seq[Node]) = new ListNode(sq)
 }
 
-object Main {
+object Node {
+  def parse(text: String): Node = new Parser(text.toIterator).parseNode.get
   def main(args: Array[String]) {
     val demostr = """
       (a b

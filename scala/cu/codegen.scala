@@ -12,10 +12,7 @@ object CodeGen {
       case Null => CG.Nil
       case Var(Id(name)) => CG.Var(name)
 
-      case Call(Id(fnm), args, field) =>
-        CG.NmCall(fnm, args map {
-          case Arg(Id(nm), vl) => (nm, gen(vl))
-        }, field map {_.name})
+      case Call(Id(fnm), args) => CG.Call(fnm, args map gen)
 
       case Decl(tp, pts) => {
         CG.Block(pts.map {
@@ -33,15 +30,16 @@ object CodeGen {
           case None => CG.Nil
         })
 
-      case Import(mod, fs) =>
+      /*case Import(mod, fs) =>
         CG.Block(fs map {case ImportField(Id(nm), imp) =>
           CG.TypeSet(nm, CG.Import(mod, imp))
-        })
+        })*/
+      case Import(mod, fs) => CG.Nil
       case Proc(Id(procnm), params, body) =>
-        CG.TypeSet(procnm, CG.Proc(
+        CG.Proc(procnm, Nil, // returns
           params map {case Param(tp, Id(nm)) => nm},
           gen(body)
-        ))
+        )
     }
   }
 

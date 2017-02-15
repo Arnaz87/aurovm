@@ -1,0 +1,190 @@
+/*== PseudoJava ==*/
+
+interface Shape {
+  int area() ;
+}
+
+class Circle {
+  int radius;
+
+  @override
+  int area() {
+    return (radius*radius*PI)/2;
+  }
+}
+
+Shape s = new Circle(4);
+print(s.area();)
+
+/*== Cu - funcs ==*/
+
+// Las líneas con //!! son importantes para el concepto,
+// y su funcionamiento aún no está implementado
+
+// Además de ser genéricos, los objetos funciones reciben un numero
+// variable de argumentos, y tienen tanto entradas como salidas.
+type ISFunc = Function[Int, Shape]
+
+struct Shape {
+  Object obj;
+  ShapeVtable vtbl;
+}
+
+struct ShapeVtable {
+  IOFunc area;
+}
+
+struct Circle {
+  Int radius;
+}
+
+proc CircleArea (Int r) (Circle c) {
+  r = (c.radius*c.radius*PI)/2;
+}
+
+proc CircleInterfaceArea (Int r) (Shape s) {
+  r = CircleArea(s as Circle);
+}
+
+ShapeVtable circleShape = {
+  // asfunc debe ser una instrucción que tome un procedimiento
+  // y lo devuelva como un objeto en su forma de función.
+  area = asfunc(CircleInterfaceArea)
+}
+
+proc main {
+  Circle _c = {
+    radius = 4;
+  }
+  Shape s = {
+    obj = asany(_c);
+    vtbl = circleShape;
+  }
+  Int _a = call(s.vtbl.area, s);
+  print(_a);
+}
+
+/*== Cu - methods ==*/
+
+// Ser más específico con esto
+generic Area (Int r) (* obj);
+
+struct Circle {
+  Int radius;
+}
+
+method Area (Int r) (Circle c) {
+  r = (c.radius*c.radius*PI)/2;
+}
+
+proc main {
+  Circle _c = {
+    radius = 4;
+  }
+  // La desventaja es que no hay garantía con los métodos.
+  Object s = asany(_c);
+  print(Area(s));
+}
+
+/*== Cu - methods manual ==*/
+
+struct AreaEntry {
+  IOFunc f;
+  Type tp;
+}
+
+proc area (Int r) (Object obj) {
+  Type tp = gettype(obj);
+  IOFunc f = null;
+  for (entry = AreaEntry) {
+    if (entry.tp == tp) {
+      f = entry.f;
+    }
+  }
+  r = call(f, obj)
+}
+
+Array[AreaEntry] areas = {};
+
+struct Circle {
+  Int radius;
+}
+
+proc CircleArea (Int r) (Circle c) {
+  r = (c.radius*c.radius*PI)/2;
+}
+
+proc CircleAreaMethod (Int r) (Object o) {
+  r = CircleArea( as[Circle](o) );
+}
+
+areas.push(AreaEntry{
+  f = asfunc(CirlceAreaMethod)
+});
+
+proc main {
+  Circle _c = {
+    radius = 4;
+  }
+  Object s = asany(_c);
+  print(area(s));
+}
+
+/*== Tuples ==*/
+
+// Esto es difícil, los tuples usan un número variable de argumentos.
+// nombre, apellido, edad, papá, mamá
+type Person = Tuple[String, String, Int, Person, Person]
+
+// Probablemente más fácil de representar
+type H1 = HL[Person, HNil]
+type H2 = HL[Person, H1]
+type H3 = HL[Int, H2]
+type H4 = HL[String, H3]
+type H5 = HL[String, H4]
+type Person = Tuple[H5]
+
+@{static, type}
+proc Box (Type r) (Type t) {
+  r = {};
+  Field field = {
+    name = "val",
+    type = t
+  };
+  pushField(r, field);
+}
+
+@{static, type}
+proc Vector (Type r) (Type t, Int len) {
+  r = {};
+  while (len > 0) {
+    Field field = {
+      name = itos(len),
+      type = t
+    }
+    pushField(r, field);
+    len = len-1;
+  }
+}
+
+proc load (Module mod) () {
+  Type h1 = hL(Person, hNil)
+  Type h2 = hL(Person, h1)
+  Type h3 = hL(Int, h2)
+  Type h4 = hL(String, h3)
+  Type h5 = hL(String, h4)
+  Type person = Tuple(h5)
+  pushType(mod, person, "Person")
+}
+
+// Lista de casos
+
+Cada función o tipo puede ser una de las variaciones:
+externo
+externo genérico
+interno definición
+interno genérico definición
+interno genérico instancia
+
+Es decir, en total, hay 10 distintas variaciones. Son demasiadas.
+

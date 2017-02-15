@@ -20,7 +20,10 @@ Las declaraciones de nivel superior son las que definen el contenido de un Módu
 
 Una declaración import indica qué valores de un módulo externo deben ser usables en el módulo actual, y con qué nombre se deben acceder.
 
-`import := "import" externalModuleName "{" {id "=" id ";"} "}"`
+~~~
+import := "import" externalModuleName "{" {field ";"} "}"
+field := ("proc" | "type") id "=" id
+~~~
 
 ## Procedimientos
 

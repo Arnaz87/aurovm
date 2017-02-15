@@ -1,0 +1,79 @@
+(
+  (Imports
+    (Prelude (package Cu.Core) (module Primitives))
+    (IArray (package Cu.Core) (module Array) (params Int))
+  )
+  (Types
+    (Any Prelude Any)
+    (String Prelude String)
+    (Int Prelude Int)
+
+    (IntArray IArray Array)
+
+    ; Tipos paramétricos
+    :(IntArray Prelude Array (Int)) ;! Lista dinámica
+  )
+  (FuncRefs
+    ;(name module field outs ins)
+
+    (strcat Prelude strcat 1 2)
+    (print Prelude print 0 1)
+    (read Prelude read 1 0)
+
+    (index IArray index 1 2)
+
+    ;? Dafuq aqui, hay demasiados parámetros, y hay una lista de tipos ahí
+    ;  toda atravesada que las demás rutinas no tienen y que no se ve bien
+    ;(index Prelude arrayIndex (Int) 1 2)
+  )
+  (Structs
+    (func-regs
+      (a String)
+      (b String)
+      (name String)
+    )
+    (main-regs
+      (nm String)
+      (msg String)
+    )
+  )
+  (Functions
+    (func
+      func-regs
+      (in name) (out)
+      (Code
+        (cns a str1)
+        (strcat a a name)
+        (cns b str2)
+        (strcat a a b)
+        (print a)
+        (end)
+      )
+    )
+    (main
+      main-regs
+      (in) (out) ;Ambos Vacíos
+      (Code
+        (cns msg prompt)
+        (print msg)
+        (read nm)
+        (func nm)
+        (end)
+      )
+    )
+  )
+  (Constants
+    (str1 str "Hola ")
+    (str2 str "!")
+    (prompt str "¿Cómo te llamas?: ")
+  )
+  (Metadata
+    ;Por ahora metadata solo tiene los datos del módulo, pero aquí también
+    ;van cosas como propiedades de los tipos (como si son mutables, o de valor,
+    ;etc) y de funciones (inline, puras, etc), también nombres de variables
+    ;etc, es decir, todo lo que sean metadatos del módulo
+
+    (name arrays)
+    (start main)
+  )
+)

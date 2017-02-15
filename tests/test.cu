@@ -5,7 +5,7 @@ import Prelude {
 
 proc MAIN () {
   // print("Hola"); // forma idónea
-  print(a = "Hola");
+  //print(a = "Hola");
 }
 
 /*

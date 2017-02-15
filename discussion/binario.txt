@@ -1,0 +1,41 @@
+
+0:""   ; Nombre del módulo
+xx ; Índice del punto de entrada
+
+01 ; Cantidad de módulos importados
+
+; Nombre del módulo, cantidad de tipos importados, cantidad de funciones
+7:Prelude 03 00
+  ; Nombre del tipo, cantidad de campos
+  3:Any 00
+  6:String 00
+
+02 ; Cantidad de estructuras
+
+; Nombre de la estructura, cantidad de campos
+4:func 03
+  ; De cada campo, Tipo y Nombre
+  01 1:a ; 01: Prelude.String
+  01 a:b
+  01 4:name
+
+4:main 02
+  01 2:nm
+  01 3:msg
+
+02 ; Cantidad de rutinas
+
+; Nombre
+4: func
+  ; Número de entradas, registros de entrada
+  02 00 01
+  ; Número de salidas, registros de salida
+  01 03
+  ; Número de registros, tipos de cada registro
+  03 01 01 01
+  ;Número de BYTES (no instrucciones) del código
+  xx
+    xx xx xx xx xx
+
+
+

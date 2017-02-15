@@ -27,7 +27,8 @@ class ProcState (val prog: ProgState) {
   }
 
   val code: Buffer[Inst] = new ArrayBuffer[Inst](64)
-  val params = new ArrayBuffer[(String, String)](4)
+  val params = new ArrayBuffer[String](4)
+  val returns = new ArrayBuffer[String](4)
 
   val regs: Buffer[(String, String)] = new ArrayBuffer()
 
@@ -69,9 +70,16 @@ class ProcState (val prog: ProgState) {
 
   def setParams (params: Seq[String]) {
     params foreach {p =>
-      val r = FieldVar(RegId("ARGS"), RegId(p))
-      scopes(p) = r
-      this.params += ((p, "Any"))
+      this.params += p
+      //val r = FieldVar(RegId("ARGS"), RegId(p))
+      scopes(p) = RegVar(RegId(p))
+    }
+  }
+
+  def setReturns (params: Seq[String]) {
+    params foreach {p =>
+      this.returns += p
+      scopes(p) = RegVar(RegId(p))
     }
   }
   
@@ -95,37 +103,11 @@ class ProcState (val prog: ProgState) {
       case Block(nodes) =>
         nodes.foreach(%% _)
         RegId("$nil")
-      case NmCall(func, args, field) =>
-        regs += ((func, func))
-        code += Inst.New(func)
-        args.foreach{ case (argnm, _arg) =>
-          val arg = %%(_arg)
-          code += Inst.Set(func, argnm, arg.name)
-        }
-        code += Inst.Call(func)
-        field match {
-          case Some(f) =>
-            val tmp = newTemp()
-            code += Inst.Get(tmp.name, func, f)
-            tmp
-          case None => RegId("$nil")
-        }
-      // Este call por ahora funciona, pero es incorrecto.
-      // Las funciones no necesariamente van arecibir argumentos nombrados
-      // con letras desde la 'a' ni van a devolver un solo resultado 'r'.
-      case Call(func, args) =>
-        regs += ((func, func))
-        var aChar = 'a'
-        code += Inst.New(func)
-        args.foreach{ _arg =>
-          val arg = %%(_arg)
-          code += Inst.Set(func, aChar.toString, arg.name)
-          aChar = (aChar + 1).toChar
-        }
-        code += Inst.Call(func)
-        val reg = newReg("r")
-        code += Inst.Get(reg.name, func, "r")
-        reg
+      case Call(func, gs) =>
+        val tmp = newTemp()
+        val args = tmp +: (gs map %%)
+        code += Inst.Call(func, args map (_.name))
+        tmp
       case Declare(nm) => // (nm, tp)
         val reg = newReg(nm)
         scopes(nm) = RegVar(reg)
@@ -168,49 +150,7 @@ class ProcState (val prog: ProgState) {
         %%(orelse)
         code += Inst.Lbl($end)
         RegId("$nil")
-      /*
-      case DeclareGlobal(nm) =>
-        val reg = st.newReg(nm)
-        st.scopes.bottom(nm) = reg
-        reg
-      case Assign(nm, _r) =>
-        val l = st.scopes(nm)
-        val r = %%(st, _r)
-        st.code += Inst.Cpy(l.name, r.name)
-        l
-      // Este call por ahora funciona, pero es incorrecto.
-      // Las funciones no necesariamente van arecibir argumentos nombrados
-      // con letras desde la 'a' ni van a devolver un solo resultado 'r'.
-      case Call(func, args) =>
-        var aChar = 'a'
-        st.code += Inst.New(func)
-        args.foreach{ _arg =>
-          val arg = %%(st, _arg)
-          st.code += Inst.Set(func, aChar.toString, arg.name)
-          aChar = (aChar + 1).toChar
-        }
-        st.code += Inst.Call(func)
-        val reg = st.newReg("r")
-        st.code += Inst.Get(reg.name, func, "r")
-        reg
-      case Undeclared(nm, node) =>
-        st.scopes %% nm match {
-          case None => %%(st, node)
-          case _ => RegInfo.nil
-        }
-      case If(cond, body, orelse) =>
-        val $else = st.getLabel()
-        val $end  = st.getLabel()
-        val $cond = %%(st, cond)
-        st.code += Inst.Ifn($else, $cond.name)
-        %%(st, body)
-        st.code += Inst.Jmp($end)
-        st.code += Inst.Lbl($else)
-        %%(st, orelse)
-        st.code += Inst.Lbl($end)
-        RegInfo.nil
-      //case _ => RegInfo.nil
-      */
+      case Nil => RegId("$nil")
       //case _ => RegId("$nil")
     }
   }

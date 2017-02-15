@@ -39,9 +39,11 @@ object Nodes {
 
   case class Narr(body: Seq[Node]) extends Node
 
-  case class TypeSet(name: String, nd: Node) extends Node
-  case class Import(mod: String, field: String) extends Node
-  case class Proc(params: Seq[String], body: Node) extends Node
+  case class ImportProc(name: String, mod: String, field: String) extends Node
+  case class Proc(name: String, rets: Seq[String], params: Seq[String], body: Node) extends Node
+
+  // TODO: Definir el nodo de estructuras y de importar tipos
+  // case class Struct
 
   def sexpr (nd: Node): arnaud.sexpr.Node = {
     import arnaud.sexpr._
@@ -73,9 +75,12 @@ object Nodes {
       case DeclareGlobal(nm) => ListNode("DeclareGlobal", nm)
       case Undeclared(nm, nd) => ListNode("Undeclared", nm, sexpr(nd))
 
-      case TypeSet(nm, nd) => ListNode("TypeSet", nm, sexpr(nd))
-      case Proc(ps, bd) => ListNode("Proc", new ListNode(ps map {new AtomNode(_)}), sexpr(bd))
-      case Import(mod, field) => ListNode("Import", mod, field)
+      case Proc(nm, rs, ps, bd) => ListNode(
+        "Proc", nm,
+        new ListNode(rs map {new AtomNode(_)}),
+        new ListNode(ps map {new AtomNode(_)}),
+        sexpr(bd))
+      case ImportProc(name, mod, field) => ListNode("ImportProc",name, mod, field)
 
       case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
       case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))
@@ -91,12 +96,13 @@ object Inst {
   case class Get(a: String, o: String, k: String) extends Inst
   case class Set(o: String, k: String, b: String) extends Inst
   case class New(f: String) extends Inst
-  case class Call(f: String) extends Inst
 
   case class Lbl(l: String) extends Inst
   case class Jmp(l: String) extends Inst
   case class If (l: String, a: String) extends Inst
   case class Ifn(l: String, a: String) extends Inst
+
+  case class Call(f: String, args: Seq[String]) extends Inst
 }
 
 case class RegId(name: String)

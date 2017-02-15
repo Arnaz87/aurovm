@@ -21,19 +21,13 @@ class ProgState () {
 
   def %% (tp: Node) {
     tp match {
-      case ND.TypeSet(name, vl) =>
-        vl match {
-          case ND.Import(module, field) =>
-            imports(name) = (module, field)
-          case ND.Proc(params, body) =>
-            val proc = new ProcState(this)
-            proc.setParams(params)
-            procs(name) = proc
-            proc %% body
-          case x =>
-            val name = x.getClass.getSimpleName
-            throw new Exception(s"Node type '$name' is not a type node")
-        }
+      case ND.ImportProc(name, module, field) => imports(name) = (module, field)
+      case ND.Proc(name, returns, params, body) =>
+        val proc = new ProcState(this)
+        proc.setParams(params)
+        proc.setReturns(returns)
+        proc %% body
+        procs(name) = proc
       case ND.Block(nds) =>
         nds foreach (%% _)
       case x =>
@@ -74,7 +68,6 @@ class ProgState () {
     procnd += "Functions"
     procs.foreach{ case(name, procst) =>
       val regsnm = name + "$regs"
-      val argsnm = name + "$args"
 
       val codeNode = new ArrayBuffer[Node](128)
       val regsNode = new ArrayBuffer[Node](128)
@@ -87,30 +80,32 @@ class ProgState () {
           case Inst.Get(a, b, c) => ListNode("get", a, b, c)
           case Inst.Set(a, b, c) => ListNode("set", a, b, c)
           case Inst.New(a) => ListNode("new", a)
-          case Inst.Call(a) => ListNode("call", a)
 
           case Inst.Lbl(l) => ListNode("lbl", l)
           case Inst.Jmp(l) => ListNode("jmp", l)
           case Inst.If (l, a) => ListNode("if" , l, a)
           case Inst.Ifn(l, a) => ListNode("ifn", l, a)
+
+          case Inst.Call(nm, gs) => new ListNode((nm +: gs) map {new AtomNode(_)})
         })
       }
       codeNode += ListNode("end")
-
-      regsNode += ListNode("SELF", "SELF")
-      regsNode += ListNode("ARGS", argsnm)
+      
       procst.regs.foreach{case (nm, tp) => regsNode += ListNode(nm, tp)}
 
       structnd += regsNode
 
-      val argsNode = new ArrayBuffer[Node](8)
+      /*val argsNode = new ArrayBuffer[Node](8)
       argsNode += argsnm
       procst.params foreach {
         case (nm, tp) => argsNode += ListNode(nm, tp)
       }
-      structnd += argsNode
+      structnd += argsNode*/
 
-      procnd += ListNode(name, argsnm, regsnm, codeNode)
+      val returns = new ListNode(("out" +: procst.returns) map {new AtomNode(_)})
+      val params  = new ListNode(("in" +: procst.params)  map {new AtomNode(_)})
+
+      procnd += ListNode(name, regsnm, returns, params, codeNode)
     }
 
     constnd += "Constants"
