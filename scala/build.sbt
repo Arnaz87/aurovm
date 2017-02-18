@@ -30,3 +30,6 @@ lazy val cu = (project in file("cu")).
   dependsOn(codegen)
 
 // Para correr lua, se usa lua/run
+
+lazy val bindump = (project in file("bindump")).
+  settings(commonSettings: _*)
