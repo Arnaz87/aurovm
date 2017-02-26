@@ -13,9 +13,10 @@ class ProcState (val prog: ProgState) {
     def get (k: String): Option[VarInfo] = {
       stack find {_.contains(k)} map {_ apply k} match {
         case Some(v) => Some(v)
-        case None => if (prog.globals contains k)
-          { Some(FieldVar(RegId("SELF"), RegId(k))) }
-          else { None }
+        case None =>
+          if (prog.globals contains k)
+            Some(FieldVar(RegId("SELF"), RegId(k)))
+          else None
       }
     }
     def apply(k: String): VarInfo =
@@ -38,7 +39,7 @@ class ProcState (val prog: ProgState) {
   def regName(inm: String): String = {
     val count = varCounts get inm match {
       case Some(cnt) => { varCounts(inm) = cnt+1; cnt }
-      case None => { varCounts(inm) = 0; 1 }
+      case None => { varCounts(inm) = 1; 0 }
     }
     inm + "$" + count
   }
@@ -60,7 +61,7 @@ class ProcState (val prog: ProgState) {
     val const = prog.addConstant(v)
     val nm = const.name
     regs += ((nm, "Any"))
-    code += Inst.Get(nm, "SELF", nm)
+    code += Inst.Cns(nm, nm)
     RegId(nm)
   }
 
@@ -70,16 +71,17 @@ class ProcState (val prog: ProgState) {
 
   def setParams (params: Seq[String]) {
     params foreach {p =>
-      this.params += p
-      //val r = FieldVar(RegId("ARGS"), RegId(p))
-      scopes(p) = RegVar(RegId(p))
+      val reg = newReg(p)
+      this.params += reg.name
+      scopes(p) = RegVar(reg)
     }
   }
 
   def setReturns (params: Seq[String]) {
     params foreach {p =>
-      this.returns += p
-      scopes(p) = RegVar(RegId(p))
+      val reg = newReg(p)
+      this.returns += reg.name
+      scopes(p) = RegVar(reg)
     }
   }
   
@@ -125,10 +127,11 @@ class ProcState (val prog: ProgState) {
         scopes(nm) match {
           case RegVar(l) =>
             code += Inst.Cpy(l.name, v.name)
+            l
           case FieldVar(obj, f) =>
             code += Inst.Set(obj.name, f.name, v.name)
+            obj
         }
-        RegId("$nil")
       case While(cond, body) =>
         val $start = getLabel()
         val $end = getLabel()

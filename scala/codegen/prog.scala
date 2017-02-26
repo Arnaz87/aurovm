@@ -3,9 +3,25 @@ package arnaud.myvm.codegen
 import collection.mutable.{ArrayBuffer, Buffer, Map, Set, Stack}
 import arnaud.myvm.codegen.{Nodes => ND}
 
+class Import {
+  val procs: Map[String, String] = Map()
+  val types: Map[String, String] = Map()
+}
+
 class ProgState () {
 
-  val imports: Map[String, (String, String)] = Map()
+  val imports: Map[String, Import] = Map()
+
+  def getimport (nm: String) = {
+    imports.get(nm) match {
+      case None =>
+        val imp = new Import()
+        imports(nm) = imp
+        imp
+      case Some(imp) => imp
+    }
+  }
+
   val procs: Map[String, ProcState] = Map()
 
   val globals: Set[String] = Set()
@@ -21,12 +37,16 @@ class ProgState () {
 
   def %% (tp: Node) {
     tp match {
-      case ND.ImportProc(name, module, field) => imports(name) = (module, field)
+      case ND.ImportType(name, module, field) =>
+        getimport(module).types(name) = field
+      case ND.ImportProc(name, module, field) =>
+        getimport(module).procs(name) = field
       case ND.Proc(name, returns, params, body) =>
         val proc = new ProcState(this)
         proc.setParams(params)
         proc.setReturns(returns)
         proc %% body
+        proc.code +=  Inst.End
         procs(name) = proc
       case ND.Block(nds) =>
         nds foreach (%% _)
@@ -36,47 +56,38 @@ class ProgState () {
     }
   }
 
-  def compile(): arnaud.sexpr.Node = {
+  def compileSexpr(): arnaud.sexpr.Node = {
     import arnaud.sexpr._
     import arnaud.sexpr.Implicits._
     type Node = arnaud.sexpr.Node
 
     def NBuf(i: Int = 32): Buffer[Node] = new ArrayBuffer[Node](i)
 
-    val mods: Set[String] = Set()
-    val modules: Buffer[Node] = new ArrayBuffer[Node](8)
-    val imported: Buffer[Node] = new ArrayBuffer[Node](32)
-    val procnd: Buffer[Node] = new ArrayBuffer[Node](16)
-    val structnd: Buffer[Node] = new ArrayBuffer[Node](32)
     val selfnd = NBuf(64)
     val constnd = NBuf(16)
 
     selfnd += "SELF"
     selfnd += ListNode("MAIN", "MAIN")
 
+    val imported = AtomNode("Imports") +:
+      imports.map{ case(nm, imp) =>
+        val types = imp.types.map{
+          case (nm, field) => ListNode(nm, field)
+        }
+        val procs = imp.procs.map{
+          case (nm, field) => ListNode(nm, field)
+        }
+        ListNode(nm,
+          new ListNode(AtomNode("Types") +: types.toSeq),
+          new ListNode(AtomNode("Procs") +: procs.toSeq)
+        )
+      }.toSeq
 
-    imported += "Types"
-    imports.foreach{ case(k,(m, f)) =>
-      imported += ListNode(k, m, f)
-      mods += m
-    }
-
-    modules += "Imports"
-    mods.foreach{ modules += _ }
-
-    structnd += "Structs"
-    procnd += "Functions"
-    procs.foreach{ case(name, procst) =>
-      val regsnm = name + "$regs"
-
-      val codeNode = new ArrayBuffer[Node](128)
-      val regsNode = new ArrayBuffer[Node](128)
-      regsNode += regsnm
-
-      codeNode += "Code"
-      procst.code.foreach{inst =>
-        codeNode += (inst match {
+    val procnd = AtomNode("Functions") +:
+      procs.map{ case(name, procst) =>
+        val codeNode = AtomNode("Code") +: procst.code.map{
           case Inst.Cpy(a, b) => ListNode("cpy", a, b)
+          case Inst.Cns(a, b) => ListNode("cns", a, b)
           case Inst.Get(a, b, c) => ListNode("get", a, b, c)
           case Inst.Set(a, b, c) => ListNode("set", a, b, c)
           case Inst.New(a) => ListNode("new", a)
@@ -87,26 +98,18 @@ class ProgState () {
           case Inst.Ifn(l, a) => ListNode("ifn", l, a)
 
           case Inst.Call(nm, gs) => new ListNode((nm +: gs) map {new AtomNode(_)})
-        })
-      }
-      codeNode += ListNode("end")
-      
-      procst.regs.foreach{case (nm, tp) => regsNode += ListNode(nm, tp)}
+          case Inst.End => ListNode("end")
+        }
+        
+        val regsNode = AtomNode("Regs") +: procst.regs.map{
+          case (nm, tp) => ListNode(nm, tp)
+        }
 
-      structnd += regsNode
+        val returns = new ListNode(("Out" +: procst.returns) map {new AtomNode(_)})
+        val params  = new ListNode(("In" +: procst.params)  map {new AtomNode(_)})
 
-      /*val argsNode = new ArrayBuffer[Node](8)
-      argsNode += argsnm
-      procst.params foreach {
-        case (nm, tp) => argsNode += ListNode(nm, tp)
-      }
-      structnd += argsNode*/
-
-      val returns = new ListNode(("out" +: procst.returns) map {new AtomNode(_)})
-      val params  = new ListNode(("in" +: procst.params)  map {new AtomNode(_)})
-
-      procnd += ListNode(name, regsnm, returns, params, codeNode)
-    }
+        ListNode(name, regsNode, params, returns, codeNode)
+      }.toSeq
 
     constnd += "Constants"
     globals.foreach{ name =>
@@ -123,8 +126,12 @@ class ProgState () {
       constnd += ListNode(name, tp, v.toString)
     }
 
-    structnd += selfnd
+    val structnd = ListNode("Structs")
 
-    ListNode( modules, imported, structnd, procnd, constnd )
+    ListNode( imported, structnd, procnd, constnd )
   }
+
+  // Este Int representa un byte. No se supone que esté por encima de 255
+  // Uso Int en vez de Byte porque en Java, Byte tiene signo.
+  def compileBinary(): TraversableOnce[Int] = ???
 }

@@ -40,22 +40,63 @@
   xx
     xx xx xx xx xx
 
+;== Constantes ==;
 
-; Base de datos
+03 ; Cantidad de constantes
+; El conteo de constantes empieza en 1, porque 0 es null.
+  ; Tipo de la constante, datos
+  ; Si el tipo tiene campos importados, los datos son una lista de referencias
+  ; a otras constantes, correspondientes a cada campo del tipo. Si no tiene
+  ; campos importados, los datos son primero un número indicando el tamaño de
+  ; bytes, seguido de la información binaria.
+  01 05:"Hola "
+  01 01:"!"
+  01 18:"¿Cómo te llamas?: "
+  ; Casos especiales de tipos son los números, arrays y strings. Son mágicos,
+  ; solo hace falta describir su información en bytes. No hace falta indicar
+  ; el tamaño de un string en sus datos, el tamaño de los datos ya da esa
+  ; información. Un array debería ser una lista de campos, pero como no se
+  ; puede representar una cantidad variable de campos, hay que codificar esa
+  ; misma lista en bytes, y no se puede aprovechar el tamaño de los datos como
+  ; con un string, el tamaño de un array debe estar incluido en los datos.
+  ; Un número básico, como un int32 o un float32 o un solo byte, a pesar de
+  ; tener un tamaño fijo, requiere indicar el tamaño de la información, que
+  ; en caso de un entero o float, siempre es 4 bytes, y para un byte siempre
+  ; es un solo byte.
+
+
+;== Metadatos ==;
 
 ; Una entrada está formada por un byte indicando el tipo, dos bytes
 ; por parámetro, un string de llave y un string de valor.
+; La implementación no tiene que entender el contenido de las entradas,
+; pero debe ser capaz de leerlas (parse).
 
 ; Tipos de entradas:
 ; ID: Tipo <Parámetros>
 ; 00: Global <0>
 ; 01: Módulo <1>
-; 03: Struct <1>
-; 04: Rutina <1>
-; 05: Campo <2>
-; 06: Registro <2>
+; 02: Struct <1>
+; 03: Rutina <1>
+; 04: Campo <2>
+; 05: Registro <2>
 ; 06: Instrucción <2>
+; 07: Constante <1>
 
 ; Para trabajar con un parámetro de una rutina,
-; usar una entrada para el registro al que está asociado.
+; usar una entrada con el registro al que está asociado.
+; Para trabajar con un label de una rutina,
+; usar una entrada con la instrucción que declara el label.
+
+; Entradas posiblemente importantes:
+; main: punto de entrada al programa.
+
+; static: rutina que modifica el módulo antes de poder se usable.
+; Esta es importante, aquí se pueden crear tipos, funciones, constantes y
+; hasta módulos, que los propios elementos de este módulo pueden usar luego,
+; por lo tanto es importante ejecutar esta rutina antes de que el módulo
+; completo cargue. Pero este nivel de la especificación es MUY básico, y no
+; es necesario que una implementación entienda esto para ser legal, si no se
+; ejecuta esta rutina entonces algunos elementos simplemente tendrán
+; referencias a elementos que no existen y fallarán.
 

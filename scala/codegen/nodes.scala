@@ -39,6 +39,7 @@ object Nodes {
 
   case class Narr(body: Seq[Node]) extends Node
 
+  case class ImportType(name: String, mod: String, field: String) extends Node
   case class ImportProc(name: String, mod: String, field: String) extends Node
   case class Proc(name: String, rets: Seq[String], params: Seq[String], body: Node) extends Node
 
@@ -80,7 +81,8 @@ object Nodes {
         new ListNode(rs map {new AtomNode(_)}),
         new ListNode(ps map {new AtomNode(_)}),
         sexpr(bd))
-      case ImportProc(name, mod, field) => ListNode("ImportProc",name, mod, field)
+      case ImportType(name, mod, field) => ListNode("ImportType", name, mod, field)
+      case ImportProc(name, mod, field) => ListNode("ImportProc", name, mod, field)
 
       case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
       case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))
@@ -93,6 +95,7 @@ object Nodes {
 sealed abstract class Inst
 object Inst {
   case class Cpy(a: String, b: String) extends Inst
+  case class Cns(a: String, b: String) extends Inst
   case class Get(a: String, o: String, k: String) extends Inst
   case class Set(o: String, k: String, b: String) extends Inst
   case class New(f: String) extends Inst
@@ -103,10 +106,13 @@ object Inst {
   case class Ifn(l: String, a: String) extends Inst
 
   case class Call(f: String, args: Seq[String]) extends Inst
+
+  case object End extends Inst
 }
 
 case class RegId(name: String)
 
 sealed abstract class VarInfo
 case class RegVar(val reg: RegId) extends VarInfo
+case class ConstVar(val reg: RegId) extends VarInfo
 case class FieldVar(val obj: RegId, val field: RegId) extends VarInfo
