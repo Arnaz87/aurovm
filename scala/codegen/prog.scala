@@ -4,8 +4,8 @@ import collection.mutable.{ArrayBuffer, Buffer, Map, Set, Stack}
 import arnaud.myvm.codegen.{Nodes => ND}
 
 class Import {
-  val procs: Map[String, String] = Map()
   val types: Map[String, String] = Map()
+  val procs: Map[String, String] = Map()
 }
 
 class ProgState () {
@@ -134,5 +134,40 @@ class ProgState () {
 
   // Este Int representa un byte. No se supone que esté por encima de 255
   // Uso Int en vez de Byte porque en Java, Byte tiene signo.
-  def compileBinary(): TraversableOnce[Int] = ???
+  def compileBinary(): TraversableOnce[Int] = {
+    val buf: Buffer[Int] = new ArrayBuffer(512)
+
+    def putByte (n: Int) { buf += n & 0xFF }
+    def putStr (str: String) {
+      putByte(str.size)
+      str foreach { c:Char => putByte(c.asInstanceOf[Int] & 0xFF) }
+    }
+
+    buf += imports.size
+
+    imports foreach {
+      case (nm, imp) =>
+        putStr(nm)
+
+        putByte(imp.types.size)
+        imp.types foreach {
+          case (localName, origName) =>
+            putStr(origName)
+            putByte(0) // Field Count
+        }
+
+        putByte(imp.procs.size)
+        imp.procs foreach {
+          case (localName, origName) =>
+            putStr(origName)
+            putByte(0) // Params Count
+            putByte(0) // Results Count
+        }
+    }
+
+    putByte(0) // 0 Tipos
+    putByte(0) // 0 Procs
+
+    buf
+  }
 }

@@ -13,20 +13,20 @@ Un módulo está compuesto de cuatro secciones.
 Declara los módulos externos necesarios para que el actual funcione y los componentes que se usarán de cada uno de ellos.
 
 ~~~
-<module_count: byte>
+<module_count: varint>
 {
   <module_name: string>
-  <type_count: byte>
+  <type_count: varint>
   {
     <type_name: string>
-    <field_count: byte>
+    <field_count: varint>
     <field_name: string>[field_count]
   }[byte_count]
-  <func_count: byte>
+  <func_count: varint>
   {
     <func_name: string>
-    <param_count: byte>
-    <result_count: byte>
+    <param_count: varint>
+    <result_count: varint>
   }[func_count]
 }[module_count]
 ~~~
@@ -36,13 +36,13 @@ Declara los módulos externos necesarios para que el actual funcione y los compo
 Los tipos en Cobre son equivalentes a lo que en otros contextos se conoce como estructuras o records.
 
 ~~~
-<type_count: byte>
+<type_count: varint>
 {
   <type_name: string>
-  <field_count: byte>
+  <field_count: varint>
   {
     <field_name: string>
-    <field_type: byte>
+    <field_type: varint>
   }[field_count]
 }[type_count]
 ~~~
@@ -50,20 +50,20 @@ Los tipos en Cobre son equivalentes a lo que en otros contextos se conoce como e
 ## Funciones
 
 ~~~
-<func_count: byte>
+<func_count: varint>
 {
   <func_name: string>
 
-  <param_count: byte>
-  <param_reg: byte>[param_count]
+  <param_count: varint>
+  <param_reg: varint>[param_count]
 
-  <result_count: byte>
-  <result_reg: byte>[result_count]
+  <result_count: varint>
+  <result_reg: varint>[result_count]
 
-  <register_count: byte>
-  <register_type: byte>[register_count]
+  <register_count: varint>
+  <register_type: varint>[register_count]
 
-  <code_length: byte>
+  <code_length: varint>
   <code: byte>[code_length]
 }[func_count]
 ~~~

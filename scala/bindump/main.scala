@@ -1,27 +1,12 @@
+package arnaud.myvm.bindump
 
-class Reader (filename: String) {
+class Reader (_content: Iterator[Int]) {
   import scala.collection.mutable.ArrayBuffer
-  import java.io.FileInputStream
 
   val content = new Iterator[Int] {
-    val stream = new java.io.FileInputStream(filename)
-    var _next = getNext
-
-    def getNext = stream.read() match {
-      case -1 => None
-      case n => Some(n)
-    }
-
-    var pos = 0
-
-    override def hasNext () = !_next.isEmpty
-
-    override def next () = {
-      val ch = _next.get
-      _next = getNext
-      pos += 1
-      ch
-    }
+    var pos = 0;
+    def hasNext = _content.hasNext
+    def next() = {pos += 1; _content.next}
   }
 
   var pos = content.pos
@@ -80,8 +65,18 @@ class Reader (filename: String) {
 
   def readShort () = ((readByte << 8) | readByte)
 
+  def readInt () = {
+    var n = 0
+    var byte = readByte()
+    while ((byte & 0x80) > 0) {
+      n = (n << 7) | (byte & 0x7f)
+      byte = readByte()
+    }
+    (n << 7) | (byte & 0x7f)
+  }
+
   def readString (): String = {
-    val size = readByte()
+    val size = readInt()
 
     val bts = content.take(size).toSeq
     buffer ++= bts
@@ -91,7 +86,7 @@ class Reader (filename: String) {
 
   def print_modules () {
 
-    val count = readShort()
+    val count = readInt()
     printData(s"$count Módulos")
 
     for (i <- 0 until count) {
@@ -100,12 +95,12 @@ class Reader (filename: String) {
       val name = readString()
       printData(s"$name:")
 
-      val types = readShort()
+      val types = readInt()
       printData(s"$types Tipos:")
       for (i <- 0 until types) {
         val name = readString()
         printData(s"  $name")
-        val fields = readShort()
+        val fields = readInt()
         printData(s"  $fields campos:")
 
         for (i <- 0 until fields) {
@@ -114,33 +109,33 @@ class Reader (filename: String) {
         }
       }
 
-      val funcs = readShort()
+      val funcs = readInt()
       printData(s"$funcs Rutinas:")
       for (i <- 0 until funcs) {
         val name = readString()
         printData(s"  $name:")
 
-        val ins = readByte()
+        val ins = readInt()
         printData(s"    $ins entradas")
 
-        val outs = readByte()
+        val outs = readInt()
         printData(s"    $outs salidas")
       }
     }
   }
 
   def print_structs () {
-    val count = readShort()
+    val count = readInt()
     printData(s"$count Structs")
 
     for (i <- 0 until count) {
       val name = readString()
       printData(s"$name:")
-      val fCount = readShort()
+      val fCount = readInt()
       printData(s"  $fCount campos:")
 
       for (i <- 0 until fCount) {
-        var tp = readShort()
+        var tp = readInt()
         var name = readString()
         printData(s"    tipo#$tp, $name")
       }
@@ -148,31 +143,31 @@ class Reader (filename: String) {
   }
 
   def print_funcs () {
-    val count = readShort()
+    val count = readInt()
     printData(s"$count Rutinas")
 
     for (i <- 0 until count) {
       val name = readString()
       printData(name)
 
-      val inCount = readByte()
+      val inCount = readInt()
       val ins = readBytes(inCount)
       printData(s"  $inCount entradas: ${ins.mkString(" ")}")
 
-      val outCount = readByte()
+      val outCount = readInt()
       val outs = readBytes(outCount)
       printData(s"  $outCount salidas: ${outs.mkString(" ")}")
 
-      val regCount = readShort()
+      val regCount = readInt()
       printData(s"  $regCount registros:")
 
       //val regs = readShorts(regCount)
       for (i <- 0 until regCount) {
-        val r = readShort()
+        val r = readInt()
         printData(s"    tipo #$r")
       }
 
-      val byteCount = readShort()
+      val byteCount = readInt()
       printData(s"  $byteCount bytes de Instrucciones")
 
       val bytes = readBytes(byteCount)
@@ -180,16 +175,42 @@ class Reader (filename: String) {
     }
   }
 
+  def readAll () {
+    print_modules()
+    printBar()
+    print_structs()
+    printBar()
+    print_funcs()
+  }
+}
+
+object Reader {
+  def fromFile (filename: String) = {
+    var iter = new Iterator[Int] {
+      val stream = new java.io.FileInputStream(filename)
+      var _next = getNext
+
+      def getNext = stream.read() match {
+        case -1 => None
+        case n => Some(n)
+      }
+
+      override def hasNext () = !_next.isEmpty
+
+      override def next () = {
+        val ch = _next.get
+        _next = getNext
+        ch
+      }
+    }
+    new Reader(iter)
+  }
 }
 
 object Main {
   def main (args: Array[String]) {
-    val reader = new Reader( args(0) )
+    val reader = Reader.fromFile( args(0) )
 
-    reader.print_modules()
-    reader.printBar()
-    reader.print_structs()
-    reader.printBar()
-    reader.print_funcs()
+    reader.readAll()
   }
 }

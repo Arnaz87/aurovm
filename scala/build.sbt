@@ -8,9 +8,12 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.8"
 )
 
+lazy val bindump = (project in file("bindump")).
+  settings(commonSettings: _*)
+
 lazy val codegen = (project in file("codegen")).
   settings(commonSettings: _*).
-  dependsOn(sexpr)
+  dependsOn(sexpr, bindump)
 
 lazy val sexpr = (project in file("sexpr")).
   settings(commonSettings: _*)
@@ -31,5 +34,3 @@ lazy val cu = (project in file("cu")).
 
 // Para correr lua, se usa lua/run
 
-lazy val bindump = (project in file("bindump")).
-  settings(commonSettings: _*)

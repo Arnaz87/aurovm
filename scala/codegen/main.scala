@@ -34,7 +34,10 @@ object Main {
     println("Compiled Sexpr:")
     println(progstate.compileSexpr.prettyRepr)
 
-    //println("Compiled Binary:")
+    println("Compiled Binary:")
     //println(progstate.compileBinary.toIterator.grouped(8).map{_.map{b => f"$b%02x"}.mkString(" ")}.mkString("\n"))
+
+    new arnaud.myvm.bindump.Reader(progstate.compileBinary.toIterator).readAll
+
   }
 }
