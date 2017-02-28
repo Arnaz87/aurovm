@@ -1,28 +1,31 @@
-import Prelude {
-  //Void = Nil;
-  print = print;
-  gtz = gtz;
-  dec = dec;
-  add = add;
-  concat = strcat;
-  print = print;
-  itos = itos;
-  Any = Any;
+import Prelude.print;
+import Prelude.itos;
+
+import Prelude.gtz;
+import Prelude.inc;
+import Prelude.dec;
+
+void main () {
+  int a = 5;
+  int b = 6;
+  int c = mult(a, b);
+  String str = itos(c);
+  print(str);
 }
 
-proc MAIN () {
-  Int a = 5;
-  Int b = 6;
-  Int c = mult(n=a, m=b).r;
-  String str = itos(a=c).r;
-  //String str = c;
-  print(a=str);
-}
-
-proc mult (Int n, Int m, Int r) {
-  r = 0;
-  while (gtz(a=m).r) {
-    r = add(a=r, b=n).r;
-    m = dec(a=m).r;
+int mult (int n, int m) {
+  int r = 0;
+  while ( gtz(m) ) {
+    r = add(r, n);
+    m = dec(m);
   }
+  return r;
+}
+
+int add (int n, int m) {
+  while ( gtz(m) ) {
+    n = inc(n);
+    m = dec(m);
+  }
+  return n;
 }

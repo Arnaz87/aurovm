@@ -50,6 +50,7 @@ class ProgState () {
         procs(name) = proc
       case ND.Block(nds) =>
         nds foreach (%% _)
+      case ND.Nil =>
       case x =>
         val name = x.getClass.getSimpleName
         throw new Exception(s"Node type '$name' is not a top-level node")

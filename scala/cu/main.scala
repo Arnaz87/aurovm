@@ -29,6 +29,11 @@ object Main {
     import arnaud.myvm.codegen.ProgState
     import arnaud.sexpr.Node
 
+    if (args.length < 2) {
+      manual()
+      return
+    }
+
     val parsed = args(0) match {
       case "-f" => parse_file(args(1))
       case "-i" => parse_text(args(1))
@@ -43,7 +48,7 @@ object Main {
 
     val progstate = new ProgState()
     progstate %% cgnode
-    val compiled = progstate.compile()
+    val compiled = progstate.compileSexpr()
     val output = compiled.prettyRepr
     println(output)
 

@@ -58,7 +58,7 @@ object Lexical {
     kw("null").map( _ => Ast.Null)
   )
 
-  val keywords: Set[String] = "true false null if else while return continue break goto proc import".split(' ').toSet
+  val keywords: Set[String] = "true false null if else while return continue break goto import void".split(' ').toSet
 
   val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
   val firstchar = CharIn('a' to 'z', 'A' to 'Z', "_")
@@ -105,7 +105,7 @@ object Statements {
   val ifstmt = P(Kw("if") ~/ cond ~ block ~ (Kw("else") ~ block).?).map(Ast.If.tupled)
   val whilestmt = P(Kw("while") ~/ cond ~ block).map(Ast.While.tupled)
 
-  val retstmt = P(Kw("return") ~/ Expressions.expr.? ~ ";").map(Ast.Return)
+  val retstmt = P(Kw("return") ~/ Expressions.expr.rep(sep=",") ~ ";").map(Ast.Return)
   val breakstmt = P(Kw("break") ~ ";").map(_ => Ast.Break)
   val continuestmt = P(Kw("continue") ~ ";").map(_ => Ast.Continue)
 
@@ -118,18 +118,28 @@ object Statements {
 object Toplevel {
   val moduleName = P(CharIn('a' to 'z', 'A' to 'Z').rep.!)
 
-  val importkind = P(Kw("proc") map (_ => Ast.ProcKind))
+  /*val importkind = P(Kw("proc") map (_ => Ast.ProcKind))
   val importfield =
     P(importkind ~ Lexical.ident ~ "=" ~ Lexical.name ~ ";").map(Ast.ImportField.tupled)
+
   val importstmt = P(Kw("import") ~/ Lexical.name ~
     "{" ~ importfield.rep ~ "}").map(Ast.Import.tupled)
+  */
+
+  val importstmt = P(Kw("import") ~/ Lexical.name ~ "." ~ Lexical.name ~ ";") map Ast.Import.tupled
 
   private val param = P(Lexical.typename ~ Lexical.ident) map Ast.Param.tupled
   private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
 
-  val proc =
+  /*val proc =
     P(Kw("proc") ~/ Lexical.ident ~ params ~ 
-      Statements.block).map(Ast.Proc.tupled)
+      Statements.block).map(Ast.Proc.tupled)*/
+
+  private val procType: P[Seq[Ast.Type]] =
+    P(Kw("void").map(_ => Nil) | Lexical.typename.rep(sep=",", min=1))
+
+  val proc = P(procType ~/ Lexical.ident ~ params ~ Statements.block)
+  .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
   val toplevel: P[Ast.Toplevel] = P(importstmt | proc)
 

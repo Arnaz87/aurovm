@@ -153,6 +153,9 @@ class ProcState (val prog: ProgState) {
         %%(orelse)
         code += Inst.Lbl($end)
         RegId("$nil")
+      case Return =>
+        code += Inst.End
+        RegId("$nil")
       case Nil => RegId("$nil")
       //case _ => RegId("$nil")
     }

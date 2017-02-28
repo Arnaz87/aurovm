@@ -36,6 +36,7 @@ object Nodes {
 
   case class While(cond: Node, body: Node) extends Node
   case class If(cond: Node, body: Node, orelse: Node) extends Node
+  case object Return extends Node
 
   case class Narr(body: Seq[Node]) extends Node
 
@@ -86,6 +87,7 @@ object Nodes {
 
       case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
       case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))
+      case Return => ListNode("Return")
 
       case x => ListNode(x.toString)
     }

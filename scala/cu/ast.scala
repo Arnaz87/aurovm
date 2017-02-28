@@ -25,7 +25,7 @@ object Ast {
   case class If (cond: Expr, body: Block, orelse: Option[Block]) extends Stmt
   case class While (cond: Expr, body: Block) extends Stmt
 
-  case class Return (expr: Option[Expr]) extends Stmt
+  case class Return (expr: Seq[Expr]) extends Stmt
   case object Break extends Stmt
   case object Continue extends Stmt
 
@@ -33,10 +33,9 @@ object Ast {
   case object ProcKind extends ImportKind
   case object TypeKind extends ImportKind
 
-  case class ImportField (kind: ImportKind, name: Id, imported: String)
-  case class Import (module: String, fields: Seq[ImportField]) extends Toplevel
+  case class Import (module: String, component: String) extends Toplevel
   case class Param (tp: Type, name: Id)
-  case class Proc (name: Id, params: Seq[Param], body: Block) extends Toplevel
+  case class Proc (name: Id, params: Seq[Param], returns: Seq[Type], body: Block) extends Toplevel
 
   case class Program (stmts: Seq[Toplevel])
 }
