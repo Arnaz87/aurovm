@@ -10,9 +10,9 @@ object Main {
       Block(Array(
         ImportType("Any", "Prelude", "Any"),
         ImportType("Int", "Prelude", "Int"),
-        ImportProc("iadd", "Prelude", "add"),
-        ImportProc("itos", "Prelude", "itos"),
-        ImportProc("print", "Prelude", "print"),
+        ImportProc("iadd", "Prelude", "add", 2, 1),
+        ImportProc("itos", "Prelude", "itos", 1, 1),
+        ImportProc("print", "Prelude", "print", 1, 0),
         Proc("Sum", Array("r"), Array("a", "b"), Block(Array(
           Scope(Block(Array(
             Declare("n" /*, "Int"*/),
@@ -35,9 +35,8 @@ object Main {
     println(progstate.compileSexpr.prettyRepr)
 
     println("Compiled Binary:")
-    //println(progstate.compileBinary.toIterator.grouped(8).map{_.map{b => f"$b%02x"}.mkString(" ")}.mkString("\n"))
-
-    new arnaud.myvm.bindump.Reader(progstate.compileBinary.toIterator).readAll
+    val bindata = progstate.compileBinary
+    new arnaud.myvm.bindump.Reader(bindata.toIterator).readAll
 
   }
 }

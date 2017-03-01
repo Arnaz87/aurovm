@@ -5,7 +5,7 @@ import arnaud.myvm.codegen.{Nodes => ND}
 
 class Import {
   val types: Map[String, String] = Map()
-  val procs: Map[String, String] = Map()
+  val procs: Map[String, (String, Int, Int)] = Map()
 }
 
 class ProgState () {
@@ -39,8 +39,8 @@ class ProgState () {
     tp match {
       case ND.ImportType(name, module, field) =>
         getimport(module).types(name) = field
-      case ND.ImportProc(name, module, field) =>
-        getimport(module).procs(name) = field
+      case ND.ImportProc(name, module, field, ins, outs) =>
+        getimport(module).procs(name) = (field, ins, outs)
       case ND.Proc(name, returns, params, body) =>
         val proc = new ProcState(this)
         proc.setParams(params)
@@ -51,8 +51,8 @@ class ProgState () {
       case ND.Block(nds) =>
         nds foreach (%% _)
       case ND.Nil =>
-      case x =>
-        val name = x.getClass.getSimpleName
+      case other =>
+        val name = other.getClass.getSimpleName
         throw new Exception(s"Node type '$name' is not a top-level node")
     }
   }
@@ -76,7 +76,8 @@ class ProgState () {
           case (nm, field) => ListNode(nm, field)
         }
         val procs = imp.procs.map{
-          case (nm, field) => ListNode(nm, field)
+          case (nm, (field, ins, outs)) =>
+            ListNode(nm, field, ins.toString, outs.toString)
         }
         ListNode(nm,
           new ListNode(AtomNode("Types") +: types.toSeq),
@@ -134,13 +135,26 @@ class ProgState () {
 
   // Este Int representa un byte. No se supone que esté por encima de 255
   // Uso Int en vez de Byte porque en Java, Byte tiene signo.
-  def compileBinary(): TraversableOnce[Int] = {
+  def compileBinary(): Traversable[Int] = {
     val buf: Buffer[Int] = new ArrayBuffer(512)
 
     def putByte (n: Int) { buf += n & 0xFF }
+
+    def putInt (n: Int) {
+      def helper(n: Int) {
+        if (n > 0) {
+          helper(n >> 7)
+          buf += (n & 0x7f) | 0x80
+        }
+      }
+      helper(n >> 7)
+      buf += n & 0x7f
+    }
+
     def putStr (str: String) {
-      putByte(str.size)
-      str foreach { c:Char => putByte(c.asInstanceOf[Int] & 0xFF) }
+      val bytes = str.getBytes("UTF-8")
+      putInt(bytes.size)
+      bytes foreach { c:Byte => putByte(c.asInstanceOf[Int] & 0xFF) }
     }
 
     buf += imports.size
@@ -149,24 +163,25 @@ class ProgState () {
       case (nm, imp) =>
         putStr(nm)
 
-        putByte(imp.types.size)
+        putInt(imp.types.size)
         imp.types foreach {
           case (localName, origName) =>
             putStr(origName)
-            putByte(0) // Field Count
+            putInt(0) // Field Count
         }
 
-        putByte(imp.procs.size)
+        putInt(imp.procs.size)
         imp.procs foreach {
-          case (localName, origName) =>
+          case (localName, (origName, ins, outs)) =>
             putStr(origName)
-            putByte(0) // Params Count
-            putByte(0) // Results Count
+            putInt(ins) // Params Count
+            putInt(outs) // Results Count
         }
     }
 
-    putByte(0) // 0 Tipos
-    putByte(0) // 0 Procs
+    putInt(0) // 0 Tipos
+
+    putInt(0) // 0 Procs
 
     buf
   }

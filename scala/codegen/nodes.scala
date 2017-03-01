@@ -41,7 +41,7 @@ object Nodes {
   case class Narr(body: Seq[Node]) extends Node
 
   case class ImportType(name: String, mod: String, field: String) extends Node
-  case class ImportProc(name: String, mod: String, field: String) extends Node
+  case class ImportProc(name: String, mod: String, field: String, ins: Int, outs: Int) extends Node
   case class Proc(name: String, rets: Seq[String], params: Seq[String], body: Node) extends Node
 
   // TODO: Definir el nodo de estructuras y de importar tipos
@@ -83,7 +83,8 @@ object Nodes {
         new ListNode(ps map {new AtomNode(_)}),
         sexpr(bd))
       case ImportType(name, mod, field) => ListNode("ImportType", name, mod, field)
-      case ImportProc(name, mod, field) => ListNode("ImportProc", name, mod, field)
+      case ImportProc(name, mod, field, ins, outs) =>
+        ListNode("ImportProc", name, mod, field, ins.toString, outs.toString)
 
       case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
       case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))

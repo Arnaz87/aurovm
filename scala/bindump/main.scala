@@ -81,7 +81,8 @@ class Reader (_content: Iterator[Int]) {
     val bts = content.take(size).toSeq
     buffer ++= bts
 
-    bts.map(_.asInstanceOf[Char]).mkString
+    val bytes = bts.map(_.asInstanceOf[Byte]).toArray
+    new String(bytes, "UTF-8")
   }
 
   def print_modules () {
