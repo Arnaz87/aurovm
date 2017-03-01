@@ -1,9 +1,9 @@
-import Prelude.print;
-import Prelude.itos;
+import void Prelude.print(String);
+import String Prelude.itos(int);
 
-import Prelude.gtz;
-import Prelude.inc;
-import Prelude.dec;
+import bool Prelude.gtz(int);
+import int Prelude.inc(int);
+import int Prelude.dec(int);
 
 void main () {
   int a = 5;

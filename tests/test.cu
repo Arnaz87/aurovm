@@ -1,4 +1,4 @@
-import Prelude.print;
+import void Prelude.print(String);
 
 void main () {
   print("Hola Mundo!");

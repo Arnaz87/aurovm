@@ -58,12 +58,17 @@ class CodeGen {
           case None => CG.Nil
         })
 
-      case Import(mod, nm) =>
+      case ImportType(mod, nm) => CG.ImportType(nm, mod, nm)
+      case ImportProc(mod, nm, params, results) =>
+        CG.ImportProc(nm, mod, nm, params.size, results.size)
+
+      /*case Import(mod, nm) =>
         uses get nm match {
+          case Some(TypeUse) => CG.ImportType(nm, mod, nm)
           case Some(ProcUse) => CG.ImportProc(nm, mod, nm)
-          case Some(TypeUse) => CG.ImportProc(nm, mod, nm)
           case None => CG.Nil
-        }
+        }*/
+
       case Proc(Id(procnm), params, results, body) =>
         CG.Proc(procnm,
           results.zipWithIndex map {

@@ -126,7 +126,7 @@ object Toplevel {
     "{" ~ importfield.rep ~ "}").map(Ast.Import.tupled)
   */
 
-  val importstmt = P(Kw("import") ~/ Lexical.name ~ "." ~ Lexical.name ~ ";") map Ast.Import.tupled
+  //val importstmt = P(Kw("import") ~/ Lexical.name ~ "." ~ Lexical.name ~ ";") map Ast.Import.tupled
 
   private val param = P(Lexical.typename ~ Lexical.ident) map Ast.Param.tupled
   private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
@@ -140,6 +140,14 @@ object Toplevel {
 
   val proc = P(procType ~/ Lexical.ident ~ params ~ Statements.block)
   .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
+
+  val importType = P(Lexical.name ~ "." ~ Lexical.name ~ ";") map Ast.ImportType.tupled
+
+  val importProc = P(procType ~ Lexical.name ~ "." ~ Lexical.name ~
+    "(" ~/ Lexical.typename.rep(sep=",") ~ ")" ~ ";")
+    .map { case (rets, mod, nm, pms) => Ast.ImportProc(mod, nm, pms, rets) }
+
+  val importstmt = P(Kw("import") ~/ (importType | importProc))
 
   val toplevel: P[Ast.Toplevel] = P(importstmt | proc)
 
