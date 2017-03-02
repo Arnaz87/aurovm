@@ -106,6 +106,8 @@ class ProcState (val prog: ProgState) {
         nodes.foreach(%% _)
         RegId("$nil")
       case Call(func, gs) =>
+        // TODO: Aquí se asume que todas las funciones devuelven exactamente
+        // un resultado, lo cual, por supuesto, no es cierto.
         val tmp = newTemp()
         val args = tmp +: (gs map %%)
         code += Inst.Call(func, args map (_.name))

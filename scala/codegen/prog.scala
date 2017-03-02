@@ -158,8 +158,10 @@ class ProgState () {
     val typeMap = new IndexMap("Types")
     val procMap = new IndexMap("Procs")
 
-    def putByte (n: Int)(implicit buf: Buffer[Int]) { buf += n & 0xFF }
-    def putInt (n: Int)(implicit buf: Buffer[Int]) {
+    val buf: Buffer[Int] = new ArrayBuffer(512)
+
+    def putByte (n: Int) { buf += n & 0xFF }
+    def putInt (n: Int) {
       def helper(n: Int) {
         if (n > 0) {
           helper(n >> 7)
@@ -169,14 +171,11 @@ class ProgState () {
       helper(n >> 7)
       buf += n & 0x7f
     }
-    def putStr (str: String)(implicit buf: Buffer[Int]) {
+    def putStr (str: String) {
       val bytes = str.getBytes("UTF-8")
       putInt(bytes.size)
       bytes foreach { c:Byte => putByte(c.asInstanceOf[Int] & 0xFF) }
     }
-
-    {
-      implicit val programBuffer: Buffer[Int] = new ArrayBuffer(512)
 
       putInt(imports.size)
 
@@ -212,16 +211,16 @@ class ProgState () {
       // Asignarle un índice a cada función
       procKeys foreach (procMap.add(_))
 
-      // Escribirlas, en el mismo orden
+      def findReg (qnm: String)(implicit proc: ProcState) =
+        (proc.regs indexWhere {
+          case (nm, tp) => nm == qnm
+        })+1
+
+      // Escribir los prototipos
       procKeys foreach { name =>
-        val proc = procs(name)
+        implicit val proc = procs(name)
 
         putStr(name)
-
-        def findReg (qnm: String) =
-          (proc.regs indexWhere {
-            case (nm, tp) => nm == qnm
-          })+1
 
         putInt(proc.params.size)
         proc.params foreach {
@@ -238,62 +237,56 @@ class ProgState () {
           case (regname, typename) =>
             putInt(typeMap(typename))
         }
-
-        val code = {
-          implicit val codeBuffer = new ArrayBuffer[Int]()
-
-          val labels = new IndexMap("Labels")
-
-          proc.code foreach {
-            case Inst.Lbl(lbl) => labels.add(lbl)
-            case _ =>
-          }
-
-          def putReg(reg: String) = putInt(findReg(reg))
-          def putLbl(reg: String) = putInt(labels(reg))
-
-          def getField(o: String, k: String): Int = ???
-
-          proc.code foreach {
-            case Inst.End => putInt(0)
-            case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
-            case Inst.Cns(a, b) => { putInt(2); putReg(a); putReg(b) }
-            case Inst.Get(a, o, k) =>
-              { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
-            case Inst.Set(o, k, a) =>
-              { putInt(4); putReg(o); putInt(getField(o, k)); putReg(a) }
-            case Inst.New(a) =>
-            case Inst.Lbl(l) => { putInt(5); putLbl(l) }
-            case Inst.Jmp(l) => { putInt(6); putLbl(l) }
-            case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
-            case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
-
-            case Inst.Call(nm, gs) =>
-              putInt(procMap(nm) + 15)
-              gs foreach (putReg(_))
-          }
-
-          codeBuffer
-        }
-
-        putInt(code.size)
-        programBuffer ++= code
       }
 
-      /*
-      {
-        constants.foreach{ case (name, v) =>
-          val tp = v match {
-            case _:Int =>
-              val tpnm = imports("Prelude").types("Int")
+    // Escribir el código
+    procKeys foreach { name =>
+      implicit val proc = procs(name)
 
-          }
-          constnd += ListNode(name, tp, v.toString)
-        }
+      val labels = new IndexMap("Labels")
+
+      proc.code foreach {
+        case Inst.Lbl(lbl) => labels.add(lbl)
+        case _ =>
       }
-      */
 
-      programBuffer
+      def putReg(reg: String) = putInt(findReg(reg))
+      def putLbl(reg: String) = putInt(labels(reg))
+
+      def getField(o: String, k: String): Int = ???
+
+      putInt(proc.code.size)
+
+      proc.code foreach {
+        case Inst.End => putInt(0)
+        case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
+        case Inst.Cns(a, b) => { putInt(2); putReg(a); putReg(b) }
+        case Inst.Get(a, o, k) =>
+          { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
+        case Inst.Set(o, k, a) =>
+          { putInt(4); putReg(o); putInt(getField(o, k)); putReg(a) }
+        case Inst.New(a) =>
+        case Inst.Lbl(l) => { putInt(5); putLbl(l) }
+        case Inst.Jmp(l) => { putInt(6); putLbl(l) }
+        case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
+        case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
+
+        case Inst.Call(nm, gs) =>
+          putInt(procMap(nm) + 15)
+          gs foreach (putReg(_))
+      }
     }
+
+    // TODO: Arreglar el error con las invocaciones.
+    // Codegen asume que todas las funciones devuelven exactamente 1 valor,
+    // lo que, por supuesto, no es cierto. En este ejemplo específicamente,
+    // es un problema con print, porque no devuelve ningún valor.
+    putByte(0)
+    putByte(0)
+    putByte(0)
+    putByte(0)
+    putByte(0)
+
+    buf
   }
 }

@@ -102,6 +102,13 @@ class Reader (_content: Iterator[Int]) {
     if (i > typeBuffer.length) "unknown"
     else s"tipo[${typeBuffer(i-1).name}]"
 
+  def getFuncName (i: Int) =
+    if (i > funcBuffer.length) "unknown"
+    else funcBuffer(i-1).name
+
+  var funcStart: Int = 0;
+  var funcCount: Int = 0;
+
   def print_modules () {
 
     val count = readInt()
@@ -180,6 +187,9 @@ class Reader (_content: Iterator[Int]) {
     val count = readInt()
     printData(s"$count Rutinas")
 
+    this.funcCount = count
+    this.funcStart = funcIndex
+
     for (i <- 0 until count) {
       val name = readString()
       printData(s"$name #$funcIndex")
@@ -195,20 +205,54 @@ class Reader (_content: Iterator[Int]) {
       val regCount = readInt()
       printData(s"  $regCount registros:")
 
-      //val regs = readShorts(regCount)
       for (i <- 0 until regCount) {
         val r = readInt()
         val typename = getTypeName(r)
-        printData(s"    $typename")
+        printData(s"    $typename #$i")
       }
 
-      val byteCount = readInt()
-      printData(s"  $byteCount bytes de Instrucciones")
-
-      val bytes = readBytes(byteCount)
-      printData("")
-
       funcBuffer += Func(name, inCount, outCount)
+    }
+  }
+
+  def print_code () {
+    for (i <- 0 until funcCount) {
+
+      val funcName = getFuncName(i + funcStart)
+      printData(s"Código para $funcName")
+
+      val instCount = readInt()
+      printData(s"  $instCount Instrucciones")
+
+      for (i <- 0 until instCount) {
+        val inst = readInt()
+
+        def readReg() = {
+          val reg = readInt
+          s"reg[$reg]"
+        }
+
+        val desc = inst match {
+          case 0 => "%end"
+          case 1 => s"%cpy $readReg $readReg"
+          case 2 => s"%cns $readReg const_$readInt"
+          case 3 => s"%get $readReg $readReg field[$readInt]"
+          case 4 => s"%set $readReg field[$readInt] $readReg"
+          case 5 => s"%lbl lbl_$readInt"
+          case 6 => s"%jmp lbl_$readInt"
+          case 7 => s"%jif lbl_$readInt $readReg"
+          case 8 => s"%ifn lbl_$readInt $readReg"
+          case inst =>
+            if (inst >= 16) {
+              val func = funcBuffer(inst-16)
+              val ins = (1 to func.ins).map{_ => readReg}.mkString(" ")
+              val outs = (1 to func.outs).map{_ => readReg}.mkString(" ")
+              s"${func.name} $outs <- $ins"
+            } else s"unknown $inst"
+        }
+
+        printData(s"  $desc")
+      }
     }
   }
 
@@ -218,6 +262,8 @@ class Reader (_content: Iterator[Int]) {
     print_structs()
     printBar()
     print_funcs()
+    printBar()
+    print_code()
   }
 }
 

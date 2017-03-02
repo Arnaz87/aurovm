@@ -49,6 +49,8 @@ Los tipos en Cobre son equivalentes a lo que en otros contextos se conoce como e
 
 ## Funciones
 
+Solo los prototipos de las funciones, porque el código de algunas es recursivo, y no puedo leerlo hasta no saber el prototipo de todas las funciones.
+
 ~~~
 <func_count: varint>
 {
@@ -62,9 +64,17 @@ Los tipos en Cobre son equivalentes a lo que en otros contextos se conoce como e
 
   <register_count: varint>
   <register_type: varint>[register_count]
+}[func_count]
+~~~
 
+## Código
+
+Se escribe separado del prototipo de las funciones porque se necesitan todas las definiciones para poder entender el código. No hace falta escribir el número de bloques porque ya se sabe el número de funciones. El tamaño de cada bloque se indica en número de instrucciones, no de bytes.
+
+~~~
+{
   <code_length: varint>
-  <code: byte>[code_length]
+  <instruction>[code_length]
 }[func_count]
 ~~~
 
