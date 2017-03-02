@@ -16,9 +16,9 @@ object Main {
         Proc("Sum", Array("r"), Array("a", "b"), Block(Array(
           Scope(Block(Array(
             Declare("n" /*, "Int"*/),
-            DeclareGlobal("g" /*, "Int"*/),
+            //DeclareGlobal("g" /*, "Int"*/),
             Assign("n", Call("iadd", Array(Var("a"), Var("b")))),
-            Assign("g", Call("imul", Array(Var("n"), Num(2.0)))),
+            //Assign("g", Call("iadd", Array(Var("n"), Num(2.0)))),
             Call("print", Array(Call("itos", Array(Var("r")))))
           )))
         )))

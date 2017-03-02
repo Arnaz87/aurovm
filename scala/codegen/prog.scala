@@ -136,11 +136,30 @@ class ProgState () {
   // Este Int representa un byte. No se supone que esté por encima de 255
   // Uso Int en vez de Byte porque en Java, Byte tiene signo.
   def compileBinary(): Traversable[Int] = {
-    val buf: Buffer[Int] = new ArrayBuffer(512)
 
-    def putByte (n: Int) { buf += n & 0xFF }
+    class IndexMap (mapName: String) {
+      private val data: Map[String,Int] = Map()
+      def add (name: String): Int = {
+        if (data contains name) {
+          throw new Exception(s"$name is already registered in $mapName")
+        }
+        val i = data.size + 1
+        data(name) = i
+        i
+      }
+      def apply (name: String): Int = {
+        (data get name) match {
+          case Some(i) => i
+          case None => throw new java.util.NoSuchElementException(s"$name is not registered in $mapName")
+        }
+      }
+    }
 
-    def putInt (n: Int) {
+    val typeMap = new IndexMap("Types")
+    val procMap = new IndexMap("Procs")
+
+    def putByte (n: Int)(implicit buf: Buffer[Int]) { buf += n & 0xFF }
+    def putInt (n: Int)(implicit buf: Buffer[Int]) {
       def helper(n: Int) {
         if (n > 0) {
           helper(n >> 7)
@@ -150,39 +169,124 @@ class ProgState () {
       helper(n >> 7)
       buf += n & 0x7f
     }
-
-    def putStr (str: String) {
+    def putStr (str: String)(implicit buf: Buffer[Int]) {
       val bytes = str.getBytes("UTF-8")
       putInt(bytes.size)
       bytes foreach { c:Byte => putByte(c.asInstanceOf[Int] & 0xFF) }
     }
 
-    buf += imports.size
+    {
+      implicit val programBuffer: Buffer[Int] = new ArrayBuffer(512)
 
-    imports foreach {
-      case (nm, imp) =>
-        putStr(nm)
+      putInt(imports.size)
 
-        putInt(imp.types.size)
-        imp.types foreach {
-          case (localName, origName) =>
-            putStr(origName)
-            putInt(0) // Field Count
+      imports foreach {
+        case (nm, imp) =>
+          putStr(nm)
+
+          putInt(imp.types.size)
+          imp.types foreach {
+            case (localName, origName) =>
+              typeMap.add(localName)
+              putStr(origName)
+              putInt(0) // Field Count
+          }
+
+          putInt(imp.procs.size)
+          imp.procs foreach {
+            case (localName, (origName, ins, outs)) =>
+              procMap.add(localName)
+              putStr(origName)
+              putInt(ins) // Params Count
+              putInt(outs) // Results Count
+          }
+      }
+
+      putInt(0) // 0 Tipos
+
+      // Seq me garantiza que cada vez que lo recorra va a tener el mismo orden
+      val procKeys = procs.keys.toSeq
+
+      putInt(procKeys.size)
+
+      // Asignarle un índice a cada función
+      procKeys foreach (procMap.add(_))
+
+      // Escribirlas, en el mismo orden
+      procKeys foreach { name =>
+        val proc = procs(name)
+
+        putStr(name)
+
+        def findReg (qnm: String) =
+          (proc.regs indexWhere {
+            case (nm, tp) => nm == qnm
+          })+1
+
+        putInt(proc.params.size)
+        proc.params foreach {
+          regname => putInt(findReg(regname))
         }
 
-        putInt(imp.procs.size)
-        imp.procs foreach {
-          case (localName, (origName, ins, outs)) =>
-            putStr(origName)
-            putInt(ins) // Params Count
-            putInt(outs) // Results Count
+        putInt(proc.returns.size)
+        proc.returns foreach {
+          regname => putInt(findReg(regname))
         }
+
+        putInt(proc.regs.size)
+        proc.regs foreach {
+          case (regname, typename) =>
+            putInt(typeMap(typename))
+        }
+
+        val code = {
+          implicit val codeBuffer = new ArrayBuffer[Int]()
+
+          val labels = new IndexMap("Labels")
+
+          proc.code foreach {
+            case Inst.Lbl(lbl) => labels.add(lbl)
+            case _ =>
+          }
+
+          def putReg(reg: String) = putInt(findReg(reg))
+          def putLbl(reg: String) = putInt(labels(reg))
+
+          def getField(o: String, k: String): Int = ???
+
+          proc.code foreach {
+            case Inst.End => putInt(0)
+            case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
+            case Inst.Cns(a, b) => { putInt(2); putReg(a); putReg(b) }
+            case Inst.Get(a, o, k) =>
+              { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
+            case Inst.Set(o, k, a) =>
+              { putInt(4); putReg(o); putInt(getField(o, k)); putReg(a) }
+            case Inst.New(a) =>
+            case Inst.Lbl(l) => { putInt(5); putLbl(l) }
+            case Inst.Jmp(l) => { putInt(6); putLbl(l) }
+            case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
+            case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
+
+            case Inst.Call(nm, gs) =>
+              putInt(procMap(nm) + 15)
+              gs foreach (putReg(_))
+          }
+
+          putInt(2017)
+          putInt(3)
+          putInt(1)
+          putInt(16456)
+          putInt(2)
+
+          codeBuffer
+        }
+
+        putInt(code.size)
+        programBuffer ++= code
+      }
+
+      programBuffer
     }
-
-    putInt(0) // 0 Tipos
-
-    putInt(0) // 0 Procs
-
-    buf
   }
 }
