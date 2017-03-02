@@ -12,78 +12,95 @@ class Reader (_content: Iterator[Int]) {
   var pos = content.pos
   var buffer: ArrayBuffer[Int] = new ArrayBuffer()
 
-  def printBar  () { println("- "*20) }
-  def printText (text: String) { println(" "*32 + "| " + text) }
-  def printData (text: String) {
+  //=== Print ===//
+    def printBar  () { println("- "*20) }
+    def printText (text: String) { println(" "*32 + "| " + text) }
+    def printData (text: String) {
 
-    // El iterador lee ocho bytes a la vez, cada chunk es un List
-    val chuncked = buffer.iterator.grouped(8).map(_.toList)
+      // El iterador lee ocho bytes a la vez, cada chunk es un List
+      val chuncked = buffer.iterator.grouped(8).map(_.toList)
 
-    // Iterar sobre chunks de ocho bytes y líneas
-    // Cuando los chunks se acaben, botar Nil
-    // Cuando las líneas se acaben, botar texto vacío
-    val zipped = chuncked.zipAll(text.lines, Nil, "")
+      // Iterar sobre chunks de ocho bytes y líneas
+      // Cuando los chunks se acaben, botar Nil
+      // Cuando las líneas se acaben, botar texto vacío
+      val zipped = chuncked.zipAll(text.lines, Nil, "")
 
-    // Contar de ocho en ocho, empezando desde pos
-    val col = zipped.zipWithIndex.map{
-      case ((a,b), i) => (a,b,i)
+      // Contar de ocho en ocho, empezando desde pos
+      val col = zipped.zipWithIndex.map{
+        case ((a,b), i) => (a,b,i)
+      }
+
+      col foreach {
+        // Si no hay bytes, solo imprimir el texto
+        case (Nil, text, _) => printText(text)
+
+        // Si sí hay bytes, imprimir todo bonito
+        case (chars, text, i) =>
+          val pstr = if (i==0) f"${pos+(i*8)}%04x:" else " "*5
+
+          val hexline = {
+            // Convertir cada byte en su representación
+            val hexes = chars.map{ c: Int => f"$c%02x" }
+
+            // Llenar con espacios vacíos hasta llegar a ocho
+            val padded = hexes.padTo(8, "  ")
+
+            // Combinar los strings con espacios en medio
+            padded.mkString(" ")
+          }
+
+          println(s"$pstr  $hexline  | $text")
+      }
+
+      this.pos = content.pos
+      this.buffer.clear()
     }
 
-    col foreach {
-      // Si no hay bytes, solo imprimir el texto
-      case (Nil, text, _) => printText(text)
-
-      // Si sí hay bytes, imprimir todo bonito
-      case (chars, text, i) =>
-        val pstr = if (i==0) f"${pos+(i*8)}%04x:" else " "*5
-
-        val hexline = {
-          // Convertir cada byte en su representación
-          val hexes = chars.map{ c: Int => f"$c%02x" }
-
-          // Llenar con espacios vacíos hasta llegar a ocho
-          val padded = hexes.padTo(8, "  ")
-
-          // Combinar los strings con espacios en medio
-          padded.mkString(" ")
-        }
-
-        println(s"$pstr  $hexline  | $text")
+  //=== Read ===//
+    def readByte () = {
+      val byte = content.next()
+      this.buffer += byte
+      byte.asInstanceOf[Int]
     }
 
-    this.pos = content.pos
-    this.buffer.clear()
-  }
+    def readBytes (n: Int) = (1 to n).map{_=>readByte()}
 
-  def readByte () = {
-    val byte = content.next()
-    this.buffer += byte
-    byte.asInstanceOf[Int]
-  }
+    def readShort () = ((readByte << 8) | readByte)
 
-  def readBytes (n: Int) = (1 to n).map{_=>readByte()}
-
-  def readShort () = ((readByte << 8) | readByte)
-
-  def readInt () = {
-    var n = 0
-    var byte = readByte()
-    while ((byte & 0x80) > 0) {
-      n = (n << 7) | (byte & 0x7f)
-      byte = readByte()
+    def readInt () = {
+      var n = 0
+      var byte = readByte()
+      while ((byte & 0x80) > 0) {
+        n = (n << 7) | (byte & 0x7f)
+        byte = readByte()
+      }
+      (n << 7) | (byte & 0x7f)
     }
-    (n << 7) | (byte & 0x7f)
-  }
 
-  def readString (): String = {
-    val size = readInt()
+    def readString (): String = {
+      val size = readInt()
 
-    val bts = content.take(size).toSeq
-    buffer ++= bts
+      val bts = content.take(size).toSeq
+      buffer ++= bts
 
-    val bytes = bts.map(_.asInstanceOf[Byte]).toArray
-    new String(bytes, "UTF-8")
-  }
+      val bytes = bts.map(_.asInstanceOf[Byte]).toArray
+      new String(bytes, "UTF-8")
+    }
+
+  //=== Content ===//
+
+  case class Type (name: String, fields: Array[String])
+  case class Func (name: String, ins: Int, outs: Int)
+
+  val typeBuffer = new ArrayBuffer[Type]()
+  val funcBuffer = new ArrayBuffer[Func]()
+
+  def typeIndex = typeBuffer.size + 1
+  def funcIndex = funcBuffer.size + 1
+
+  def getTypeName (i: Int) =
+    if (i > typeBuffer.length) "unknown"
+    else s"tipo[${typeBuffer(i-1).name}]"
 
   def print_modules () {
 
@@ -93,34 +110,41 @@ class Reader (_content: Iterator[Int]) {
     for (i <- 0 until count) {
       printText("")
 
-      val name = readString()
-      printData(s"$name:")
+      val modname = readString()
+      printData(s"$modname:")
 
       val types = readInt()
       printData(s"$types Tipos:")
       for (i <- 0 until types) {
         val name = readString()
-        printData(s"  $name")
+        printData(s"  $name #$typeIndex")
         val fields = readInt()
         printData(s"  $fields campos:")
 
+        val fieldArray = new Array[String](fields)
         for (i <- 0 until fields) {
           val name = readString()
           printData(s"    $name")
+
+          fieldArray(i) = name
         }
+
+        typeBuffer += Type(s"$modname.$name", fieldArray)
       }
 
       val funcs = readInt()
       printData(s"$funcs Rutinas:")
       for (i <- 0 until funcs) {
         val name = readString()
-        printData(s"  $name:")
+        printData(s"  $name #$funcIndex")
 
         val ins = readInt()
         printData(s"    $ins entradas")
 
         val outs = readInt()
         printData(s"    $outs salidas")
+
+        funcBuffer += Func(s"$modname.$name", ins, outs)
       }
     }
   }
@@ -131,15 +155,24 @@ class Reader (_content: Iterator[Int]) {
 
     for (i <- 0 until count) {
       val name = readString()
-      printData(s"$name:")
+      printData(s"$name #$typeIndex")
+
       val fCount = readInt()
       printData(s"  $fCount campos:")
+
+      val fieldArray = new Array[String](fCount)
 
       for (i <- 0 until fCount) {
         var tp = readInt()
         var name = readString()
-        printData(s"    tipo#$tp, $name")
+
+        val typename = getTypeName(tp)
+        printData(s"    $typename $name")
+
+        fieldArray(i) = name
       }
+
+      typeBuffer += Type(name, fieldArray)
     }
   }
 
@@ -149,7 +182,7 @@ class Reader (_content: Iterator[Int]) {
 
     for (i <- 0 until count) {
       val name = readString()
-      printData(name)
+      printData(s"$name #$funcIndex")
 
       val inCount = readInt()
       val ins = readBytes(inCount)
@@ -165,7 +198,8 @@ class Reader (_content: Iterator[Int]) {
       //val regs = readShorts(regCount)
       for (i <- 0 until regCount) {
         val r = readInt()
-        printData(s"    tipo #$r")
+        val typename = getTypeName(r)
+        printData(s"    $typename")
       }
 
       val byteCount = readInt()
@@ -173,6 +207,8 @@ class Reader (_content: Iterator[Int]) {
 
       val bytes = readBytes(byteCount)
       printData("")
+
+      funcBuffer += Func(name, inCount, outCount)
     }
   }
 

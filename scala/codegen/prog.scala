@@ -273,18 +273,25 @@ class ProgState () {
               gs foreach (putReg(_))
           }
 
-          putInt(2017)
-          putInt(3)
-          putInt(1)
-          putInt(16456)
-          putInt(2)
-
           codeBuffer
         }
 
         putInt(code.size)
         programBuffer ++= code
       }
+
+      /*
+      {
+        constants.foreach{ case (name, v) =>
+          val tp = v match {
+            case _:Int =>
+              val tpnm = imports("Prelude").types("Int")
+
+          }
+          constnd += ListNode(name, tp, v.toString)
+        }
+      }
+      */
 
       programBuffer
     }
