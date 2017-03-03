@@ -245,8 +245,8 @@ class Reader (_content: Iterator[Int]) {
           case inst =>
             if (inst >= 16) {
               val func = funcBuffer(inst-16)
-              val ins = (1 to func.ins).map{_ => readReg}.mkString(" ")
               val outs = (1 to func.outs).map{_ => readReg}.mkString(" ")
+              val ins = (1 to func.ins).map{_ => readReg}.mkString(" ")
               s"${func.name} $outs <- $ins"
             } else s"unknown $inst"
         }

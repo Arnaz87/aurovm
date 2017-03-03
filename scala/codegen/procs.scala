@@ -84,6 +84,19 @@ class ProcState (val prog: ProgState) {
       scopes(p) = RegVar(reg)
     }
   }
+
+  def %% (nd: Node, n: Int): RegId = {
+    import Nodes._
+    nd match {
+      case Call(func, gs) =>
+        val temps = (1 to n) map {_ => newTemp()}
+        val tnames = temps map (_.name)
+        val args = (gs map %%) map (_.name)
+        code += Inst.Call(func, tnames, args)
+        RegId(tnames)
+      case _ if n==1 || n==0 => %%(nd)
+    }
+  }
   
   def %% (nd: Node): RegId = {
     import Nodes._
@@ -103,15 +116,8 @@ class ProcState (val prog: ProgState) {
         scopes.push()
         %%(block)
       case Block(nodes) =>
-        nodes.foreach(%% _)
+        nodes.foreach(%%(_, 0))
         RegId("$nil")
-      case Call(func, gs) =>
-        // TODO: Aquí se asume que todas las funciones devuelven exactamente
-        // un resultado, lo cual, por supuesto, no es cierto.
-        val tmp = newTemp()
-        val args = tmp +: (gs map %%)
-        code += Inst.Call(func, args map (_.name))
-        tmp
       case Declare(nm) => // (nm, tp)
         val reg = newReg(nm)
         scopes(nm) = RegVar(reg)
@@ -125,7 +131,7 @@ class ProcState (val prog: ProgState) {
           case _ => RegId("$nil")
         }
       case Assign(nm, vnd) =>
-        val v = %%(vnd)
+        val v = %%(vnd, 1)
         scopes(nm) match {
           case RegVar(l) =>
             code += Inst.Cpy(l.name, v.name)
@@ -157,8 +163,9 @@ class ProcState (val prog: ProgState) {
         RegId("$nil")
       case Return =>
         code += Inst.End
-        RegId("$nil")
-      case Nil => RegId("$nil")
+        RegId()
+      case Nil => RegId()
+      case _: Call => %%(nd, 1)
       //case _ => RegId("$nil")
     }
   }

@@ -99,7 +99,12 @@ class ProgState () {
           case Inst.If (l, a) => ListNode("if" , l, a)
           case Inst.Ifn(l, a) => ListNode("ifn", l, a)
 
-          case Inst.Call(nm, gs) => new ListNode((nm +: gs) map {new AtomNode(_)})
+          case Inst.Call(nm, rets, args) =>
+            ListNode(nm,
+              new ListNode(rets map {new AtomNode(_)}),
+              new ListNode(args map {new AtomNode(_)})
+            )
+
           case Inst.End => ListNode("end")
         }
         
@@ -271,21 +276,47 @@ class ProgState () {
         case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
         case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
 
-        case Inst.Call(nm, gs) =>
+        // Esto está todo loco porque hay mucho trabajo para asegurarse
+        // de que el número de argumentos y resultados usados son los mismos
+        // que los que la función espera. Esto es importante porque el
+        // parser depende de esto, y si sale mal el código ni siquiera se
+        // va a poder leer.
+
+        // TODO: Nada en este bloque es legible
+        case Inst.Call(nm, rs, gs) =>
           putInt(procMap(nm) + 15)
+
+          // WTF ???
+          val (rsnum, gsnum) = {
+            (procs get nm) match {
+              case Some(prc) => (prc.returns.size, prc.params.size)
+              case None =>
+                (imports find {
+                  case (_, imp) => imp.procs contains nm
+                }) match {
+                  case Some((_, imp)) =>
+                    imp.procs(nm) match {
+                      case (_, gs, rs) => (rs, gs)
+                    }
+                  case None => throw new Exception(s"Unrecognized proc $nm")
+                }
+            }
+          }
+
+          if (rs.size > rsnum) {
+            throw new Exception(s"expected $rsnum or less results for $nm, got ${rs.size}")
+          }
+          rs foreach (putReg(_))
+          // Si no hay suficientes resultados, llenar con ceros.
+          // Eso es váido, significa que se descartan los resultados.
+          (1 to (rsnum - rs.size)) foreach {_ => putInt(0)}
+
+          if (gs.size != gsnum) {
+            throw new Exception(s"expected $gsnum arguments for $nm, got ${gs.size}")
+          }
           gs foreach (putReg(_))
       }
     }
-
-    // TODO: Arreglar el error con las invocaciones.
-    // Codegen asume que todas las funciones devuelven exactamente 1 valor,
-    // lo que, por supuesto, no es cierto. En este ejemplo específicamente,
-    // es un problema con print, porque no devuelve ningún valor.
-    putByte(0)
-    putByte(0)
-    putByte(0)
-    putByte(0)
-    putByte(0)
 
     buf
   }

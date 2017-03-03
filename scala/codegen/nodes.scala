@@ -108,12 +108,21 @@ object Inst {
   case class If (l: String, a: String) extends Inst
   case class Ifn(l: String, a: String) extends Inst
 
-  case class Call(f: String, args: Seq[String]) extends Inst
+  case class Call(f: String, rets: Seq[String], args: Seq[String]) extends Inst
 
   case object End extends Inst
 }
 
-case class RegId(name: String)
+sealed class RegId (nms: Seq[String]) {
+  def name: String = nms(0)
+}
+object RegId {
+  def apply () = new RegId(Nil)
+  def apply (str: String) = new RegId(List(str))
+  def apply (nms: Seq[String]) = new RegId(nms)
+
+  implicit def toStr (r: RegId) = r.name
+}
 
 sealed abstract class VarInfo
 case class RegVar(val reg: RegId) extends VarInfo
