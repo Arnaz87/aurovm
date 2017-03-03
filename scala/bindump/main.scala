@@ -205,7 +205,7 @@ class Reader (_content: Iterator[Int]) {
       val regCount = readInt()
       printData(s"  $regCount registros:")
 
-      for (i <- 0 until regCount) {
+      for (i <- 1 to regCount) {
         val r = readInt()
         val typename = getTypeName(r)
         printData(s"    $typename #$i")
@@ -224,7 +224,7 @@ class Reader (_content: Iterator[Int]) {
       val instCount = readInt()
       printData(s"  $instCount Instrucciones")
 
-      for (i <- 0 until instCount) {
+      for (i <- 1 to instCount) {
         val inst = readInt()
 
         def readReg() = {

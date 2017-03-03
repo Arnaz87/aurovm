@@ -8,20 +8,22 @@ object Main {
     val ast: Node = {
       import arnaud.myvm.codegen.Nodes._
       Block(Array(
-        ImportType("Any", "Prelude", "Any"),
         ImportType("Int", "Prelude", "Int"),
+        ImportType("String", "Prelude", "String"),
         ImportProc("iadd", "Prelude", "add", 2, 1),
         ImportProc("itos", "Prelude", "itos", 1, 1),
         ImportProc("print", "Prelude", "print", 1, 0),
-        Proc("Sum", Array("r"), Array("a", "b"), Block(Array(
+        Proc("Sum",
+          Array(("r", "Int")),
+          Array(("a", "Int"), ("b", "Int")), 
           Scope(Block(Array(
-            Declare("n" /*, "Int"*/),
+            Declare("n", "Int"),
             //DeclareGlobal("g" /*, "Int"*/),
             Assign("n", Call("iadd", Array(Var("a"), Var("b")))),
             //Assign("g", Call("iadd", Array(Var("n"), Num(2.0)))),
             Call("print", Array(Call("itos", Array(Var("r")))))
           )))
-        )))
+        )
       ))
     }
 
@@ -30,13 +32,17 @@ object Main {
 
     val progstate = new ProgState()
     progstate %% ast
+    progstate.fixTypes()
 
     println("Compiled Sexpr:")
     println(progstate.compileSexpr.prettyRepr)
 
     println("Compiled Binary:")
     val bindata = progstate.compileBinary
-    new arnaud.myvm.bindump.Reader(bindata.toIterator).readAll
+    printBinary(bindata)
+  }
 
+  def printBinary(bindata: Traversable[Int]) {
+    new arnaud.myvm.bindump.Reader(bindata.toIterator).readAll
   }
 }

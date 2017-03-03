@@ -8,6 +8,32 @@ class Import {
   val procs: Map[String, (String, Int, Int)] = Map()
 }
 
+object Predefined {
+  case class Function (ins: Seq[String], outs: Seq[String])
+  case class Module (procs: Map[String, Function])
+
+  val modules = Map[String, Module](
+    "Prelude" -> Module(
+      Map(
+        "print" -> Function(
+          Array("String"),
+          Nil
+        ),
+        "itos" -> Function(
+          Array("Int"),
+          Array("String")
+        ),
+        "iadd" -> Function(
+          Array("Int", "Int"),
+          Array("Int")
+        )
+      )
+    )
+  )
+
+  def apply(nm: String): Module = modules(nm)
+}
+
 class ProgState () {
 
   val imports: Map[String, Import] = Map()
@@ -47,6 +73,7 @@ class ProgState () {
         proc.setReturns(returns)
         proc %% body
         proc.code +=  Inst.End
+        proc.fixTypes()
         procs(name) = proc
       case ND.Block(nds) =>
         nds foreach (%% _)
@@ -55,6 +82,10 @@ class ProgState () {
         val name = other.getClass.getSimpleName
         throw new Exception(s"Node type '$name' is not a top-level node")
     }
+  }
+
+  def fixTypes () {
+    procs.valuesIterator.foreach (_.fixTypes)
   }
 
   def compileSexpr(): arnaud.sexpr.Node = {
@@ -109,7 +140,7 @@ class ProgState () {
         }
         
         val regsNode = AtomNode("Regs") +: procst.regs.map{
-          case (nm, tp) => ListNode(nm, tp)
+          case Reg(nm, tp) => ListNode(nm, tp)
         }
 
         val returns = new ListNode(("Out" +: procst.returns) map {new AtomNode(_)})
@@ -218,7 +249,7 @@ class ProgState () {
 
       def findReg (qnm: String)(implicit proc: ProcState) =
         (proc.regs indexWhere {
-          case (nm, tp) => nm == qnm
+          case Reg(nm, tp) => nm == qnm
         })+1
 
       // Escribir los prototipos
@@ -239,7 +270,7 @@ class ProgState () {
 
         putInt(proc.regs.size)
         proc.regs foreach {
-          case (regname, typename) =>
+          case Reg(regname, typename) =>
             putInt(typeMap(typename))
         }
       }

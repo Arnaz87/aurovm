@@ -39,18 +39,32 @@ object Main {
       case "-i" => parse_text(args(1))
       case _ => manual()
     }
+    println("=== AST ===")
     println(parsed)
 
     println()
+    println("=== Codegen AST ===")
 
     val cgnode = CodeGen.program(parsed)
     println(arnaud.myvm.codegen.Nodes.sexpr(cgnode).prettyRepr)
 
+    println()
+    println("=== Compiled Sexpr ===")
+
     val progstate = new ProgState()
     progstate %% cgnode
+    progstate.fixTypes()
+
     val compiled = progstate.compileSexpr()
     val output = compiled.prettyRepr
     println(output)
+
+    println()
+    println("=== Compiled Binary ===")
+
+    val binary = progstate.compileBinary()
+    arnaud.myvm.codegen.Main.printBinary(binary)
+
 
     if (args.length >= 4 && args(2) == "-o") {
       import java.io._

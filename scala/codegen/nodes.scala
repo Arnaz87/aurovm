@@ -16,7 +16,7 @@ object Nodes {
   case class NmCall(func: String, args: Seq[(String, Node)], field: Option[String]) extends Node
 
   // Declarar una variable local, oculta a cualquiera que ya exista
-  case class Declare(name: String) extends Node
+  case class Declare(name: String, tp: String) extends Node
   // Declarar una variable global, puede ser ocultada
   case class DeclareGlobal(name: String) extends Node
 
@@ -42,7 +42,10 @@ object Nodes {
 
   case class ImportType(name: String, mod: String, field: String) extends Node
   case class ImportProc(name: String, mod: String, field: String, ins: Int, outs: Int) extends Node
-  case class Proc(name: String, rets: Seq[String], params: Seq[String], body: Node) extends Node
+  case class Proc(name: String,
+    rets: Seq[(String, String)],
+    params: Seq[(String, String)],
+    body: Node) extends Node
 
   // TODO: Definir el nodo de estructuras y de importar tipos
   // case class Struct
@@ -73,14 +76,14 @@ object Nodes {
       case Assign(nm, nd) => ListNode("Assign", nm, sexpr(nd))
       case Block(nds) => new ListNode(AtomNode("Block") +: (nds map (sexpr _)))
       case Scope(blck) => ListNode("Scope", sexpr(blck))
-      case Declare(nm) => ListNode("Declare", nm)
+      case Declare(nm, tp) => ListNode("Declare", nm, tp)
       case DeclareGlobal(nm) => ListNode("DeclareGlobal", nm)
       case Undeclared(nm, nd) => ListNode("Undeclared", nm, sexpr(nd))
 
       case Proc(nm, rs, ps, bd) => ListNode(
         "Proc", nm,
-        new ListNode(rs map {new AtomNode(_)}),
-        new ListNode(ps map {new AtomNode(_)}),
+        new ListNode(rs map {case (nm, tp) => ListNode(nm, tp)}),
+        new ListNode(ps map {case (nm, tp) => ListNode(nm, tp)}),
         sexpr(bd))
       case ImportType(name, mod, field) => ListNode("ImportType", name, mod, field)
       case ImportProc(name, mod, field, ins, outs) =>
@@ -112,6 +115,8 @@ object Inst {
 
   case object End extends Inst
 }
+
+case class Reg (nm: String, var tp: String)
 
 sealed class RegId (nms: Seq[String]) {
   def name: String = nms(0)

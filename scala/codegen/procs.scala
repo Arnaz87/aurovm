@@ -31,7 +31,7 @@ class ProcState (val prog: ProgState) {
   val params = new ArrayBuffer[String](4)
   val returns = new ArrayBuffer[String](4)
 
-  val regs: Buffer[(String, String)] = new ArrayBuffer()
+  val regs: Buffer[Reg] = new ArrayBuffer()
 
   val varCounts: Map[String, Int] = Map()
   var labelCount: Int = 0
@@ -44,13 +44,13 @@ class ProcState (val prog: ProgState) {
     inm + "$" + count
   }
 
-  def newReg(inm: String): RegId = {
+  def newReg(inm: String, tp: String): RegId = {
     val nm = regName(inm)
-    regs += ((nm, "Any"))
+    regs += Reg(nm, tp)
     RegId(nm)
   }
 
-  def newTemp(): RegId = newReg("$temp")
+  def newTemp(tp: String): RegId = newReg("$temp", tp)
 
   def getLabel(): String = {
     labelCount += 1
@@ -60,7 +60,7 @@ class ProcState (val prog: ProgState) {
   def addConstant (v: Any): RegId = {
     val const = prog.addConstant(v)
     val nm = const.name
-    regs += ((nm, "Any"))
+    regs += Reg(nm, "")
     code += Inst.Cns(nm, nm)
     RegId(nm)
   }
@@ -69,17 +69,17 @@ class ProcState (val prog: ProgState) {
     prog.globals += nm
   }
 
-  def setParams (params: Seq[String]) {
-    params foreach {p =>
-      val reg = newReg(p)
+  def setParams (params: Seq[(String, String)]) {
+    params foreach {case (p, tp) =>
+      val reg = newReg(p, tp)
       this.params += reg.name
       scopes(p) = RegVar(reg)
     }
   }
 
-  def setReturns (params: Seq[String]) {
-    params foreach {p =>
-      val reg = newReg(p)
+  def setReturns (params: Seq[(String, String)]) {
+    params foreach {case (p, tp) =>
+      val reg = newReg(p, tp)
       this.returns += reg.name
       scopes(p) = RegVar(reg)
     }
@@ -89,7 +89,7 @@ class ProcState (val prog: ProgState) {
     import Nodes._
     nd match {
       case Call(func, gs) =>
-        val temps = (1 to n) map {_ => newTemp()}
+        val temps = (1 to n) map {_ => newTemp("")}
         val tnames = temps map (_.name)
         val args = (gs map %%) map (_.name)
         code += Inst.Call(func, tnames, args)
@@ -107,10 +107,10 @@ class ProcState (val prog: ProgState) {
       case Var(nm) =>
         scopes(nm) match {
           case RegVar(reg) => reg
-          case FieldVar(obj, f) =>
-            val tmp = newTemp()
+          case FieldVar(obj, f) => ???
+            /*val tmp = newTemp()
             code += Inst.Get(tmp.name, obj.name, f.name)
-            tmp
+            tmp*/
         }
       case Scope(block) =>
         scopes.push()
@@ -118,8 +118,8 @@ class ProcState (val prog: ProgState) {
       case Block(nodes) =>
         nodes.foreach(%%(_, 0))
         RegId("$nil")
-      case Declare(nm) => // (nm, tp)
-        val reg = newReg(nm)
+      case Declare(nm, tp) => // (nm, tp)
+        val reg = newReg(nm, tp)
         scopes(nm) = RegVar(reg)
         reg
       case DeclareGlobal(nm) =>
@@ -128,7 +128,7 @@ class ProcState (val prog: ProgState) {
       case Undeclared(nm, nd) =>
         scopes get nm match {
           case None => %%(nd)
-          case _ => RegId("$nil")
+          case _ => RegId()
         }
       case Assign(nm, vnd) =>
         val v = %%(vnd, 1)
@@ -169,4 +169,66 @@ class ProcState (val prog: ProgState) {
       //case _ => RegId("$nil")
     }
   }
+
+  // A veces algunos registros quedan sin tipos, porque los nodos no saben
+  // el tipo de los nodos hijos, así que luego de haber generado el código,
+  // se debe llenar los tipos que faltan, ayudándose de la información del
+  // resto del código, como con qué registros interactúa.
+  def fixTypes () {
+    regs foreach {
+      case reg@Reg(name, "") =>
+        import Inst._
+        val iter = code.toIterator
+        var cont = true
+
+        def typeFrom(onm: String, proc: ProcState) {
+          proc.regs find (_.nm == onm) match {
+            case Some(other) =>
+              reg.tp = other.tp
+              cont = false
+            case None =>
+          }
+        }
+
+        while (cont && iter.hasNext) {
+          iter.next match {
+            case Cpy("", _) =>
+            case Cpy(_, "") =>
+            case Cpy(`name`, other) => typeFrom(other, this)
+            case Cpy(other, `name`) => typeFrom(other, this)
+            case Call(func, outs, ins) if outs contains name =>
+              val index = outs indexOf name
+              (prog.procs get func) match {
+                case Some(proc) =>
+                  val procreg = proc.returns(index)
+                  typeFrom(procreg, proc)
+                case None =>
+                  (prog.imports find (_._2.procs contains func)) match {
+                    case Some((imp, _)) =>
+                      reg.tp = Predefined(imp).procs(func).outs(index)
+                      cont = false
+                    case None =>
+                  }
+              }
+            case Call(func, outs, ins) if ins contains name =>
+              val index = ins indexOf name
+              (prog.procs get func) match {
+                case Some(proc) =>
+                  val procreg = proc.params(index)
+                  typeFrom(procreg, proc)
+                case None =>
+                  (prog.imports find (_._2.procs contains func)) match {
+                    case Some((impName, _)) =>
+                      reg.tp = Predefined(impName).procs(func).ins(index)
+                      cont = false
+                    case None =>
+                  }
+              }
+            case _ =>
+          }
+        }
+      case _ =>
+    }
+  }
+
 }

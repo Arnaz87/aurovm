@@ -42,11 +42,11 @@ class CodeGen {
 
       case Call(Id(fnm), args) => CG.Call(fnm, args map gen)
 
-      case Decl(tp, pts) => {
+      case Decl(Type(tp), pts) => {
         CG.Block(pts.map {
-          case DeclPart(Id(nm), None) => List(CG.Declare(nm))
+          case DeclPart(Id(nm), None) => List(CG.Declare(nm, tp))
           case DeclPart(Id(nm), Some(expr)) =>
-            List(CG.Declare(nm), CG.Assign(nm, gen(expr)))
+            List(CG.Declare(nm, tp), CG.Assign(nm, gen(expr)))
         }.flatten)
       }
       case Assign(Id(nm), vl) => CG.Assign(nm, gen(vl))
@@ -72,9 +72,9 @@ class CodeGen {
       case Proc(Id(procnm), params, results, body) =>
         CG.Proc(procnm,
           results.zipWithIndex map {
-            case (Type(nm), i) => s"$$ret_$i"
+            case (Type(tp), i) => (s"$$ret_$i", tp)
           },
-          params map {case Param(tp, Id(nm)) => nm},
+          params map {case Param(Type(tp), Id(nm)) => (nm, tp)},
           gen(body)
         )
       case Return(xs) =>
