@@ -3,7 +3,7 @@ package arnaud.myvm.codegen
 import collection.mutable.{ArrayBuffer, Buffer, Map, Set, Stack}
 import arnaud.myvm.codegen.{Nodes => ND}
 
-class ProcState (val prog: ProgState) {
+class ProcState (val prog: ProgState) extends Signature {
   object scopes {
     type Scope = Map[String, VarInfo]
 
@@ -28,10 +28,22 @@ class ProcState (val prog: ProgState) {
   }
 
   val code: Buffer[Inst] = new ArrayBuffer[Inst](64)
-  val params = new ArrayBuffer[String](4)
-  val returns = new ArrayBuffer[String](4)
+  val inregs = new ArrayBuffer[String](4)
+  val outregs = new ArrayBuffer[String](4)
 
   val regs: Buffer[Reg] = new ArrayBuffer()
+
+  def ins = inregs map {
+    regname => (regs find {
+      reg => reg.nm == regname
+    }).get.tp
+  }
+
+  def outs = outregs map {
+    regname => (regs find {
+      reg => reg.nm == regname
+    }).get.tp
+  }
 
   val varCounts: Map[String, Int] = Map()
   var labelCount: Int = 0
@@ -72,7 +84,7 @@ class ProcState (val prog: ProgState) {
   def setParams (params: Seq[(String, String)]) {
     params foreach {case (p, tp) =>
       val reg = newReg(p, tp)
-      this.params += reg.name
+      this.inregs += reg.name
       scopes(p) = RegVar(reg)
     }
   }
@@ -80,7 +92,7 @@ class ProcState (val prog: ProgState) {
   def setReturns (params: Seq[(String, String)]) {
     params foreach {case (p, tp) =>
       val reg = newReg(p, tp)
-      this.returns += reg.name
+      this.outregs += reg.name
       scopes(p) = RegVar(reg)
     }
   }
@@ -117,14 +129,14 @@ class ProcState (val prog: ProgState) {
         %%(block)
       case Block(nodes) =>
         nodes.foreach(%%(_, 0))
-        RegId("$nil")
+        RegId()
       case Declare(nm, tp) => // (nm, tp)
         val reg = newReg(nm, tp)
         scopes(nm) = RegVar(reg)
         reg
       case DeclareGlobal(nm) =>
         prog.globals += nm
-        RegId("$nil")
+        RegId()
       case Undeclared(nm, nd) =>
         scopes get nm match {
           case None => %%(nd)
@@ -160,75 +172,75 @@ class ProcState (val prog: ProgState) {
         code += Inst.Lbl($else)
         %%(orelse)
         code += Inst.Lbl($end)
-        RegId("$nil")
+        RegId()
       case Return =>
         code += Inst.End
         RegId()
       case Nil => RegId()
       case _: Call => %%(nd, 1)
-      //case _ => RegId("$nil")
     }
   }
 
-  // A veces algunos registros quedan sin tipos, porque los nodos no saben
-  // el tipo de los nodos hijos, así que luego de haber generado el código,
-  // se debe llenar los tipos que faltan, ayudándose de la información del
-  // resto del código, como con qué registros interactúa.
+  // Algunos registros quedan sin tipo después de la generación de código,
+  // hay que inferir sus tipos basados en las instrucciones con las que
+  // interactúan
   def fixTypes () {
-    regs foreach {
-      case reg@Reg(name, "") =>
+
+    var lastSize = 0
+    var unsolved = regs filter {_.tp == ""}
+
+    do {
+      lastSize = unsolved.size
+
+      unsolved = unsolved filter { reg =>
         import Inst._
-        val iter = code.toIterator
+        val iter = code.iterator
         var cont = true
 
-        def typeFrom(onm: String, proc: ProcState) {
-          proc.regs find (_.nm == onm) match {
-            case Some(other) =>
-              reg.tp = other.tp
-              cont = false
-            case None =>
-          }
+        def setType (tp: String) {
+          reg.tp = tp
+          cont = false
+        }
+
+        def typeFrom(otherName: String) {
+          // Si una instrucción usó este registro, debe existir
+          val other = regs.find(_.nm == otherName).get
+          if (other.tp != "") { setType(other.tp) }
         }
 
         while (cont && iter.hasNext) {
           iter.next match {
-            case Cpy("", _) =>
-            case Cpy(_, "") =>
-            case Cpy(`name`, other) => typeFrom(other, this)
-            case Cpy(other, `name`) => typeFrom(other, this)
-            case Call(func, outs, ins) if outs contains name =>
-              val index = outs indexOf name
-              (prog.procs get func) match {
-                case Some(proc) =>
-                  val procreg = proc.returns(index)
-                  typeFrom(procreg, proc)
+            case Cpy(reg.nm, other) => typeFrom(other)
+            case Cpy(other, reg.nm) => typeFrom(other)
+            case Call(func, outs, ins)
+              if outs contains reg.nm =>
+              val index = outs indexOf reg.nm
+              prog.findProc(func) match {
                 case None =>
-                  (prog.imports find (_._2.procs contains func)) match {
-                    case Some((imp, _)) =>
-                      reg.tp = Predefined(imp).procs(func).outs(index)
-                      cont = false
-                    case None =>
-                  }
+                case Some(proc) =>
+                  setType(proc.outs(index))
               }
-            case Call(func, outs, ins) if ins contains name =>
-              val index = ins indexOf name
-              (prog.procs get func) match {
-                case Some(proc) =>
-                  val procreg = proc.params(index)
-                  typeFrom(procreg, proc)
+            case Call(func, outs, ins)
+              if ins contains reg.nm =>
+              val index = ins indexOf reg.nm
+              prog.findProc(func) match {
                 case None =>
-                  (prog.imports find (_._2.procs contains func)) match {
-                    case Some((impName, _)) =>
-                      reg.tp = Predefined(impName).procs(func).ins(index)
-                      cont = false
-                    case None =>
-                  }
+                case Some(proc) =>
+                  setType(proc.ins(index))
               }
             case _ =>
           }
         }
-      case _ =>
-    }
+
+        // Esta es la última expresion de filter
+        // Si sigue sin tipo devolver verdadero, así sigue en la lista
+        // y se puede intentar de nuevo en la siguiente iteración.
+        (reg.tp == "")
+      }
+
+    // Cada iteración se revisa la condición. Si el tamaño de la lista
+    // cambio estamos avanzando, pero si no estamos atorados.
+    } while (lastSize != unsolved.size)
   }
 
 }

@@ -91,7 +91,6 @@ object Expressions {
 
 
 object Statements {
-  // val decl = P(type ~ (ident ~ ("=" ~ expr).?).rep(sep = ","))
   private val declpart = P(Lexical.ident ~ ("=" ~ Expressions.expr).?) map Ast.DeclPart.tupled
 
   val decl = P(Lexical.typename ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
@@ -118,22 +117,8 @@ object Statements {
 object Toplevel {
   val moduleName = P(CharIn('a' to 'z', 'A' to 'Z').rep.!)
 
-  /*val importkind = P(Kw("proc") map (_ => Ast.ProcKind))
-  val importfield =
-    P(importkind ~ Lexical.ident ~ "=" ~ Lexical.name ~ ";").map(Ast.ImportField.tupled)
-
-  val importstmt = P(Kw("import") ~/ Lexical.name ~
-    "{" ~ importfield.rep ~ "}").map(Ast.Import.tupled)
-  */
-
-  //val importstmt = P(Kw("import") ~/ Lexical.name ~ "." ~ Lexical.name ~ ";") map Ast.Import.tupled
-
   private val param = P(Lexical.typename ~ Lexical.ident) map Ast.Param.tupled
   private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
-
-  /*val proc =
-    P(Kw("proc") ~/ Lexical.ident ~ params ~ 
-      Statements.block).map(Ast.Proc.tupled)*/
 
   private val procType: P[Seq[Ast.Type]] =
     P(Kw("void").map(_ => Nil) | Lexical.typename.rep(sep=",", min=1))
@@ -141,13 +126,7 @@ object Toplevel {
   val proc = P(procType ~/ Lexical.ident ~ params ~ Statements.block)
   .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
-  val importType = P(Lexical.name ~ "." ~ Lexical.name ~ ";") map Ast.ImportType.tupled
-
-  val importProc = P(procType ~ Lexical.name ~ "." ~ Lexical.name ~
-    "(" ~/ Lexical.typename.rep(sep=",") ~ ")" ~ ";")
-    .map { case (rets, mod, nm, pms) => Ast.ImportProc(mod, nm, pms, rets) }
-
-  val importstmt = P(Kw("import") ~/ (importType | importProc))
+  val importstmt = P(Kw("import") ~/ Lexical.name ~ ";") map Ast.Import
 
   val toplevel: P[Ast.Toplevel] = P(importstmt | proc)
 

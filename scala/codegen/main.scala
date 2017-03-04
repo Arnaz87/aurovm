@@ -8,20 +8,28 @@ object Main {
     val ast: Node = {
       import arnaud.myvm.codegen.Nodes._
       Block(Array(
-        ImportType("Int", "Prelude", "Int"),
-        ImportType("String", "Prelude", "String"),
-        ImportProc("iadd", "Prelude", "add", 2, 1),
-        ImportProc("itos", "Prelude", "itos", 1, 1),
-        ImportProc("print", "Prelude", "print", 1, 0),
+        Import("Prelude"),
         Proc("Sum",
           Array(("r", "Int")),
           Array(("a", "Int"), ("b", "Int")), 
           Scope(Block(Array(
             Declare("n", "Int"),
-            //DeclareGlobal("g" /*, "Int"*/),
             Assign("n", Call("iadd", Array(Var("a"), Var("b")))),
-            //Assign("g", Call("iadd", Array(Var("n"), Num(2.0)))),
-            Call("print", Array(Call("itos", Array(Var("r")))))
+            Assign("r", Var("n")),
+            Return
+          )))
+        ),
+        Proc("Main",
+          new Array[(String, String)](0),
+          new Array[(String, String)](0),
+          Scope(Block(Array(
+            Call("print", Array(
+              Call("itos", Array(
+                Call("Sum", Array(
+                  Num(2.0), Num(3.0)
+                ))
+              ))
+            ))
           )))
         )
       ))

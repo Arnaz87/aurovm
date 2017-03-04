@@ -54,20 +54,18 @@ class BinaryWriter(prog: ProgState) {
         putStr(nm)
 
         putInt(imp.types.size)
-        imp.types foreach {
-          case (localName, origName) =>
-            typeMap.add(localName)
-            putStr(origName)
+        imp.types foreach { name =>
+            typeMap.add(name)
+            putStr(name)
             putInt(0) // Field Count
         }
 
         putInt(imp.procs.size)
-        imp.procs foreach {
-          case (localName, (origName, ins, outs)) =>
-            procMap.add(localName)
-            putStr(origName)
-            putInt(ins) // Params Count
-            putInt(outs) // Results Count
+        imp.procs foreach { proc =>
+            procMap.add(proc.name)
+            putStr(proc.name)
+            putInt(proc.ins.size)
+            putInt(proc.outs.size)
         }
     }
   }
@@ -93,13 +91,13 @@ class BinaryWriter(prog: ProgState) {
     procs foreach { case (name, proc) =>
       putStr(name)
 
-      putInt(proc.params.size)
-      proc.params foreach {
+      putInt(proc.inregs.size)
+      proc.inregs foreach {
         regname => putInt(findReg(regname, proc))
       }
 
-      putInt(proc.returns.size)
-      proc.returns foreach {
+      putInt(proc.outregs.size)
+      proc.outregs foreach {
         regname => putInt(findReg(regname, proc))
       }
 
@@ -143,31 +141,14 @@ class BinaryWriter(prog: ProgState) {
       case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
       case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
 
-      // Esto está todo loco porque hay mucho trabajo para asegurarse
-      // de que el número de argumentos y resultados usados son los mismos
-      // que los que la función espera. Esto es importante porque el
-      // parser depende de esto, y si sale mal el código ni siquiera se
-      // va a poder leer.
-
-      // TODO: Nada en este bloque es legible
+      // Aqui hay que asegurarse de que los números de entradas y salidas
+      // usadas son los mismos que los que la rutina espera.
       case Inst.Call(nm, rs, gs) =>
         putInt(procMap(nm) + 15)
 
-        // WTF ???
-        val (rsnum, gsnum) = {
-          (prog.procs get nm) match {
-            case Some(prc) => (prc.returns.size, prc.params.size)
-            case None =>
-              (prog.imports find {
-                case (_, imp) => imp.procs contains nm
-              }) match {
-                case Some((_, imp)) =>
-                  imp.procs(nm) match {
-                    case (_, gs, rs) => (rs, gs)
-                  }
-                case None => throw new Exception(s"Unrecognized proc $nm")
-              }
-          }
+        val (rsnum, gsnum) = prog.findProc(nm) match {
+          case Some(proc) => (proc.outs.size, proc.ins.size)
+          case None => throw new Exception(s"Use of nonexisting proc $nm")
         }
 
         if (rs.size > rsnum) {

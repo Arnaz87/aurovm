@@ -40,8 +40,8 @@ object Nodes {
 
   case class Narr(body: Seq[Node]) extends Node
 
-  case class ImportType(name: String, mod: String, field: String) extends Node
-  case class ImportProc(name: String, mod: String, field: String, ins: Int, outs: Int) extends Node
+  case class Import(moduleName: String) extends Node
+
   case class Proc(name: String,
     rets: Seq[(String, String)],
     params: Seq[(String, String)],
@@ -85,9 +85,7 @@ object Nodes {
         new ListNode(rs map {case (nm, tp) => ListNode(nm, tp)}),
         new ListNode(ps map {case (nm, tp) => ListNode(nm, tp)}),
         sexpr(bd))
-      case ImportType(name, mod, field) => ListNode("ImportType", name, mod, field)
-      case ImportProc(name, mod, field, ins, outs) =>
-        ListNode("ImportProc", name, mod, field, ins.toString, outs.toString)
+      case Import(module) => ListNode("Import", module)
 
       case While(cond, body) => ListNode("While", sexpr(cond), sexpr(body))
       case If(cond, body, orelse) => ListNode("If", sexpr(cond), sexpr(body), sexpr(orelse))

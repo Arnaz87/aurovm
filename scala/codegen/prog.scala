@@ -3,50 +3,11 @@ package arnaud.myvm.codegen
 import collection.mutable.{ArrayBuffer, Buffer, Map, Set, Stack}
 import arnaud.myvm.codegen.{Nodes => ND}
 
-class Import {
-  val types: Map[String, String] = Map()
-  val procs: Map[String, (String, Int, Int)] = Map()
-}
-
-object Predefined {
-  case class Function (ins: Seq[String], outs: Seq[String])
-  case class Module (procs: Map[String, Function])
-
-  val modules = Map[String, Module](
-    "Prelude" -> Module(
-      Map(
-        "print" -> Function(
-          Array("String"),
-          Nil
-        ),
-        "itos" -> Function(
-          Array("Int"),
-          Array("String")
-        ),
-        "iadd" -> Function(
-          Array("Int", "Int"),
-          Array("Int")
-        )
-      )
-    )
-  )
-
-  def apply(nm: String): Module = modules(nm)
-}
+trait Signature { def ins: Seq[String]; def outs: Seq[String] }
 
 class ProgState () {
 
-  val imports: Map[String, Import] = Map()
-
-  def getimport (nm: String) = {
-    imports.get(nm) match {
-      case None =>
-        val imp = new Import()
-        imports(nm) = imp
-        imp
-      case Some(imp) => imp
-    }
-  }
+  val imports: Map[String, Predefined.Module] = Map()
 
   val procs: Map[String, ProcState] = Map()
 
@@ -61,19 +22,30 @@ class ProgState () {
     RegId(nm)
   }
 
+  def findProc (nm: String): Option[Signature] = {
+    // Revisar si la rutina es del propio módulo
+    (procs get nm) match {
+      case Some(proc) => Some(proc)
+      case None =>
+        // Luego revisar entre los módulos importados
+        imports.values find ( _.procs.contains(nm) ) match {
+          case Some(module) =>
+            Some( module.procs(nm) )
+          case None => None
+        }
+    }
+  }
+
   def %% (tp: Node) {
     tp match {
-      case ND.ImportType(name, module, field) =>
-        getimport(module).types(name) = field
-      case ND.ImportProc(name, module, field, ins, outs) =>
-        getimport(module).procs(name) = (field, ins, outs)
+      case ND.Import(name) =>
+        imports(name) = Predefined(name)
       case ND.Proc(name, returns, params, body) =>
         val proc = new ProcState(this)
         proc.setParams(params)
         proc.setReturns(returns)
         proc %% body
         proc.code +=  Inst.End
-        proc.fixTypes()
         procs(name) = proc
       case ND.Block(nds) =>
         nds foreach (%% _)
@@ -102,15 +74,13 @@ class ProgState () {
     selfnd += ListNode("MAIN", "MAIN")
 
     val imported = AtomNode("Imports") +:
-      imports.map{ case(nm, imp) =>
-        val types = imp.types.map{
-          case (nm, field) => ListNode(nm, field)
+      imports.map{ case(name, module) =>
+        val types = module.types.map{ tp => ListNode(tp) }
+        val procs = module.procs.map{
+          case Predefined.Proc(name, ins, outs) =>
+            ListNode(name, ins.size.toString, outs.size.toString)
         }
-        val procs = imp.procs.map{
-          case (nm, (field, ins, outs)) =>
-            ListNode(nm, field, ins.toString, outs.toString)
-        }
-        ListNode(nm,
+        ListNode(name,
           new ListNode(AtomNode("Types") +: types.toSeq),
           new ListNode(AtomNode("Procs") +: procs.toSeq)
         )
@@ -143,8 +113,8 @@ class ProgState () {
           case Reg(nm, tp) => ListNode(nm, tp)
         }
 
-        val returns = new ListNode(("Out" +: procst.returns) map {new AtomNode(_)})
-        val params  = new ListNode(("In" +: procst.params)  map {new AtomNode(_)})
+        val returns = new ListNode(("Out" +: procst.outregs) map {new AtomNode(_)})
+        val params  = new ListNode(("In" +: procst.inregs)  map {new AtomNode(_)})
 
         ListNode(name, regsNode, params, returns, codeNode)
       }.toSeq

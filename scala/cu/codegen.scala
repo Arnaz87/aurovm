@@ -58,16 +58,7 @@ class CodeGen {
           case None => CG.Nil
         })
 
-      case ImportType(mod, nm) => CG.ImportType(nm, mod, nm)
-      case ImportProc(mod, nm, params, results) =>
-        CG.ImportProc(nm, mod, nm, params.size, results.size)
-
-      /*case Import(mod, nm) =>
-        uses get nm match {
-          case Some(TypeUse) => CG.ImportType(nm, mod, nm)
-          case Some(ProcUse) => CG.ImportProc(nm, mod, nm)
-          case None => CG.Nil
-        }*/
+      case Import(module) => CG.Import(module)
 
       case Proc(Id(procnm), params, results, body) =>
         CG.Proc(procnm,
@@ -91,6 +82,6 @@ object CodeGen {
   def program (prg: Ast.Program): CGNode = {
     val codegen = new CodeGen
     prg.stmts foreach codegen.genSyms
-    CG.Block(prg.stmts map (codegen.gen _))
+    CG.Block(CG.Import("Prelude") +: prg.stmts.map(codegen.gen _))
   }
 }

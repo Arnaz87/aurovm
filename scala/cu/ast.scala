@@ -29,12 +29,7 @@ object Ast {
   case object Break extends Stmt
   case object Continue extends Stmt
 
-  abstract class ImportKind
-  case object ProcKind extends ImportKind
-  case object TypeKind extends ImportKind
-
-  case class ImportType (module: String, name: String) extends Toplevel
-  case class ImportProc (module: String, name: String, params: Seq[Type], returns: Seq[Type]) extends Toplevel
+  case class Import (module: String) extends Toplevel
   case class Param (tp: Type, name: Id)
   case class Proc (name: Id, params: Seq[Param], returns: Seq[Type], body: Block) extends Toplevel
 
