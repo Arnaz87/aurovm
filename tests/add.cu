@@ -1,13 +1,13 @@
 void main () {
-  Int a = 5;
-  Int b = 6;
-  Int c = mult(a, b);
+  int a = 5;
+  int b = 6;
+  int c = mult(a, b);
   String str = itos(c);
   print(str);
 }
 
-Int mult (Int n, Int m) {
-  Int r = 0;
+int mult (int n, int m) {
+  int r = 0;
   while ( gtz(m) ) {
     r = add(r, n);
     m = dec(m);
@@ -15,7 +15,7 @@ Int mult (Int n, Int m) {
   return r;
 }
 
-Int add (Int n, Int m) {
+int add (int n, int m) {
   while ( gtz(m) ) {
     n = inc(n);
     m = dec(m);

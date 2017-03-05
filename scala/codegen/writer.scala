@@ -28,7 +28,7 @@ class BinaryWriter(prog: ProgState) {
   val procMap = new IndexMap("Procs")
   val constMap = new IndexMap("Constants")
 
-  val buf: Buffer[Int] = new ArrayBuffer(512)
+  val buf = new ArrayBuffer[Int](512)
 
   def putByte (n: Int) { buf += n & 0xFF }
   def putInt (n: Int) {

@@ -31,6 +31,10 @@ object Predefined {
           Array("Int", "Int"),
           Array("Int")
         ),
+        Proc("eq",
+          Array("Int", "Int"),
+          Array("Bool")
+        ),
         Proc("gtz",
           Array("Int"),
           Array("Bool")
@@ -42,6 +46,10 @@ object Predefined {
         Proc("dec",
           Array("Int"),
           Array("Int")
+        ),
+        Proc("concat",
+          Array("String", "String"),
+          Array("String")
         )
       )
     )

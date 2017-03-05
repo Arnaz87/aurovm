@@ -58,16 +58,16 @@ object Lexical {
     kw("null").map( _ => Ast.Null)
   )
 
-  val keywords: Set[String] = "true false null if else while return continue break goto import void".split(' ').toSet
+  val keywords: Set[String] = "true false null if else while return continue break goto import void int".split(' ').toSet
 
   val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
   val firstchar = CharIn('a' to 'z', 'A' to 'Z', "_")
   val name = P(firstchar ~ namechar.rep).!.filter(!keywords.contains(_))
 
-  val ident = name.map(Ast.Id)
-  val typename = name.map(Ast.Type)
-
   def kw (str: String) = P(str ~ !(namechar))
+
+  val ident = name.map(Ast.Id)
+  val typename = P(name | kw("int").map(_ => "Int")).map(Ast.Type)
 
   val lineComment = P("//" ~ CharsWhile(_ != '\n'))
   val multiComment = P("/*" ~ (!("*/") ~ AnyChar).rep ~ "*/")

@@ -141,7 +141,7 @@ class ProgState () {
 
   // Cada Int representa un byte. No se supone que estén por encima de 255
   // Uso Int en vez de Byte porque en Java, Byte tiene signo.
-  def compileBinary(): Traversable[Int] = {
+  def compileBinary(): Iterable[Int] = {
     val writer = new BinaryWriter(this)
     writer.writeAll()
     return writer.buf

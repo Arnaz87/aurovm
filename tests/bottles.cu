@@ -1,12 +1,5 @@
-import Prelude {
-  print = print;
-  gtz = gtz;
-  concat = concat;
-  dec = dec;
-}
-
-proc MAIN () {
-  Int bottles = 5;
+void main () {
+  int bottles = 5;
 
   while (gtz(bottles)) {
     String plural = " bottles";
