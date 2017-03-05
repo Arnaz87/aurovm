@@ -143,11 +143,7 @@ class ProgState () {
   // Uso Int en vez de Byte porque en Java, Byte tiene signo.
   def compileBinary(): Traversable[Int] = {
     val writer = new BinaryWriter(this)
-
-    writer.writeImports()
-    writer.writeTypes()
-    writer.writeProcs()
-
+    writer.writeAll()
     return writer.buf
   }
 }

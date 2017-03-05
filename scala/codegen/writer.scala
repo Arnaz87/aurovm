@@ -3,28 +3,30 @@ package arnaud.myvm.codegen
 
 import collection.mutable.{ArrayBuffer, Buffer, Map, Set, Stack}
 
-class IndexMap (mapName: String) {
-  private val data: Map[String,Int] = Map()
+class IndexMap (mapName: String) extends Traversable[String] {
+  private val data = new ArrayBuffer[String](32)
   def add (name: String): Int = {
     if (data contains name) {
       throw new Exception(s"$name is already registered in $mapName")
     }
-    val i = data.size + 1
-    data(name) = i
-    i
+    data += name
+    data.size
   }
   def apply (name: String): Int = {
-    (data get name) match {
-      case Some(i) => i
-      case None => throw new java.util.NoSuchElementException(s"$name is not registered in $mapName")
+    (data indexOf name) match {
+      case -1 => throw new java.util.NoSuchElementException(s"$name is not registered in $mapName")
+      case i => i + 1
     }
   }
+  override def foreach[T] (f: String => T) = data.foreach(f)
+  override def size = data.size
 }
 
 class BinaryWriter(prog: ProgState) {
 
   val typeMap = new IndexMap("Types")
   val procMap = new IndexMap("Procs")
+  val constMap = new IndexMap("Constants")
 
   val buf: Buffer[Int] = new ArrayBuffer(512)
 
@@ -45,6 +47,9 @@ class BinaryWriter(prog: ProgState) {
     bytes foreach { c:Byte => putByte(c.asInstanceOf[Int] & 0xFF) }
   }
 
+  def fillConstants () {
+    prog.constants foreach { case (name, value) => constMap.add(name) }
+  }
 
   def writeImports () {
     putInt(prog.imports.size)
@@ -130,7 +135,7 @@ class BinaryWriter(prog: ProgState) {
     proc.code foreach {
       case Inst.End => putInt(0)
       case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
-      case Inst.Cns(a, b) => { putInt(2); putReg(a); putReg(b) }
+      case Inst.Cns(a, b) => { putInt(2); putReg(a); putInt(constMap(b)) }
       case Inst.Get(a, o, k) =>
         { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
       case Inst.Set(o, k, a) =>
@@ -164,5 +169,42 @@ class BinaryWriter(prog: ProgState) {
         }
         gs foreach (putReg(_))
     }
+  }
+
+  def writeConstants () {
+    putInt(constMap.size)
+
+    def putFullInt (i: Int) {
+      putInt(typeMap("Int"))
+      putInt(4)
+      putByte((i >> 24) & 0xFF)
+      putByte((i >> 16) & 0xFF)
+      putByte((i >> 8 ) & 0xFF)
+      putByte((i >> 0 ) & 0xFF)
+    }
+
+    constMap foreach { name =>
+      prog.constants(name) match {
+        case i: Int =>
+          putFullInt(i)
+        case n: Float =>
+          putFullInt(n.asInstanceOf[Int])
+        case n: Double =>
+          putFullInt(n.asInstanceOf[Int])
+        case s: String =>
+          putInt(typeMap("String"))
+          putStr(s)
+      }
+    }
+  }
+
+  def writeAll () {
+
+    fillConstants()
+
+    writeImports()
+    writeTypes()
+    writeProcs()
+    writeConstants()
   }
 }

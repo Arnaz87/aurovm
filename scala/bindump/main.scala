@@ -126,7 +126,7 @@ class Reader (_content: Iterator[Int]) {
         val name = readString()
         printData(s"  $name #$typeIndex")
         val fields = readInt()
-        printData(s"  $fields campos:")
+        printData(s"    $fields campos")
 
         val fieldArray = new Array[String](fields)
         for (i <- 0 until fields) {
@@ -222,7 +222,7 @@ class Reader (_content: Iterator[Int]) {
       printData(s"Código para $funcName")
 
       val instCount = readInt()
-      printData(s"  $instCount Instrucciones")
+      printData(s"$instCount Instrucciones")
 
       for (i <- 1 to instCount) {
         val inst = readInt()
@@ -256,6 +256,40 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
+  def print_constants () {
+    val count = readInt()
+    printData(s"$count Constantes")
+
+    for (i <- 1 to count) {
+      val tp_i = readInt()
+
+      val tp = typeBuffer(tp_i-1)
+      printData(s"tipo[${tp.name}] #$i")
+
+      val size = readInt()
+
+      if (tp.fields.size > 0) {
+        printData(s"  $size Campos")
+        for (i <- 1 to size) {
+          val f = readInt()
+          printData(s"  const_$f #field[$i]")
+        }
+      } else {
+        printData(s"  $size bytes:")
+        readBytes(size)
+        printData("")
+      }
+    }
+  }
+
+  def print_garbage () {
+    while (content.hasNext) {
+      readByte()
+    }
+
+    printData("Basura Restante")
+  }
+
   def readAll () {
     print_modules()
     printBar()
@@ -264,6 +298,9 @@ class Reader (_content: Iterator[Int]) {
     print_funcs()
     printBar()
     print_code()
+    printBar()
+    print_constants()
+    //print_garbage()
   }
 }
 
