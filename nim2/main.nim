@@ -1,5 +1,6 @@
 import tables
 import sequtils
+import os
 
 include machine
 include modules
@@ -32,7 +33,14 @@ mainModule.procs = @[Proc(
 addState(mainModule.procs["main"])
 ]#
 
-let parsed = parse("../out")
+if paramCount() != 1:
+  # getAppFilename() me da el nombre completo,
+  # paramStr(0) solo me da el comando usado (en linux al menos).
+  echo "Usage: " & paramStr(0) & " <file>"
+  quit()
+
+let filename = paramStr(1)
+let parsed = parse(filename)
 
 #echo $$parsed.procs["main"]
 

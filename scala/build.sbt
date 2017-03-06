@@ -4,9 +4,13 @@
 // Compile es el scope.
 //unmanagedSourceDirectories in Compile += baseDirectory.value / "src/machine"
 
+import com.typesafe.sbt.SbtStartScript
+
+//Seq(SbtStartScript.startScriptForClassesSettings: _*)
+
 lazy val commonSettings = Seq(
   scalaVersion := "2.11.8"
-)
+) ++ Seq(SbtStartScript.startScriptForClassesSettings: _*)
 
 lazy val bindump = (project in file("bindump")).
   settings(commonSettings: _*)
@@ -31,6 +35,3 @@ lazy val cu = (project in file("cu")).
     libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
   ).
   dependsOn(codegen)
-
-// Para correr lua, se usa lua/run
-

@@ -300,7 +300,6 @@ class Reader (_content: Iterator[Int]) {
     print_code()
     printBar()
     print_constants()
-    //print_garbage()
   }
 }
 
