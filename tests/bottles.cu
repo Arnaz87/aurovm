@@ -5,11 +5,13 @@ void main () {
     String plural = " bottles";
     if (eq(bottles, 1)) { plural = " bottle"; }
 
-    print(concat(concat(bottles, plural), " of beer on the wall"));
-    print(concat(concat(bottles, plural), " of beer"));
+    int bottle_s = itos(bottles);
+
+    print(concat(concat(bottle_s, plural), " of beer on the wall"));
+    print(concat(concat(bottle_s, plural), " of beer"));
     print("Take one down, pass it around");
     bottles = dec(bottles);
-    print(concat(concat(bottles, plural), " of beer on the wall"));
+    print(concat(concat(itos(bottles), plural), " of beer on the wall"));
     print("");
   }
 }
