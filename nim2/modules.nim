@@ -1,5 +1,8 @@
 
-var modules = newSeq[Module]()
+import machine
+import methods
+
+var modules* = newSeq[Module]()
 
 let IntType = Type(name: "Int")
 let StringType = Type(name: "String")
