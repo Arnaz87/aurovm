@@ -202,6 +202,9 @@ class BinaryWriter(prog: ProgState) {
 
     fillConstants()
 
+    // writeParams
+    putInt(0)
+
     writeImports()
     writeTypes()
     writeProcs()

@@ -8,18 +8,60 @@ La lista interna tiene los componentes en el orden en que son definidos, por lo 
 
 Un módulo está compuesto de varias secciones.
 
+## Contadores
+
+Indica el tamaño de cada una de las tablas del módulo.
+
+~~~
+<type_count: int>
+<rout_count: int>
+<const_count: int>
+~~~
+
+## Exports
+
+Indica qué tipos exporta el módulo y con qué nombre
+
+~~~
+<exported_type_count: int>
+{
+  <type: type_index>
+  <name: string>
+}[exported_type_count]
+
+<exported_rout_count: int>
+{
+  <rout: rout_index>
+  <name: string>
+}[exported_rout_count]
+~~~
+
 ## Parámetros
 
-Los módulos pueden recibir parámetros, que son valores y se guardan en la lista de constantes.
+Un módulo puede recibir parámetros, estos se guardan en la tabla de valores. Es un poco extraño que un módulo reciba parámetros valores pero solo devuelva tipos y rutinas. Esto es porque al importar un módulo, se le debe dar la posibilidad de ejecutar código con valores de entrada arbitrarios, pero hay que recordar que lo que otros módulos esperan son tipos y funciones para poder ser usados en sus definiciones, no valores.
 
 ~~~
 <param_count: int>
-<type: type_index>[param_count]
+<param_type: type_index>[param_count]
+~~~
+
+## Rutinas
+
+El prototipo de todas las rutinas del módulo
+
+~~~
+{
+  <in_count: int>
+  <in_type: type_index>[in_count]
+
+  <out_count: int>
+  <out_type: type_index>[out_count]
+}[rout_count]
 ~~~
 
 ## Dependencias
 
-Declara los módulos externos necesarios para que el actual funcione y los componentes que se usarán de cada uno de ellos. Los módulos pueden recibir parámetros, y exportan tipos y funciones, pero no constantes.
+Declara los módulos externos necesarios para que el actual funcione y los componentes que se usarán de cada uno de ellos. Los módulos pueden recibir valores como parámetros, y exportan tipos y funciones, pero no exportan valores.
 
 ~~~
 <module_count: varint>
@@ -32,12 +74,8 @@ Declara los módulos externos necesarios para que el actual funcione y los compo
   <type_count: int>
   <type_name: string>[type_count]
 
-  <func_count: varint>
-  {
-    <func_name: string>
-    <in_count: int>
-    <out_count: int>
-  }[func_count]
+  <rout_count: varint>
+  <rout_name: string>[rout_count]
 }[module_count]
 ~~~
 
@@ -52,7 +90,7 @@ Algunas constantes pueden ser tipos, y esta sección puede seleccionar algunas d
 
 ## Tipos
 
-Los tipos en Cobre usualmente son equivalentes a lo que en otros contextos se conoce como estructuras o records, y se definen como tal, por cada uno de los campos de un tipo se agrega una función al módulo, que es el accesor del campo. Pero como los campos de los tipos no se exponen directamente a otros módulos, todos los tipos son opacos siempre, y usualmente son acompañados por un conjunto de operaciones para modificar su contenido, sea o no realmente representado como un struct.
+Los tipos en Cobre usualmente son equivalentes a lo que en otros contextos se conoce como estructuras o records. Solo el módulo en el que un tipo es definido tiene acceso a los campos, para otros módulos los tipos siempre son opacos, pero se pueden exportar rutinas getters y setters.
 
 ~~~
 <type_count: int>
@@ -68,39 +106,22 @@ Algunas constantes pueden ser rutinas, y esta sección puede seleccionar algunas
 
 ~~~
 <type_use_count: int>
-{
-  <const: const_index>[type_use_count]
-  <in_count: int>
-  <in_type: type_index>[in_count]
-  <out_count: int>
-  <out_type: type_index>[out_count]
-}
+<const: const_index>[type_use_count]
 ~~~
 
-## Funciones
+## Rutinas
 
-Solo los prototipos de las funciones, porque el código de algunas es recursivo, y no puedo leerlo hasta no saber el prototipo de todas las funciones.
+Los registros de una función están compuestos primero por las salidas, luego las entradas, y luego los especiales. Las salidas y entradas están en la sección de declaraciones.
 
 ~~~
-<func_count: int>
+<rout_count: int>
 {
-  <in_count: int>
-  <out_count: int>
   <reg_count: int>
+  <reg_type: type_index>[reg_count]
 
-  <register_type: type_index>[out_count + in_count + register_count]
-}[func_count]
-~~~
-
-## Código
-
-Se escribe separado del prototipo de las funciones porque se necesitan todas las definiciones para poder entender el código. No hace falta escribir el número de bloques porque ya se sabe el número de funciones. El tamaño de cada bloque se indica en número de instrucciones, no de bytes.
-
-~~~
-{
   <code_length: varint>
   <instruction>[code_length]
-}[func_count]
+}[rout_count]
 ~~~
 
 ## Constantes
@@ -128,7 +149,7 @@ Los formatos especiales son:
 
     <value: int>[if format=varint,type,proc]
     <value: byte>[if format=byte]
-    <value: 64bits>[if format=int64,float64]
+    {<value: byte>[4]}[if format=int64,float64]
     {
       <byte_count: int>
       <byte: byte>[byte_count]
@@ -137,6 +158,8 @@ Los formatos especiales son:
       <val_count: int>
       <val: const_index>[val_count]
     }[if format=array]
+    <value: type_index>[if format=type]
+    <value: rout_index>[if format=rout]
   }[if format<16]
   {
     <value: const_index>[type[format-16].in_count]
