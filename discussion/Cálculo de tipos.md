@@ -214,6 +214,82 @@ void main () {
   $_name: %binary "val"
 ~~~
 
+## Tuple
+
+~~~ cu
+void main () {
+  Tuple<String, Bool> r = read();
+}
+~~~
+
+~~~ cuasm
+2 imports
+  Prelude
+    0 params
+    3 types
+      String
+      Bool
+      Type
+    1 rutines
+      read [-> Tuple<String, Bool>]
+  Array
+    1 params
+      cns_type
+    1 types
+      Array
+  Tuple
+    1 params
+      cns_tpl_arr
+    1 type
+      Tuple
+    1 rutines
+      create [String Bool -> Tuple]
+1 rutines
+  1 regs
+    Tuple<String, Bool>
+  code:
+    Prelude.read reg[1] <-
+4 consts
+  Type cns_type = type(Type)
+  Type str_type = type(String)
+  Type bool_type = type(Bool)
+  Array<Type> cns_tpl_arr = arr(str_type, bool_type)
+~~~
+
+~~~ cuasm
+2 imports
+  Prelude
+    0 params
+    3 types
+      String
+      Bool
+      Type
+    1 rutines
+      read [-> Tuple<String, Bool>]
+  Array
+    1 params
+      cns_type
+    1 types
+      Array
+  Tuple
+    1 params
+      cns_tpl_arr
+    1 type
+      Tuple
+    1 rutines
+      create [String Bool -> Tuple]
+1 rutines
+  1 regs
+    Tuple<String, Bool>
+  code:
+    Prelude.read reg[1] <-
+4 consts
+  Type cns_type = type(Type)
+  Type str_type = type(String)
+  Type bool_type = type(Bool)
+  Array<Type> cns_tpl_arr = arr(str_type, bool_type)
+~~~
+
 ## Traits
 
 ~~~ cu

@@ -116,10 +116,13 @@ class Reader (_content: Iterator[Int]) {
     rutines(rutineCount)
   }
 
+  var paramCount = 0
+
   def getTypeName (i: Int) =
     if (i > typeBuffer.length) s"tipo[#$i]"
     else s"tipo[${typeBuffer(i-1).name}]"
 
+  // 18 líneas
   def print_basic () {
     this.typeCount = readInt()
     printData(s"${this.typeCount} Tipos")
@@ -133,17 +136,23 @@ class Reader (_content: Iterator[Int]) {
 
     printData("")
 
-    val paramCount = readInt()
-    printData(s"$paramCount Parámetros")
-    for (i <- 0 until paramCount) {
+    this.paramCount = readInt()
+    printData(s"${this.paramCount} Parámetros")
+    for (i <- 1 to this.paramCount) {
       val tp = readInt()
-      printData(s"  ${getTypeName(tp)}")
+      printData(s"  #$i ${getTypeName(tp)}")
     }
   }
 
+  // 15 líneas
   def print_exports () {
     val typeCount = readInt()
     printData(s"$typeCount Tipos Exportados")
+    for (i <- 0 until typeCount) {
+      val tp = readInt()
+      val nm = readString()
+      printData(s"  #$tp: $nm")
+    }
 
     val routCount = readInt()
     printData(s"$routCount Rutinas Exportadas")
@@ -154,6 +163,7 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
+  // 19 líneas
   def print_rutines () {
     printData("Prototipos")
     for (i <- 0 until this.rutines.size) {
@@ -176,8 +186,8 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
+  // 32 líneas
   def print_modules () {
-
     val count = readInt()
     printData(s"$count Módulos")
 
@@ -212,6 +222,7 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
+  // 19 líneas
   def print_structs () {
     val count = readInt()
     printData(s"$count Structs")
@@ -234,6 +245,7 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
+  // 55 líneas
   def print_code () {
     val rutCount = readInt()
     printData(s"$rutCount Rutinas")
@@ -292,11 +304,41 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
-  def print_constants () {
-    val count = readInt()
-    printData(s"$count Constantes")
+  // 23 líneas
+  def print_uses () {
+    printData("Uso de constantes")
 
-    var i = 1;
+    val typeCount = readInt()
+    printData(s"$typeCount Tipos")
+
+    for (i <- 1 to typeCount) {
+      val cns = readInt()
+      val nm = s"cns_$cns"
+      printData(s"  $nm #$typeIndex")
+
+      typeBuffer += Type(nm)
+    }
+
+    val rutCount = readInt()
+    printData(s"$rutCount Rutinas")
+
+    for (i <- 1 to rutCount) {
+      val rutine = nextRutine()
+
+      val cns = readInt()
+      rutine.name = s"cns_$cns"
+      printData(s"  ${rutine.name} #${rutine.index}")
+    }
+  }
+
+  // 54 líneas
+  def print_constants () {
+    val _count = readInt()
+    printData(s"${_count} Constantes")
+
+    val count = _count + this.paramCount;
+
+    var i = this.paramCount + 1;
     while (i <= count) {
 
       val fmt = readInt()
@@ -358,6 +400,8 @@ class Reader (_content: Iterator[Int]) {
   }
 
   def readAll () {
+    // 8 secciones
+
     print_basic()
     printBar()
 
@@ -370,15 +414,13 @@ class Reader (_content: Iterator[Int]) {
     print_modules()
     printBar()
 
-
-    // print_typeuse()
-
     print_structs()
     printBar()
 
-    // print_rutineuse()
-
     print_code()
+    printBar()
+
+    print_uses()
     printBar()
 
     print_constants()

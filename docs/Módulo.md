@@ -79,15 +79,6 @@ Declara los módulos externos necesarios para que el actual funcione y los compo
 }[module_count]
 ~~~
 
-## Uso de tipos
-
-Algunas constantes pueden ser tipos, y esta sección puede seleccionar algunas de ellas para ser usadas como tipos en el módulo, además de constantes.
-
-~~~
-<type_use_count: int>
-<const: const_index>[type_use_count]
-~~~
-
 ## Tipos
 
 Los tipos en Cobre usualmente son equivalentes a lo que en otros contextos se conoce como estructuras o records. Solo el módulo en el que un tipo es definido tiene acceso a los campos, para otros módulos los tipos siempre son opacos, pero se pueden exportar rutinas getters y setters.
@@ -98,15 +89,6 @@ Los tipos en Cobre usualmente son equivalentes a lo que en otros contextos se co
   <field_count: int>
   <field_type: type_index>[field_count]
 }[type_count]
-~~~
-
-## Uso de funciones
-
-Algunas constantes pueden ser rutinas, y esta sección puede seleccionar algunas de ellas para ser usadas como rutinas en el módulo e indican el prototipo.
-
-~~~
-<type_use_count: int>
-<const: const_index>[type_use_count]
 ~~~
 
 ## Rutinas
@@ -122,6 +104,18 @@ Los registros de una función están compuestos primero por las salidas, luego l
   <code_length: varint>
   <instruction>[code_length]
 }[rout_count]
+~~~
+
+## Uso de contantes
+
+Se pueden usar constantes como componentes, pasados como parámetros del módulo o creados con rutinas estáticas.
+
+~~~
+<type_use_count: int>
+<const: const_index>[type_use_count]
+
+<rutine_use_count: int>
+<const: const_index>[rutine_use_count]
 ~~~
 
 ## Constantes
@@ -167,4 +161,6 @@ Los formatos especiales son:
 }[const_count]
 ~~~
 
+# Pureza
 
+En el cálculo de constantes, voy a tener que restringir a solo operaciones puras. Una operación impura es una que modifica objetos creados fuera de la función. Las funciones son puras a menos que use un argumento impuro o una constante impura
