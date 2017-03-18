@@ -18,6 +18,15 @@ Indica el tamaño de cada una de las tablas del módulo.
 <const_count: int>
 ~~~
 
+## Parámetros
+
+Un módulo puede recibir parámetros, estos se guardan en la tabla de valores. Es un poco extraño que un módulo reciba parámetros valores pero solo devuelva tipos y rutinas. Esto es porque al importar un módulo, se le debe dar la posibilidad de ejecutar código con valores de entrada arbitrarios, pero hay que recordar que lo que otros módulos esperan son tipos y funciones para poder ser usados en sus definiciones, no valores.
+
+~~~
+<param_count: int>
+<param_type: type_index>[param_count]
+~~~
+
 ## Exports
 
 Indica qué tipos exporta el módulo y con qué nombre
@@ -34,15 +43,6 @@ Indica qué tipos exporta el módulo y con qué nombre
   <rout: rout_index>
   <name: string>
 }[exported_rout_count]
-~~~
-
-## Parámetros
-
-Un módulo puede recibir parámetros, estos se guardan en la tabla de valores. Es un poco extraño que un módulo reciba parámetros valores pero solo devuelva tipos y rutinas. Esto es porque al importar un módulo, se le debe dar la posibilidad de ejecutar código con valores de entrada arbitrarios, pero hay que recordar que lo que otros módulos esperan son tipos y funciones para poder ser usados en sus definiciones, no valores.
-
-~~~
-<param_count: int>
-<param_type: type_index>[param_count]
 ~~~
 
 ## Rutinas
