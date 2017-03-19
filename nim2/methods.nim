@@ -50,6 +50,8 @@ proc `$$`* (prc: Proc): string =
     result.add("[Native]")
   of codeProc:
     result.add("{\n")
+    result.add("  ins:"  & $prc.inregs  & "\n")
+    result.add("  outs:" & $prc.outregs & "\n")
     result.add("  regs:\n")
     for tp in prc.regs:
       result.add("    " & $tp & "\n")

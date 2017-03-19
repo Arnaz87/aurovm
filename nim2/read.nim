@@ -6,10 +6,21 @@ import modules
 
 import sequtils
 
+type Prototype = object
+  ins: seq[int]
+  outs: seq[int]
+
 type Parser = ref object of RootObj
   file: File
   types: seq[Type]
   procs: seq[Proc]
+  prototypes: seq[Prototype]
+
+  exports: tuple[
+    types: seq[tuple[i: int, nm: string]],
+    procs: seq[tuple[i: int, nm: string]]
+  ]
+
 
 proc buildSeq[T](n: int, prc: proc(): T): seq[T] =
   result = newSeq[T](n)
@@ -42,28 +53,55 @@ proc readStr (parser: Parser): string =
 
 #=== Parsers ===#
 
+proc parseBasics (parser: Parser) =
+  let typeCount = parser.readInt
+  let rutCount = parser.readInt
+  let constCount = parser.readInt
+
+  let paramCount = parser.readInt
+  if paramCount > 0:
+    raise newException(Exception, "Module parameters not implemented")
+
+  let typeExports = parser.readInt
+  if typeExports > 0:
+    raise newException(Exception, "Module Exports not implemented")
+  let rutExports = parser.readInt
+  if rutExports > 0:
+    raise newException(Exception, "Module Exports not implemented")
+
+  parser.prototypes = rutCount.buildSeq do () -> Prototype:
+    let inCount = parser.readInt
+    let ins = inCount.buildSeq do () -> int: parser.readInt-1
+
+    let outCount = parser.readInt
+    let outs = outCount.buildSeq do () -> int: parser.readInt-1
+
+    Prototype(ins: ins, outs: outs)
+
+
 proc parseImports (parser: Parser) =
   parser.readInt.loop do ():
     let modName = parser.readStr
     let module = modules[modName]
+
+    if parser.readInt > 0:
+      raise newException(Exception, "Import parameters not implemented")
 
     parser.readInt.loop do ():
       let typeName = parser.readStr
       let mytype = module.types[typename]
       parser.types.add(mytype)
 
-      let fieldCount = parser.readInt
-      if fieldCount > 0:
-        raise newException(Exception, "Imported type field parser not yet implemented")
-
     parser.readInt.loop do ():
       let procName = parser.readStr
       let myproc = module.procs[procname]
 
-      if (parser.readInt != myproc.incount):
+      let proto = parser.prototypes[parser.procs.len]
+
+      if (myproc.incount != proto.ins.len):
         raise newException(Exception, "Input count mismatch: " & procName)
 
-      if (parser.readInt != myproc.outcount):
+      if (myproc.outcount != proto.outs.len):
         raise newException(Exception, "Output count mismatch: " & procName)
 
       parser.procs.add(myproc)
@@ -74,63 +112,76 @@ proc parseTypes (parser: Parser): seq[Type] =
     raise newException(Exception, "Type parser not yet implemented")
   return newSeq[Type](typeCount)
 
-proc parseProcs (parser: Parser): seq[Proc] =
-  return parser.readInt.buildSeq do -> Proc:
-    let name = parser.readStr
+proc parseCode (parser: Parser, rut: Proc) = 
+  proc readVal (): int = parser.readInt - 1
 
-    let inCount = parser.readInt
-    let ins = inCount.buildSeq do -> int:
-      parser.readInt - 1
+  let codeLength = parser.readInt
 
-    let outCount = parser.readInt
-    let outs = outCount.buildSeq do -> int:
-      parser.readInt - 1
+  rut.labels = newSeq[int]()
+
+  # indice necesario para ilbl, en la parte "of 5:"
+  var i = -1
+  rut.code = codeLength.buildSeq do () -> Inst:
+    i.inc()
+    let v = parser.readInt
+    return case v
+      of 0: Inst(kind: iend)
+      of 1: Inst(kind: icpy, a: readVal(), b: readVal())
+      of 2: Inst(kind: icns, a: readVal(), b: readVal())
+      of 5:
+        rut.labels.add(i)
+        Inst(kind: ilbl, i: readVal())
+      of 6: Inst(kind: ijmp, i: readVal())
+      of 7: Inst(kind: ijif, i: readVal(), a: readVal())
+      of 8: Inst(kind: inif, i: readVal(), a: readVal())
+      else:
+        if v<16: raise newException(Exception, "Unknown instruction: " & $v)
+        let proto = parser.prototypes[v-16]
+        let prc = parser.procs[v-16]
+
+        let outlen = proto.outs.len
+        let outs = outlen.buildSeq do () -> int: readVal()
+
+        let inlen = proto.ins.len
+        let ins = inlen.buildSeq do () -> int: readVal()
+
+        Inst(kind: icall, prc: prc, outs: outs, ins: ins)
+
+proc parseRutines (parser: Parser): seq[Proc] =
+  result = @[]
+
+  let startIndex = parser.procs.len
+  let count = parser.readInt
+
+  count.loop do (): parser.procs.add Proc()
+
+  for i in startIndex..<(startIndex+count):
+
+    let proto = parser.prototypes[i]
+    let rutine = parser.procs[i]
 
     let regCount = parser.readInt
-    let regs = regCount.buildSeq do -> Type:
-      parser.types[parser.readInt - 1]
 
-    Proc(name: name, inregs: ins, outregs: outs, regs: regs)
+    let indexes = proto.ins & proto.outs & (
+      regCount.buildSeq do -> int: parser.readInt-1
+    )
 
-proc parseCode (parser: Parser, procs: seq[Proc]) = 
-  for rut in procs:
+    rutine.name = ""
+    rutine.inregs = toSeq(0 .. proto.ins.high)
+    rutine.outregs = toSeq(proto.ins.len .. proto.ins.len+proto.outs.high)
+    rutine.regs = indexes.map do (x: int) -> Type: parser.types[x]
 
-    proc readVal (): int = parser.readInt - 1
+    parser.parseCode(rutine)
 
-    let codeLength = parser.readInt
+    result.add rutine
 
-    rut.labels = newSeq[int]()
-
-    # indice necesario para ilbl, en la parte "of 5:"
-    var i = -1
-    rut.code = codeLength.buildSeq do () -> Inst:
-      i.inc()
-      let v = parser.readInt
-      return case v
-        of 0: Inst(kind: iend)
-        of 1: Inst(kind: icpy, a: readVal(), b: readVal())
-        of 2: Inst(kind: icns, a: readVal(), b: readVal())
-        of 5:
-          rut.labels.add(i)
-          Inst(kind: ilbl, i: readVal())
-        of 6: Inst(kind: ijmp, i: readVal())
-        of 7: Inst(kind: ijif, i: readVal(), a: readVal())
-        of 8: Inst(kind: inif, i: readVal(), a: readVal())
-        else:
-          if v<16: raise newException(Exception, "Unknown instruction: " & $v)
-          let prc = parser.procs[v-16]
-
-          let outlen = case prc.kind
-            of nativeProc: prc.outCount
-            of codeProc: prc.outregs.len
-          let outs = outlen.buildSeq do () -> int: readVal()
-
-          let inlen = case prc.kind
-            of nativeProc: prc.inCount
-            of codeProc: prc.inregs.len
-          let ins = inlen.buildSeq do () -> int: readVal()
-
-          Inst(kind: icall, prc: prc, outs: outs, ins: ins)
+proc parseUses (parser: Parser) =
+  let typeCount = parser.readInt
+  if typeCount > 0:
+    raise newException(Exception, "Type use is not implemented")
+  let rutCount = parser.readInt
+  if rutCount > 0:
+    raise newException(Exception, "Rutine use not implemented")
 
 proc parseConstants (parser: Parser): seq[Value] =
 
@@ -140,20 +191,25 @@ proc parseConstants (parser: Parser): seq[Value] =
   let constCount = parser.readInt
 
   return constCount.buildSeq do -> Value:
-    let tp = parser.types[parser.readInt - 1]
+    let fmt = parser.readInt
 
-    if tp == IntType:
-      var length = parser.readInt
-      var value = 0
-      while length>0:
-        value = (value shl 8) or cast[int](parser.readByte)
-        length.dec
-      return intValue(value)
-    elif tp == StringType:
-      return strValue(parser.readStr)
+    if fmt < 16:
+      let tp = parser.types[parser.readInt - 1]
+      if tp == IntType and fmt == 3:
+        var length = 8
+        var value = 0
+        while length>0:
+          value = (value shl 8) or cast[int](parser.readByte)
+          length.dec
+        return intValue(value)
+      elif tp == StringType and fmt == 5:
+        return strValue(parser.readStr)
+      else:
+        raise newException(Exception, "Unsuported format " & $fmt & " for " & $tp)
     else:
-      raise newException(Exception, "Unrecognized constructor for " & $tp)
+      raise newException(Exception, "Constant rutine call not implemented")
 
+import strutils
 proc parseFile* (filename: string): Module =
 
   var parser = Parser(
@@ -164,11 +220,24 @@ proc parseFile* (filename: string): Module =
 
   result = Module(name: filename)
 
-  parser.parseImports()
-  result.types = parser.parseTypes()
-  result.procs = parser.parseProcs()
-  parser.parseCode(result.procs)
-  result.constants = parser.parseConstants()
+  try:
+    parser.parseBasics()
+
+    parser.parseImports()
+
+    result.types = parser.parseTypes()
+    result.procs = parser.parseRutines()
+
+    parser.parseUses()
+    result.constants = parser.parseConstants()
+
+  except Exception:
+
+    let e = getCurrentException()
+
+    echo "Error de lectura, archivo \"" & filename & "\", byte " & parser.file.getFilePos.toHex(4)
+    echo getCurrentExceptionMsg()
+    echo e.getStackTrace()
 
   for prc in result.procs:
     prc.module = result

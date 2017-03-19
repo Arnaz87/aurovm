@@ -9,4 +9,4 @@ $(scalaprojects): bin/%: scala/%/target/start
 	chmod +x $@
 
 bin/machine: nim2/*.nim
-	nim -o:$@ c nim2/main.nim
+	nim --checks:on -o:$@ c nim2/main.nim

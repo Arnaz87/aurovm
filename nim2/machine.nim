@@ -57,6 +57,7 @@ type
     pc*: int
     regs*: seq[Value]
     prc*: Proc
+    rets: seq[int]
 
 #=== Interpreter ===#
 
@@ -81,6 +82,10 @@ proc run* (inst: Inst) =
   case inst.kind
   of iend:
     discard states.pop
+    if states.len > 0:
+      let ost = states[states.high]
+      for pair in zip(st.rets, st.prc.outregs):
+        ost.regs[pair.a] = st.regs[pair.b]
   of icpy:
     st.regs[inst.a] = st.regs[inst.b]
     st.pc.inc()
@@ -103,15 +108,34 @@ proc run* (inst: Inst) =
     case inst.prc.kind
     of nativeProc:
       var args = inst.ins.map do (i: int) -> Value: st.regs[i]
-      #echo inst.prc.name & "(" & $args & ")"
       var rets = inst.prc.prc(args)
       for pair in zip(inst.outs, rets):
           st.regs[pair.a] = pair.b
-    of codeProc: discard
+    of codeProc:
+      addState(inst.prc)
+      let nst = states[states.high]
+      for pair in zip(inst.prc.inregs, inst.ins):
+        nst.regs[pair.a] = st.regs[pair.b]
+      nst.rets = inst.outs
     st.pc.inc()
 
 proc run* () =
-  while states.len > 0:
-    var st = states[states.high]
-    let inst = st.prc.code[st.pc]
-    inst.run()
+  try:
+    while states.len > 0:
+      var st = states[states.high]
+      let inst = st.prc.code[st.pc]
+      inst.run()
+  except Exception:
+    let e = getCurrentException()
+
+    echo "Error de ejecución"
+    echo getCurrentExceptionMsg()
+    echo e.getStackTrace()
+
+    let st = states[states.high]
+
+    echo "pc: " & $st.pc
+
+    echo $$st.prc
+
+    for r in st.regs: echo "  " & $r
