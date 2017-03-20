@@ -1,7 +1,5 @@
 # Modulo
 
-*Como el formato cambia tan frecuentemente, la definición del formato ahora está en* `discussion/Formato N` *. El formato que describe este archivo es el 2, pero voy a empezar a implementar el Formato 3.*
-
 La principal función de un módulo es definir componentes, que son, tipos y funciones, para que otros módulos, o el sistema, puedan usarlos. No se exportan datos porque las funciones de un módulo tienen acceso a sus datos.
 
 Un módulo tiene una lista interna con todos los componentes que puede usar (una para tipos, otra para funciones, y una extra para constantes), y accede a ellos usando el índice que ocupan en la lista, pero los que están definidos en ese módulo además tienen un nombre, que es el que otros módulos usan para referirse a ellos. Si la lista interna cambia pero los componentes mantienen el nombre, otro módulo puede seguir usándolos como si no hubieran cambios.
@@ -162,7 +160,3 @@ Los formatos especiales son:
   }[if format>=16]
 }[const_count]
 ~~~
-
-# Pureza
-
-En el cálculo de constantes, voy a tener que restringir a solo operaciones puras. Una operación impura es una que modifica objetos creados fuera de la función. Las funciones son puras a menos que use un argumento impuro o una constante impura

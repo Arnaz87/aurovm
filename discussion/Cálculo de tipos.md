@@ -391,4 +391,21 @@ flt506.seatPassenger(alice, flt506_20F)
 flt506.seatPassenger(bob  , flt102_1A) // No compila
 ~~~
 
+## Multimétodos
+
+~~~ nim
+method join (a: object, b: object) =
+  discard
+method join (a: string, b: string) =
+  return a & b
+method join (a: int, b: int) =
+  return a + b
+~~~
+
+~~~ cuasm
+1 procs
+  ;join
+    2 params Any Any
+~~~
+
 
