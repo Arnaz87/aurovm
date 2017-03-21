@@ -27,6 +27,7 @@ class BinaryWriter(prog: ProgState) {
   val typeMap = new IndexMap("Types")
   val procMap = new IndexMap("Procs")
   val constMap = new IndexMap("Constants")
+  val importMap = new IndexMap("Imports")
 
   val buf = new ArrayBuffer[Int](512)
 
@@ -51,14 +52,24 @@ class BinaryWriter(prog: ProgState) {
     prog.constants foreach { case (name, value) => constMap.add(name) }
 
     prog.imports foreach { case (nm, imp) =>
+      importMap.add(nm)
+
+      imp.types foreach {name => typeMap.add(name) }
+
       imp.procs foreach {proc =>
         procMap.add(proc.name)
       }
     }
     prog.procs foreach {case (name, proc) => procMap.add(name)}
 
-    prog.imports foreach { case (nm, imp) =>
-      imp.types foreach {name => typeMap.add(name) }
+  }
+
+  def writeImports () {
+    putInt(importMap.size)
+    for (nm <- importMap) {
+      putStr(nm)
+      // 0 parámetros
+      putInt(0)
     }
   }
 
@@ -88,7 +99,9 @@ class BinaryWriter(prog: ProgState) {
   }
 
   def writeRutines () {
-    def writeRutine (rut: Signature) {
+    putInt(procMap.size)
+
+    def writePrototype (rut: Signature) {
       putInt(rut.ins.size)
       rut.ins foreach {typenm =>
         putInt(typeMap(typenm))
@@ -100,14 +113,31 @@ class BinaryWriter(prog: ProgState) {
       }
     }
 
+    // Prototypes
     prog.imports foreach { case (nm, imp) =>
-      imp.procs foreach (writeRutine _)
+      imp.procs foreach (writePrototype _)
     }
+    prog.procs foreach {case (name, proc) => writePrototype(proc)}
 
-    prog.procs foreach {case (name, proc) => writeRutine(proc)}
+    // 0 métodos
+    putInt(0)
+
+    prog.imports foreach { case (nm, imp) =>
+      imp.procs foreach {rutine =>
+        putInt(2) // Import Kind
+        putInt(importMap(nm))
+        putStr(rutine.name)
+      }
+    }
+    prog.procs foreach {case (name, rutine) =>
+      putInt(1)
+      putStr(name)
+      putInt(0) // índice del método
+      writeCode(rutine)
+    }
   }
 
-  def writeImports () {
+  def writeImports_ () {
     putInt(prog.imports.size)
 
     prog.imports foreach {
@@ -131,118 +161,131 @@ class BinaryWriter(prog: ProgState) {
   
   def writeTypes () {
     // TODO: Terminar esto
-    putInt(0)
+    putInt(typeMap.size)
+
+    prog.imports foreach { case (nm, imp) =>
+      imp.types foreach {name =>
+        putInt(2) // Import Kind
+        putInt(importMap(nm))
+        putStr(name)
+      }
+    }
   }
 
   private def findReg (regName: String, proc: ProcState) =
     (proc.regs indexWhere { _.nm == regName }) + 1
 
-  def writeCode () {
-    putInt(prog.procs.size)
+  def writeCode (proc: ProcState) {
+    putInt(proc.regs.size)
+    proc.regs foreach {
+      case Reg(regname, typename) =>
+        putInt(typeMap(typename))
+    }
 
-    prog.procs foreach { case (name, proc) =>
-      putInt(proc.regs.size)
-      proc.regs foreach {
-        case Reg(regname, typename) =>
-          putInt(typeMap(typename))
-      }
+    def findReg (regName: String) =
+      (proc.regs indexWhere { _.nm == regName }) + 1
 
-      def findReg (regName: String) =
-        (proc.regs indexWhere { _.nm == regName }) + 1
+    val labels = new IndexMap("Labels")
 
-      val labels = new IndexMap("Labels")
+    proc.code foreach {
+      case Inst.Lbl(lbl) => labels.add(lbl)
+      case _ =>
+    }
 
-      proc.code foreach {
-        case Inst.Lbl(lbl) => labels.add(lbl)
-        case _ =>
-      }
+    def putReg(reg: String) = putInt(findReg(reg))
+    def putLbl(reg: String) = putInt(labels(reg))
 
-      def putReg(reg: String) = putInt(findReg(reg))
-      def putLbl(reg: String) = putInt(labels(reg))
+    def getField(o: String, k: String): Int = ???
 
-      def getField(o: String, k: String): Int = ???
+    putInt(proc.code.size)
 
-      putInt(proc.code.size)
+    proc.code foreach {
+      case Inst.End => putInt(0)
+      case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
+      case Inst.Cns(a, b) => { putInt(2); putReg(a); putInt(constMap(b)) }
+      case Inst.Get(a, o, k) =>
+        { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
+      case Inst.Set(o, k, a) =>
+        { putInt(4); putReg(o); putInt(getField(o, k)); putReg(a) }
+      case Inst.New(a) =>
+      case Inst.Lbl(l) => { putInt(5); putLbl(l) }
+      case Inst.Jmp(l) => { putInt(6); putLbl(l) }
+      case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
+      case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
 
-      proc.code foreach {
-        case Inst.End => putInt(0)
-        case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
-        case Inst.Cns(a, b) => { putInt(2); putReg(a); putInt(constMap(b)) }
-        case Inst.Get(a, o, k) =>
-          { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
-        case Inst.Set(o, k, a) =>
-          { putInt(4); putReg(o); putInt(getField(o, k)); putReg(a) }
-        case Inst.New(a) =>
-        case Inst.Lbl(l) => { putInt(5); putLbl(l) }
-        case Inst.Jmp(l) => { putInt(6); putLbl(l) }
-        case Inst.If (l, a) => { putInt(7); putLbl(l); putReg(a) }
-        case Inst.Ifn(l, a) => { putInt(8); putLbl(l); putReg(a) }
+      // Aqui hay que asegurarse de que los números de entradas y salidas
+      // usadas son los mismos que los que la rutina espera.
+      case Inst.Call(nm, rs, gs) =>
+        putInt(procMap(nm) + 15)
 
-        // Aqui hay que asegurarse de que los números de entradas y salidas
-        // usadas son los mismos que los que la rutina espera.
-        case Inst.Call(nm, rs, gs) =>
-          putInt(procMap(nm) + 15)
+        val (rsnum, gsnum) = prog.findProc(nm) match {
+          case Some(proc) => (proc.outs.size, proc.ins.size)
+          case None => throw new Exception(s"Use of nonexisting proc $nm")
+        }
 
-          val (rsnum, gsnum) = prog.findProc(nm) match {
-            case Some(proc) => (proc.outs.size, proc.ins.size)
-            case None => throw new Exception(s"Use of nonexisting proc $nm")
-          }
+        if (rs.size > rsnum) {
+          throw new Exception(s"expected $rsnum or less results for $nm, got ${rs.size}")
+        }
+        rs foreach (putReg(_))
+        // Si no hay suficientes resultados, llenar con ceros.
+        // Eso es váido, significa que se descartan los resultados.
+        (1 to (rsnum - rs.size)) foreach {_ => putInt(0)}
 
-          if (rs.size > rsnum) {
-            throw new Exception(s"expected $rsnum or less results for $nm, got ${rs.size}")
-          }
-          rs foreach (putReg(_))
-          // Si no hay suficientes resultados, llenar con ceros.
-          // Eso es váido, significa que se descartan los resultados.
-          (1 to (rsnum - rs.size)) foreach {_ => putInt(0)}
-
-          if (gs.size != gsnum) {
-            throw new Exception(s"expected $gsnum arguments for $nm, got ${gs.size}")
-          }
-          gs foreach (putReg(_))
-      }
+        if (gs.size != gsnum) {
+          throw new Exception(s"expected $gsnum arguments for $nm, got ${gs.size}")
+        }
+        gs foreach (putReg(_))
     }
   }
 
   def writeConstants () {
-    putInt(constMap.size)
+    putInt(constMap.size*2)
 
-    def putFullInt (i: Int) {
-      putByte(0)
-      putByte(0)
-      putByte(0)
-      putByte(0)
-      putByte((i >> 24) & 0xFF)
-      putByte((i >> 16) & 0xFF)
-      putByte((i >> 8 ) & 0xFF)
-      putByte((i >> 0 ) & 0xFF)
+    var i = 0
+
+    def putFullInt (n: Int) {
+      putInt(1) // Kind Binary
+
+      putInt(4) // Byte count
+
+      putByte((n >> 24) & 0xFF)
+      putByte((n >> 16) & 0xFF)
+      putByte((n >> 8 ) & 0xFF)
+      putByte((n >> 0 ) & 0xFF)
+
+      // procMap devuelve base-1, más 15 da base-16
+      putInt(procMap("makeint") + 15)
+      putInt(i+1)
     }
 
     constMap foreach { name =>
       prog.constants(name) match {
         case i: Int =>
-          putInt(3)
-          putInt(typeMap("Int"))
           putFullInt(i)
         case n: Float =>
-          putInt(3)
-          putInt(typeMap("Int"))
           putFullInt(n.asInstanceOf[Int])
         case n: Double =>
-          putInt(3)
-          putInt(typeMap("Int"))
           putFullInt(n.asInstanceOf[Int])
         case s: String =>
-          putInt(5)
-          putInt(typeMap("String"))
+          putInt(1) // Kind Binary
           putStr(s)
+
+          putInt(procMap("makestr") + 15)
+          putInt(i+1)
       }
+      i = i+2
     }
   }
 
   def writeAll () {
     prepareData()
 
+    writeImports()
+    writeTypes()
+    writeRutines()
+    writeConstants()
+
+    /*
     writeBasics()
     writeRutines()
     writeImports()
@@ -254,5 +297,6 @@ class BinaryWriter(prog: ProgState) {
     putInt(0)
 
     writeConstants()
+    */
   }
 }

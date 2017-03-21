@@ -105,6 +105,8 @@ class Reader (_content: Iterator[Int]) {
 
   var rutines: Array[Func] = null
 
+  val importBuffer = new ArrayBuffer[String]()
+
   def typeIndex = typeBuffer.size + 1
   //def funcIndex = funcBuffer.size + 1
 
@@ -120,7 +122,44 @@ class Reader (_content: Iterator[Int]) {
 
   def getTypeName (i: Int) =
     if (i > typeBuffer.length) s"tipo[#$i]"
-    else s"tipo[${typeBuffer(i-1).name}]"
+    else typeBuffer(i-1).name
+
+  def print_imports () {
+    val count = readInt()
+    printData(s"$count Dependencias")
+    for (i <- 1 to count) {
+      val name = readString()
+      printData(s"#$i $name")
+      val paramCount = readInt()
+      printData(s"$paramCount parámetros")
+      for (j <- 1 to paramCount) {
+        val cns = readInt()
+        printData(s"  const_$cns")
+      }
+      importBuffer += name
+    }
+  }
+
+  def print_types () {
+    val count = readInt()
+    printData(s"$count Tipos")
+
+    for (i <- 1 to count) {
+      readInt() match {
+        case 0 => throw new Exception(s"Null type kind")
+        case 1 => throw new Exception("Internal type kind not yet supported")
+        case 2 =>
+          val imp = importBuffer(readInt() - 1)
+          val name = s"$imp.$readString"
+
+          printData(s"#$i Importado $name")
+
+          typeBuffer += Type(name)
+        case 3 => throw new Exception("Use type kind not yet supported")
+        case k => throw new Exception(s"Unknown type kind $k")
+      }
+    }
+  }
 
   // 18 líneas
   def print_basic () {
@@ -164,9 +203,14 @@ class Reader (_content: Iterator[Int]) {
   }
 
   // 19 líneas
-  def print_rutines () {
+  def print_prototypes () {
     printData("Prototipos")
-    for (i <- 0 until this.rutines.size) {
+    val count = readInt()
+    printData(s"$count Rutinas")
+
+    this.rutines = new Array(count)
+
+    for (i <- 0 until count) {
       val inCount = readInt()
       val ins = (1 to inCount) map { _: Int =>
         val tp = readInt()
@@ -182,7 +226,89 @@ class Reader (_content: Iterator[Int]) {
       val rutine = Func(i+1, inCount, outCount)
       printData(s"#${rutine.index} $ins -> $outs")
 
-      rutines(i) = rutine
+      this.rutines(i) = rutine
+    }
+
+    val methods = readInt()
+    printData(s"$methods Métodos")
+    if (methods > 0) {
+      throw new Exception("Methods not yet supported")
+    }
+  }
+
+  def print_rutines () {
+    printData("Definiciones de rutinas")
+    for (rutine <- this.rutines) {
+      //val rutine = this.rutines(i)
+
+      readInt() match {
+        case 0 => throw new Exception("Null rutine kind")
+        case 2 =>
+          val imp = importBuffer(readInt()-1)
+          val name = readString()
+          rutine.name = s"$imp.$name"
+          printData(s"#${rutine.index} Importada: ${rutine.name}")
+        case 1 =>
+          val name = readString()
+          rutine.name = name
+          printData(s"#${rutine.index} Interna $name")
+
+          readInt() match {
+            case 0 => printData("  No método")
+            case meth => throw new Exception("Methods not yet supported")
+          }
+
+          val regCount = readInt()
+          printData(s"  $regCount registros")
+
+          for (i <- 1 to regCount) {
+            val tp = readInt()
+            val typename = getTypeName(tp)
+            val _i = i + rutine.ins + rutine.outs
+            printData(s"    $typename #$i")
+          }
+
+          val instCount = readInt()
+          printData(s"  $instCount Instrucciones")
+
+          for (i <- 1 to instCount) {
+            val inst = readInt()
+
+            def readReg() = {
+              val ins = rutine.ins
+              val inouts = rutine.ins + rutine.outs
+
+              readInt match {
+                case j if j <= ins => s"in_$j"
+                case j if j <= inouts => s"out_${j-ins}"
+                case j => s"reg[${j - inouts}]"
+              }
+            }
+
+            val desc = inst match {
+              case 0 => "%end"
+              case 1 => s"%cpy $readReg $readReg"
+              case 2 => s"%cns $readReg const_$readInt"
+              case 3 => s"%get $readReg $readReg field[$readInt]"
+              case 4 => s"%set $readReg field[$readInt] $readReg"
+              case 5 => s"%lbl lbl_$readInt"
+              case 6 => s"%jmp lbl_$readInt"
+              case 7 => s"%jif lbl_$readInt $readReg"
+              case 8 => s"%ifn lbl_$readInt $readReg"
+              case inst if inst < 16 => s"unknown $inst"
+              case inst =>
+                val rutine = rutines(inst-16)
+                val outs = (1 to rutine.outs).map{_ => readReg}.mkString(" ")
+                val ins = (1 to rutine.ins).map{_ => readReg}.mkString(" ")
+                s"${rutine.name} $outs <- $ins"
+            }
+
+            printData(s"    $desc")
+          }
+        case kind => throw new Exception(s"Unknown rutine kind $kind")
+      }
+
+      //rutines(i) = rutine
     }
   }
 
@@ -190,7 +316,6 @@ class Reader (_content: Iterator[Int]) {
   def print_modules () {
     val count = readInt()
     printData(s"$count Módulos")
-
     for (i <- 0 until count) {
       printText("")
 
@@ -340,54 +465,41 @@ class Reader (_content: Iterator[Int]) {
 
     var i = this.paramCount + 1;
     while (i <= count) {
+      readInt() match {
+        case 0 => throw new Exception("Null constant kind")
+        case 1 =>
+          val size = readInt
+          val bytes = readBytes(size)
+          val isPrintable = bytes forall { c: Int => !Character.isISOControl(c) }
+          val msg = if (isPrintable) {
+            "\"" + (
+              new String(bytes.map{b => b.asInstanceOf[Byte]}.toArray, "UTF-8")
+            ) + "\""
+          } else { s"$size bytes" }
+          printData(s"#$i Binario: $msg")
+          i += 1
+        case 2 =>
+          val size = readInt
+          val vals = (1 to size) map {_ => readInt()}
+          val txt = vals map {v => s"const_$v"} mkString " "
+          printData(s"#$i Arreglo: $txt")
+          i += 1
+        case k if k<16 => throw new Exception(s"Unknown Kind $k")
+        case j =>
+          val rutine = rutines(j-16)
 
-      val fmt = readInt()
+          val outs = (0 until rutine.outs).map{
+            j => s"#${i + j}"
+          }.mkString(" ")
 
-      val tp = getTypeName(readInt())
+          val ins = (1 to rutine.ins).map{
+            _ => s"const_$readInt"
+          }.mkString(" ")
 
-      def readi64: Int =
-        readBytes(8).foldLeft(0){
-          (acc: Int, x: Int) =>
-            x | (acc << 8)
-        }
-      def readf64 = java.lang.Double.longBitsToDouble( readi64 )
+          i = i+rutine.outs
 
-      val line = if (fmt < 16) {
-        val desc = fmt match {
-          case 0 => "null"
-          case 1 => s"int $readInt"
-          case 2 => s"byte $readByte"
-          case 3 => s"i64 $readi64"
-          case 4 => s"f64 $readf64"
-          case 5 => s"bin $readString"
-          case 6 =>
-            val n = readInt
-            val vals = (1 to n) map {_ => s"const_$readInt"} mkString " "
-            s"arr $n: $vals"
-          case 7 => s"type ${getTypeName(readInt)}"
-          case 8 => s"rut ${rutines(readInt - 1).name}"
-          case _ => throw new Exception(s"Unknown format $fmt")
-        }
-        i = i+1
-
-        s"#${i-1} $tp: $desc"
-      } else {
-        val rutine = rutines(fmt-16)
-
-        val outs = (0 until rutine.outs).map{
-          j => s"#${i + j}"
-        }.mkString(" ")
-
-        val ins = (1 to rutine.ins).map{
-          _ => s"const_${readInt + 1}"
-        }.mkString(" ")
-
-        i = i+rutine.outs
-
-        s"$outs: ${rutine.name} $ins"
+          printData(s"$outs <- ${rutine.name} $ins")
       }
-
-      printData(line)
     }
   }
 
@@ -402,7 +514,22 @@ class Reader (_content: Iterator[Int]) {
   def readAll () {
     // 8 secciones
 
-    print_basic()
+    print_imports()
+    printBar()
+
+    print_types()
+    printBar()
+
+    print_prototypes()
+    printBar()
+
+    print_rutines()
+    printBar()
+
+    print_constants()
+    printBar()
+
+    /*print_basic()
     printBar()
 
     print_exports()
@@ -423,7 +550,7 @@ class Reader (_content: Iterator[Int]) {
     print_uses()
     printBar()
 
-    print_constants()
+    print_constants()*/
 
     // TODO: Faltan typeuse, rutineuse, y constantes
   }

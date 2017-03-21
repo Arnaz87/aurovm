@@ -17,7 +17,7 @@ object Predefined {
 
   val modules = Map[String, Module](
     "Prelude" -> Module(
-      Set("Int", "String", "Any", "Bool"),
+      Set("Int", "String", "Any", "Bool", "Binary"),
       Array(
         Proc("print",
           Array("String"),
@@ -49,6 +49,15 @@ object Predefined {
         ),
         Proc("concat",
           Array("String", "String"),
+          Array("String")
+        ),
+
+        Proc("makeint",
+          Array("Binary"),
+          Array("Int")
+        ),
+        Proc("makestr",
+          Array("Binary"),
           Array("String")
         )
       )
