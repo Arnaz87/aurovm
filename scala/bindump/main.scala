@@ -124,6 +124,22 @@ class Reader (_content: Iterator[Int]) {
     if (i > typeBuffer.length) s"tipo[#$i]"
     else typeBuffer(i-1).name
 
+  def print_magic () {
+    val magic = "Cobre ~1\0"
+    val data = readBytes(9)
+    val valid = (magic zip data) forall {
+      case (c: Char, d: Int) => (c == d)
+    }
+    if (!valid) {
+      val bytes = data.map(_.asInstanceOf[Byte]).toArray
+      val mag = new String(bytes, "UTF-8")
+
+      throw new Exception(s"Invalid Magic Number $mag")
+    }
+
+    printData("Magic: \"Cobre ~1\\0\"")
+  }
+
   def print_imports () {
     val count = readInt()
     printData(s"$count Dependencias")
@@ -385,16 +401,21 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
-  def print_garbage () {
-    while (content.hasNext) {
-      readByte()
+  def print_metadata () {
+    val first = readInt()
+    if (first == 0) {
+      printData("Empty Metadata")
+    } else {
+      while (content.hasNext) readByte()
+      printData("Non empty Metadata (not yet supported)")
     }
-
-    printData("Basura Restante")
   }
 
   def readAll () {
     // 8 secciones
+
+    print_magic()
+    printBar()
 
     print_imports()
     printBar()
@@ -410,6 +431,8 @@ class Reader (_content: Iterator[Int]) {
 
     print_constants()
     printBar()
+
+    print_metadata()
   }
 }
 

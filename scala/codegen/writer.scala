@@ -276,26 +276,18 @@ class BinaryWriter(prog: ProgState) {
     }
   }
 
+  def writeMagic() = "Cobre ~1\0" foreach { c: Char => putByte(c.asInstanceOf[Int]) }
+  def writeMetadata () = putInt(0)
+
   def writeAll () {
     prepareData()
 
+    // Número mágico
+    writeMagic()
     writeImports()
     writeTypes()
     writeRutines()
     writeConstants()
-
-    /*
-    writeBasics()
-    writeRutines()
-    writeImports()
-    writeTypes()
-    writeCode()
-
-    // writeUses()
-    putInt(0)
-    putInt(0)
-
-    writeConstants()
-    */
+    writeMetadata()
   }
 }

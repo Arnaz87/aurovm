@@ -215,6 +215,23 @@ proc parseConstants (parser: Parser): seq[Value] =
         for result_value in eval_result:
           result.add(eval_result)
 
+proc readMagic (parser: Parser) =
+  var bytes = newSeq[uint8]()
+  while true:
+    let b = parser.readByte
+    if b == 0: break
+    bytes.add(b)
+
+  var redd = ""
+  if bytes.len > 0:
+    var str = newString(bytes.len)
+    copyMem(addr(str[0]), addr(bytes[0]), bytes.len)
+    redd = str
+
+  if redd != "Cobre ~1":
+    raise newException(Exception, "Invalid magic number: " & redd)
+
+
 proc parseFile* (filename: string): Module =
 
   var parser = Parser(
@@ -226,6 +243,8 @@ proc parseFile* (filename: string): Module =
   result = Module(name: filename)
 
   try:
+    parser.readMagic()
+
     parser.parseImports()
     result.types = parser.parseTypes()
     result.procs = parser.parseRutines()
@@ -241,6 +260,6 @@ proc parseFile* (filename: string): Module =
 
     echo "Error de lectura, archivo \"" & filename & "\", byte " & parser.hexPosition
     echo getCurrentExceptionMsg()
-    writegetStackTrace()
+    writeStackTrace()
 
     quit(QuitFailure)

@@ -2,167 +2,114 @@
 
 *Como el formato cambia tan frecuentemente, la definición del formato ahora está en* `discussion/Formato N` *. El formato que describe este archivo es el 2, pero voy a empezar a implementar el Formato 3.*
 
-La principal función de un módulo es definir componentes, que son, tipos y funciones, para que otros módulos, o el sistema, puedan usarlos. No se exportan datos porque las funciones de un módulo tienen acceso a sus datos.
+Un módulo tiene tres clases de componentes: tipo, rutina y valor. Cada clase está definida en su propia sección. Cada sección está compuesta de la siguiente manera: primero el número de componentes que contiene, y luego cada uno de esos componentes. Cada tipo de componente tiene además varios formatos posibles, y cada uno de los componentes listados en una sección esta precedido por un número que lo indica y luego los datos del componente, los cuales dependen del subtipo del componente. Hay además tres secciones extras que no se componen de componentes del módulo, son las dependencias, los prototipos y los metadatos.
 
-Un módulo tiene una lista interna con todos los componentes que puede usar (una para tipos, otra para funciones, y una extra para constantes), y accede a ellos usando el índice que ocupan en la lista, pero los que están definidos en ese módulo además tienen un nombre, que es el que otros módulos usan para referirse a ellos. Si la lista interna cambia pero los componentes mantienen el nombre, otro módulo puede seguir usándolos como si no hubieran cambios.
+# Magic
 
-La lista interna tiene los componentes en el orden en que son definidos, por lo que los primeros siempre son los componentes importados de otros módulos y los últimos son los definidos en el módulo.
+Un texto ascii que corrobora que se va a leer un módulo de cobre e indica la versión, seguido de un caracter null. Para esta versión, el número mágico es
+`Cobre ~1\0`, 9 bytes en total.
 
-Un módulo está compuesto de varias secciones.
+# Imports
 
-## Contadores
+No hay subclases de dependencias (todavía), así que no estan precedidas por el número que indica la subclase.
 
-Indica el tamaño de cada una de las tablas del módulo.
+    <name: string>
+    <param_count: int>
+    <param: val_index>[param_count]
 
-~~~
-<type_count: int>
-<rout_count: int>
-<const_count: int>
-~~~
+# Types
 
-## Parámetros
+## Import
 
-Un módulo puede recibir parámetros, estos se guardan en la tabla de valores. Es un poco extraño que un módulo reciba parámetros valores pero solo devuelva tipos y rutinas. Esto es porque al importar un módulo, se le debe dar la posibilidad de ejecutar código con valores de entrada arbitrarios, pero hay que recordar que lo que otros módulos esperan son tipos y funciones para poder ser usados en sus definiciones, no valores.
+    kind: 2
+    <module: import_index>
+    <name: string>
 
-~~~
-<param_count: int>
-<param_type: type_index>[param_count]
-~~~
+## Use
 
-## Exports
+    kind: 3
+    <const: const_index>
 
-Indica qué tipos exporta el módulo y con qué nombre
+## Internal
 
-~~~
-<exported_type_count: int>
-{
-  <type: type_index>
-  <name: string>
-}[exported_type_count]
+    kind: 1
+    <name: string>
+    <field_count: int>
+    <field: type_index>[field_count]
 
-<exported_rout_count: int>
-{
-  <rout: rout_index>
-  <name: string>
-}[exported_rout_count]
-~~~
+# Prototypes
 
-## Rutinas
+    <in_count: int>
+    <int_type: index>[in_count]
+    <out_count: int>
+    <out_type: index>[out_count]
 
-El prototipo de todas las rutinas del módulo
+# Rutines
 
-~~~
-{
-  <in_count: int>
-  <in_type: type_index>[in_count]
+El número de rutinas es el mismo que el número de prototipos, así que no se escribe.
 
-  <out_count: int>
-  <out_type: type_index>[out_count]
-}[rout_count]
-~~~
+## Import
 
-## Dependencias
+    kind: 2
+    <module: import_index>
+    <name: string>
 
-Declara los módulos externos necesarios para que el actual funcione y los componentes que se usarán de cada uno de ellos. Los módulos pueden recibir valores como parámetros, y exportan tipos y funciones, pero no exportan valores.
+## Use
 
-~~~
-<module_count: varint>
-{
-  <module_name: string>
+    kind: 3
+    <const: const_index>
 
-  <param_count: int>
-  <param: const_index>[param_count]
+## Internal
+    
+    kind: 1
+    <name: string>
+    <reg_count: int>
+    <reg: type_index>[reg_count]
+    <inst_count: int>
+    <inst: ...>[inst_count]
 
-  <type_count: int>
-  <type_name: string>[type_count]
+# Constants
 
-  <rout_count: varint>
-  <rout_name: string>[rout_count]
-}[module_count]
-~~~
+Los módulos además pueden recibir parámetros, que son valores y se guardan al principio de la lista de constantes.
 
-## Tipos
+    <params>
 
-Los tipos en Cobre usualmente son equivalentes a lo que en otros contextos se conoce como estructuras o records. Solo el módulo en el que un tipo es definido tiene acceso a los campos, para otros módulos los tipos siempre son opacos, pero se pueden exportar rutinas getters y setters.
+## Binary
 
-~~~
-<type_count: int>
-{
-  <field_count: int>
-  <field_type: type_index>[field_count]
-}[type_count]
-~~~
+    kind: 1
+    <type: type_index>
+    <size: int>
+    <data: byte>[size]
 
-## Rutinas
+## Array
 
-Los registros de una función están compuestos primero por las salidas, luego las entradas, y luego los especiales. Las salidas y entradas están en la sección de declaraciones.
+    kind: 2
+    <type: type_index>
+    <size: int>
+    <values: const_index>[size]
 
-~~~
-<rout_count: int>
-{
-  <reg_count: int>
-  <reg_type: type_index>[reg_count]
-
-  <code_length: varint>
-  <instruction>[code_length]
-}[rout_count]
-~~~
-
-## Uso de contantes
-
-Se pueden usar constantes como componentes, pasados como parámetros del módulo o creados con rutinas estáticas.
-
-~~~
-<type_use_count: int>
-<const: const_index>[type_use_count]
-
-<rutine_use_count: int>
-<const: const_index>[rutine_use_count]
-~~~
-
-## Constantes
-
-Cada entrada en esta sección tiene trs partes: el formato, el tipo y los datos. Los datos dependen del formato. Si el formato es menor a 16, indica uno de los formatos especiales que se explican más abajo. Si es igual o mayor a 16, indica una función en la lista de funciones con índice-16. El tipo se omite ya que lo indica la función. Los datos son los argumentos de la función, cada uno se representa como un índice-1 en la tabla de constantes. Cada salida de la función cuenta como una constante.
-
-Los formatos especiales son:
-
-- null: Ningún valor. No sé en qué contexto puede ser útil
-- varint: Entero positivo de número variable de bits
-- byte: Entero positivo de 8 bits
-- int64: Entero con signo de 64 bits
-- float64: Coma flotante de 64 bits
-- binary: Empieza con un varint indicando el tamaño, seguido de ese número de bytes, incluyendo 0
-- array: Empieza con un varint indicando el tamaño, seguido de ese número de índices a la tabla de constantes, representados como varints.
-- type: Índice en la tabla de tipos representado como varint.
-- proc: Índice en la tabla de funciones representado como varint.
-
-~~~
-<const_count: int>
-{
-  <format: int>
-  {
+## Type
+    
+    kind: 3
     <type: type_index>
 
-    <value: int>[if format=varint,type,proc]
-    <value: byte>[if format=byte]
-    {<value: byte>[4]}[if format=int64,float64]
-    {
-      <byte_count: int>
-      <byte: byte>[byte_count]
-    }[if format=binary]
-    {
-      <val_count: int>
-      <val: const_index>[val_count]
-    }[if format=array]
-    <value: type_index>[if format=type]
-    <value: rout_index>[if format=rout]
-  }[if format<16]
-  {
-    <value: const_index>[type[format-16].in_count]
-  }[if format>=16]
-}[const_count]
-~~~
+## Rutine
 
-# Pureza
+    kind: 4
+    <rutine: rutine_index>
 
-En el cálculo de constantes, voy a tener que restringir a solo operaciones puras. Una operación impura es una que modifica objetos creados fuera de la función. Las funciones son puras a menos que use un argumento impuro o una constante impura
+## Call
+
+    ; Se agregan tantos valores a la lista como resultados tenga la función
+    ; rutine es índice-16, porque los primeros 16 números indican otros tipos
+    ; de constantes
+    <rutine: rut_index>
+    <ins: const_index>[rutines[rut_index].in_count]
+
+# Metadatos
+
+Los metadatos son s-expressions. Uso una codificación binaria especial, en vez de la representación canónica, para hacerlo más parecido a las demás secciones, y así aprovechar carácteristicas que probablemente ya están presentes en el lector del formato.
+
+Cada elemento empieza con un varint, el primer bit de ese varint indica si es una lista (0) o un string (1), y el resto de los bits indican el tamaño. El tamaño representa el número de bytes si es un string, o el número de subelementos si es una lista.
+
+El motivo de que el bit de una lista sea 0 y el de un string sea 1, es que de este modo, un byte `0x00` representa el número 0 codificado como varint, y esto a su vez representa una lista vacía, que es más o menos equivalente a null, o al menos lo hace en más contextos que el string vacío.
