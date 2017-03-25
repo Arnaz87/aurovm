@@ -183,25 +183,6 @@ class Reader (_content: Iterator[Int]) {
     }
   }
 
-  // 15 líneas
-  def print_exports () {
-    val typeCount = readInt()
-    printData(s"$typeCount Tipos Exportados")
-    for (i <- 0 until typeCount) {
-      val tp = readInt()
-      val nm = readString()
-      printData(s"  #$tp: $nm")
-    }
-
-    val routCount = readInt()
-    printData(s"$routCount Rutinas Exportadas")
-    for (i <- 0 until routCount) {
-      val rt = readInt()
-      val nm = readString()
-      printData(s"  #$rt: $nm")
-    }
-  }
-
   // 19 líneas
   def print_prototypes () {
     printData("Prototipos")
@@ -228,19 +209,11 @@ class Reader (_content: Iterator[Int]) {
 
       this.rutines(i) = rutine
     }
-
-    val methods = readInt()
-    printData(s"$methods Métodos")
-    if (methods > 0) {
-      throw new Exception("Methods not yet supported")
-    }
   }
 
   def print_rutines () {
     printData("Definiciones de rutinas")
     for (rutine <- this.rutines) {
-      //val rutine = this.rutines(i)
-
       readInt() match {
         case 0 => throw new Exception("Null rutine kind")
         case 2 =>
@@ -252,11 +225,6 @@ class Reader (_content: Iterator[Int]) {
           val name = readString()
           rutine.name = name
           printData(s"#${rutine.index} Interna $name")
-
-          readInt() match {
-            case 0 => printData("  No método")
-            case meth => throw new Exception("Methods not yet supported")
-          }
 
           val regCount = readInt()
           printData(s"  $regCount registros")
@@ -305,68 +273,9 @@ class Reader (_content: Iterator[Int]) {
 
             printData(s"    $desc")
           }
-        case kind => throw new Exception(s"Unknown rutine kind $kind")
+        case 3 => throw new Exception(s"Use rutine kind not yet supported")
+        case k => throw new Exception(s"Unknown rutine kind $k")
       }
-
-      //rutines(i) = rutine
-    }
-  }
-
-  // 32 líneas
-  def print_modules () {
-    val count = readInt()
-    printData(s"$count Módulos")
-    for (i <- 0 until count) {
-      printText("")
-
-      val modname = readString()
-      printData(s"$modname:")
-
-      val params = readInt()
-      printData(s"$params Parámetros:")
-      for (i <- 0 until params) {
-        printData(s"  const_$readInt")
-      }
-
-      val types = readInt()
-      printData(s"$types Tipos:")
-      for (i <- 0 until types) {
-        val name = readString()
-        printData(s"  $name #$typeIndex")
-        typeBuffer += Type(s"$modname.$name")
-      }
-
-      val funcs = readInt()
-      printData(s"$funcs Rutinas:")
-      for (i <- 0 until funcs) {
-        val rutine = nextRutine
-        val name = readString()
-        rutine.name = s"$modname.$name"
-        printData(s"  $name #${rutine.index}")
-      }
-    }
-  }
-
-  // 19 líneas
-  def print_structs () {
-    val count = readInt()
-    printData(s"$count Structs")
-
-    for (i <- 0 until count) {
-      val name = readString()
-      printData(s"$name #$typeIndex")
-
-      val fCount = readInt()
-      printData(s"  $fCount campos:")
-
-      for (i <- 1 to fCount) {
-        var tp = readInt()
-
-        val typename = getTypeName(tp)
-        printData(s"    $typename #$i")
-      }
-
-      typeBuffer += Type(name)
     }
   }
 
@@ -426,33 +335,6 @@ class Reader (_content: Iterator[Int]) {
 
         printData(s"    $desc")
       }
-    }
-  }
-
-  // 23 líneas
-  def print_uses () {
-    printData("Uso de constantes")
-
-    val typeCount = readInt()
-    printData(s"$typeCount Tipos")
-
-    for (i <- 1 to typeCount) {
-      val cns = readInt()
-      val nm = s"cns_$cns"
-      printData(s"  $nm #$typeIndex")
-
-      typeBuffer += Type(nm)
-    }
-
-    val rutCount = readInt()
-    printData(s"$rutCount Rutinas")
-
-    for (i <- 1 to rutCount) {
-      val rutine = nextRutine()
-
-      val cns = readInt()
-      rutine.name = s"cns_$cns"
-      printData(s"  ${rutine.name} #${rutine.index}")
     }
   }
 
@@ -528,31 +410,6 @@ class Reader (_content: Iterator[Int]) {
 
     print_constants()
     printBar()
-
-    /*print_basic()
-    printBar()
-
-    print_exports()
-    printBar()
-
-    print_rutines()
-    printBar()
-
-    print_modules()
-    printBar()
-
-    print_structs()
-    printBar()
-
-    print_code()
-    printBar()
-
-    print_uses()
-    printBar()
-
-    print_constants()*/
-
-    // TODO: Faltan typeuse, rutineuse, y constantes
   }
 }
 

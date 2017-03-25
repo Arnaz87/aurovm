@@ -49,7 +49,7 @@ class BinaryWriter(prog: ProgState) {
   }
 
   def prepareData () {
-    prog.constants foreach { case (name, value) => constMap.add(name) }
+    prog.constants foreach { case (name, value) => constMap.add(name)}
 
     prog.imports foreach { case (nm, imp) =>
       importMap.add(nm)
@@ -119,9 +119,6 @@ class BinaryWriter(prog: ProgState) {
     }
     prog.procs foreach {case (name, proc) => writePrototype(proc)}
 
-    // 0 métodos
-    putInt(0)
-
     prog.imports foreach { case (nm, imp) =>
       imp.procs foreach {rutine =>
         putInt(2) // Import Kind
@@ -132,7 +129,6 @@ class BinaryWriter(prog: ProgState) {
     prog.procs foreach {case (name, rutine) =>
       putInt(1)
       putStr(name)
-      putInt(0) // índice del método
       writeCode(rutine)
     }
   }
@@ -202,7 +198,10 @@ class BinaryWriter(prog: ProgState) {
     proc.code foreach {
       case Inst.End => putInt(0)
       case Inst.Cpy(a, b) => { putInt(1); putReg(a); putReg(b) }
-      case Inst.Cns(a, b) => { putInt(2); putReg(a); putInt(constMap(b)) }
+      case Inst.Cns(a, b) =>
+        { putInt(2); putReg(a); putInt(2*constMap(b)) }
+        // (2*cons) porque las constantes ocupan dos espacios, uno para
+        // el binario y otro para el valor real
       case Inst.Get(a, o, k) =>
         { putInt(3); putReg(a); putReg(o); putInt(getField(o, k)) }
       case Inst.Set(o, k, a) =>

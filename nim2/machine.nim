@@ -7,13 +7,14 @@
 #=== Types ===#
 
 type
-  ValueKind* = enum nilType, intType, strType, boolType
+  ValueKind* = enum nilType, intType, strType, boolType, binType
   Value* = object
     case kind*: ValueKind
     of nilType: discard
     of intType: i*: int
     of strType: str*: string
     of boolType: b*: bool
+    of binType: data*: seq[uint8]
 
   Type* = ref object of RootObj
     name*: string
@@ -110,7 +111,7 @@ proc run* (inst: Inst) =
       var args = inst.ins.map do (i: int) -> Value: st.regs[i]
       var rets = inst.prc.prc(args)
       for pair in zip(inst.outs, rets):
-          st.regs[pair.a] = pair.b
+        st.regs[pair.a] = pair.b
     of codeProc:
       addState(inst.prc)
       let nst = states[states.high]
@@ -139,3 +140,31 @@ proc run* () =
     echo $$st.prc
 
     for r in st.regs: echo "  " & $r
+
+
+# Invoca una sola función y devuelve el resultado
+proc invoke* (prc: Proc, args: seq[Value]): seq[Value] =
+  case prc.kind
+  of nativeProc:
+    var rets = prc.prc(args)
+    return rets
+  of codeProc:
+    # Guarda el stack de estados que ya estaba
+    var saved_stack = states
+
+    states = @[]
+    addState(prc)
+    let st = states[states.high]
+
+    for pair in zip(prc.inregs, args):
+      st.regs[pair.a] = pair.b
+
+    # run termina cuando el stack se vacía
+    run()
+
+    result = @[]
+    for reg in prc.outregs: result.add(st.regs[reg])
+
+    states = saved_stack
+
+    

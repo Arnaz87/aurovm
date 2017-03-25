@@ -5,6 +5,7 @@ import methods
 import modules
 
 import sequtils
+import strutils
 
 type Prototype = object
   ins: seq[int]
@@ -12,6 +13,7 @@ type Prototype = object
 
 type Parser = ref object of RootObj
   file: File
+  modules: seq[Module]
   types: seq[Type]
   procs: seq[Proc]
   prototypes: seq[Prototype]
@@ -21,6 +23,8 @@ type Parser = ref object of RootObj
     procs: seq[tuple[i: int, nm: string]]
   ]
 
+proc hexPosition(parser: Parser): string =
+  parser.file.getFilePos.toHex(4)
 
 proc buildSeq[T](n: int, prc: proc(): T): seq[T] =
   result = newSeq[T](n)
@@ -51,66 +55,43 @@ proc readStr (parser: Parser): string =
   let L = parser.file.readBuffer(addr(result[0]), length)
   if L != length: raise newException(IOError, "cannot read full string")
 
+proc readBytes (parser: Parser, size: int): seq[uint8] =
+  if size<0: raise newException(Exception, "Negative size")
+  if size==0: return @[]
+  result = newSeq[uint8](size)
+  let L = parser.file.readBuffer(addr(result[0]), size)
+  if L != size: raise newException(IOError, "cannot read full byte data")
+
+
 #=== Parsers ===#
 
-proc parseBasics (parser: Parser) =
-  let typeCount = parser.readInt
-  let rutCount = parser.readInt
-  let constCount = parser.readInt
-
-  let paramCount = parser.readInt
-  if paramCount > 0:
-    raise newException(Exception, "Module parameters not implemented")
-
-  let typeExports = parser.readInt
-  if typeExports > 0:
-    raise newException(Exception, "Module Exports not implemented")
-  let rutExports = parser.readInt
-  if rutExports > 0:
-    raise newException(Exception, "Module Exports not implemented")
-
-  parser.prototypes = rutCount.buildSeq do () -> Prototype:
-    let inCount = parser.readInt
-    let ins = inCount.buildSeq do () -> int: parser.readInt-1
-
-    let outCount = parser.readInt
-    let outs = outCount.buildSeq do () -> int: parser.readInt-1
-
-    Prototype(ins: ins, outs: outs)
-
-
 proc parseImports (parser: Parser) =
-  parser.readInt.loop do ():
+  parser.modules = parser.readInt.buildSeq do () -> Module:
     let modName = parser.readStr
     let module = modules[modName]
-
     if parser.readInt > 0:
       raise newException(Exception, "Import parameters not implemented")
-
-    parser.readInt.loop do ():
-      let typeName = parser.readStr
-      let mytype = module.types[typename]
-      parser.types.add(mytype)
-
-    parser.readInt.loop do ():
-      let procName = parser.readStr
-      let myproc = module.procs[procname]
-
-      let proto = parser.prototypes[parser.procs.len]
-
-      if (myproc.incount != proto.ins.len):
-        raise newException(Exception, "Input count mismatch: " & procName)
-
-      if (myproc.outcount != proto.outs.len):
-        raise newException(Exception, "Output count mismatch: " & procName)
-
-      parser.procs.add(myproc)
+    return module
 
 proc parseTypes (parser: Parser): seq[Type] =
+  result = @[]
+
   let typeCount = parser.readInt
-  if typeCount > 0:
-    raise newException(Exception, "Type parser not yet implemented")
-  return newSeq[Type](typeCount)
+
+  typeCount.loop do ():
+    let kind = parser.readInt
+    case kind
+    of 0: raise newException(Exception, "Null type kind")
+    of 1: raise newException(Exception, "Internal type kind not implemented")
+    of 2:
+      let modi = parser.readInt
+      let module = parser.modules[modi-1]
+      let name = parser.readStr
+      let tp = module.types[name]
+      parser.types.add(tp)
+    of 3: raise newException(Exception, "Use type kind not implemented")
+    else: raise newException(Exception, "Unknown type kind " & $kind)
+
 
 proc parseCode (parser: Parser, rut: Proc) = 
   proc readVal (): int = parser.readInt - 1
@@ -150,66 +131,90 @@ proc parseCode (parser: Parser, rut: Proc) =
 proc parseRutines (parser: Parser): seq[Proc] =
   result = @[]
 
-  let startIndex = parser.procs.len
   let count = parser.readInt
 
-  count.loop do (): parser.procs.add Proc()
+  parser.prototypes = count.buildSeq do () -> Prototype:
+    let ins  = parser.readInt.buildSeq do () -> int: parser.readInt-1
+    let outs = parser.readInt.buildSeq do () -> int: parser.readInt-1
+    Prototype(ins: ins, outs: outs)
 
-  for i in startIndex..<(startIndex+count):
+  for proto in parser.prototypes:
+    let kind = parser.readInt
+    case kind
+    of 0: raise newException(Exception, "Null type kind")
+    of 1:
+      var rutine = Proc()
 
-    let proto = parser.prototypes[i]
-    let rutine = parser.procs[i]
+      rutine.name = parser.readStr
 
-    let regCount = parser.readInt
+      let regCount = parser.readInt
 
-    let indexes = proto.ins & proto.outs & (
-      regCount.buildSeq do -> int: parser.readInt-1
-    )
+      let indexes = proto.ins & proto.outs & (
+        regCount.buildSeq do -> int: parser.readInt-1
+      )
 
-    rutine.name = ""
-    rutine.inregs = toSeq(0 .. proto.ins.high)
-    rutine.outregs = toSeq(proto.ins.len .. proto.ins.len+proto.outs.high)
-    rutine.regs = indexes.map do (x: int) -> Type: parser.types[x]
+      rutine.inregs = toSeq(0 .. proto.ins.high)
+      rutine.outregs = toSeq(proto.ins.len .. proto.ins.len+proto.outs.high)
+      rutine.regs = indexes.map do (x: int) -> Type: parser.types[x]
 
-    parser.parseCode(rutine)
+      parser.parseCode(rutine)
 
-    result.add rutine
-
-proc parseUses (parser: Parser) =
-  let typeCount = parser.readInt
-  if typeCount > 0:
-    raise newException(Exception, "Type use is not implemented")
-  let rutCount = parser.readInt
-  if rutCount > 0:
-    raise newException(Exception, "Rutine use not implemented")
+      result.add(rutine)
+      parser.procs.add(rutine)
+    of 2:
+      let modi = parser.readInt
+      let module = parser.modules[modi-1]
+      let name = parser.readStr
+      let rutine = module.procs[name]
+      parser.procs.add(rutine)
+    of 3: raise newException(Exception, "Use rutine kind not implemented")
+    else: raise newException(Exception, "Unknown rutine kind " & $kind)
 
 proc parseConstants (parser: Parser): seq[Value] =
 
   let IntType = modules["Prelude"].types["Int"]
   let StringType = modules["Prelude"].types["String"]
 
-  let constCount = parser.readInt
+  let count = parser.readInt
 
-  return constCount.buildSeq do -> Value:
-    let fmt = parser.readInt
+  result = @[]
 
-    if fmt < 16:
-      let tp = parser.types[parser.readInt - 1]
-      if tp == IntType and fmt == 3:
-        var length = 8
-        var value = 0
-        while length>0:
-          value = (value shl 8) or cast[int](parser.readByte)
-          length.dec
-        return intValue(value)
-      elif tp == StringType and fmt == 5:
-        return strValue(parser.readStr)
-      else:
-        raise newException(Exception, "Unsuported format " & $fmt & " for " & $tp)
+  while result.len < count:
+    let kind = parser.readInt
+    case kind
+    of 0:
+      result.add( Value(kind: nilType) )
+    of 1:
+      let size = parser.readInt
+      var data = parser.readBytes(size)
+      result.add( Value(kind: binType, data: data) )
     else:
-      raise newException(Exception, "Constant rutine call not implemented")
+      if kind < 16: raise newException(Exception, "Unknown constant kind " & $kind)
+      else:
 
-import strutils
+        let rutine = parser.procs[kind-16]
+
+        let inCount = case rutine.kind
+          of nativeProc: rutine.inCount
+          of codeProc: rutine.inregs.len
+
+        let outCount = case rutine.kind
+          of nativeProc: rutine.outCount
+          of codeProc: rutine.outregs.len
+
+        let constants = result
+        let args = inCount.buildSeq do -> Value:
+          let index = parser.readInt-1
+          if index > constants.high:
+            raise newException(Exception, "Constant lookahead not yet implemented")
+          return constants[index]
+
+        #echo "invoking " & $rutine & " with " & $args
+        let eval_result = invoke(rutine, args)
+
+        for result_value in eval_result:
+          result.add(eval_result)
+
 proc parseFile* (filename: string): Module =
 
   var parser = Parser(
@@ -221,23 +226,21 @@ proc parseFile* (filename: string): Module =
   result = Module(name: filename)
 
   try:
-    parser.parseBasics()
-
     parser.parseImports()
-
     result.types = parser.parseTypes()
     result.procs = parser.parseRutines()
 
-    parser.parseUses()
+    for prc in result.procs:
+      prc.module = result
+
     result.constants = parser.parseConstants()
 
   except Exception:
 
     let e = getCurrentException()
 
-    echo "Error de lectura, archivo \"" & filename & "\", byte " & parser.file.getFilePos.toHex(4)
+    echo "Error de lectura, archivo \"" & filename & "\", byte " & parser.hexPosition
     echo getCurrentExceptionMsg()
-    echo e.getStackTrace()
+    writegetStackTrace()
 
-  for prc in result.procs:
-    prc.module = result
+    quit(QuitFailure)

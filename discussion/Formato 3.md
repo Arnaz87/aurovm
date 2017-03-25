@@ -60,29 +60,9 @@ Lo que sí es problemático con las rutinas es que no se puede definir el cuerpo
     <out_count: int>
     <out_type: index>[out_count]
 
-# Methods
-
-    ; Si el módulo es null, no es externo sino interno
-    <module: import_index>
-    <name: string>
-
-    ; Los métodos tienen su propia lista, pero también se agregan al final
-    ; de la lista derutinas al final de la lista, con cada genérico como
-    ; una entrada de tipo Any
-    <generic_count: int>
-    <in_count: int>
-    <int_type: index>[in_count]
-    <out_count: int>
-    <out_type: index>[out_count]
-
 # Rutines
 
-    <kind: int>
-    <in_count: int>
-    <int_type: index>[in_count]
-    <out_count: int>
-    <out_type: index>[out_count]
-    <data: ...>
+El número de rutinas no se escribe aquí porque ya se sabe con el número de prototipos
 
 ## Import
 
@@ -98,10 +78,7 @@ Lo que sí es problemático con las rutinas es que no se puede definir el cuerpo
 ## Internal
     
     kind: 1
-    ; Si method no es cero, indica que esta rutina es una implementación de
-    ; un método. El método es un índice en la tabla de métodos, no de rutinas.
     <name: string>
-    <method: method_index>
     <reg_count: int>
     <reg: type_index>[reg_count]
     <inst_count: int>

@@ -6,6 +6,9 @@
 # Sólo se usan los tipos, no se usa el intérprete
 import machine
 
+import sequtils
+import strutils
+
 proc `[]`* (types: openArray[Type], key: string): Type =
   for t in types:
     if t.name==key:
@@ -41,6 +44,14 @@ proc `$`* (v: Value): string =
   of intType: return $v.i
   of boolType: return $v.b
   of strType: return $v.str
+  of binType:
+    result = "["
+    var first = true
+    for b in v.data:
+      if first: first = false
+      else: result &= " "
+      result &= $( cast[int](b).toHex(2) )
+    result &= "]"
 
 
 proc `$$`* (prc: Proc): string =

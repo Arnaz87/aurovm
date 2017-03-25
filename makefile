@@ -1,10 +1,10 @@
 
 scalaprojects=bin/bindump bin/cu bin/lua
 
-scala/%/target/start: scala/%/*.scala scala/*.sbt
-	cd scala; sbt $*/package $*/start-script
+.PHONY: $(scalaprojects)
 
-$(scalaprojects): bin/%: scala/%/target/start
+$(scalaprojects): bin/%:
+	cd scala; sbt $*/package $*/start-script
 	echo -e "#!/bin/sh\n$(realpath $<) \$$@" > $@
 	chmod +x $@
 

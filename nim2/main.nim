@@ -16,9 +16,14 @@ if paramCount() != 1:
 let filename = paramStr(1)
 let module = parseFile(filename)
 
-#for prc in module.procs:
-#  echo $$prc
+#[
+for prc in module.procs:
+  echo $$prc
 
-addState(module.procs[0])
+for cns in module.constants:
+  echo $cns
+]#
+
+addState(module.procs["main"])
 run()
 

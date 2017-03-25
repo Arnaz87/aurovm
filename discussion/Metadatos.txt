@@ -1,0 +1,91 @@
+# Formato de metadatos
+
+Hay dos alternativas semánticas: s-expressions y json, y cada una tiene varias alternativas de codificación.
+
+Me quedo con sexpr, o algo basado en eso, ahora la pregunta es cómo codificarlo.
+
+~~~
+; Map: [(inst: int, line: int, char: int)]
+(Map
+  (1 2 3)
+  (4 5 6)
+  (7 8 9)
+)
+~~~
+
+### Texto original
+
+123 #3
+134512341234 #12
+
+Se mide el tamaño que ocupa una codificación sin el contenido del texto en sí. n es el número de objetos, y h es el tamaño (logarítmico, redondeado hacia abajo) de los objetos.
+
+### Lisp Común
+
+Mejor caso: `(1 2 3)` #7
+Peor caso:  `("1345" "1234" "1234")` #22
+
+texto: n-1 ó 3n-1
+lista: 2n
+
+### Canónico
+
+Mejor caso: `(1:11:21:3)` #11
+Peor caso:  `(4:13454:12343:1243)` #20
+
+texto: (2+h)n
+lista: 2n
+
+### Codificación simple
+
+Mejor caso: `<01 02 01 "1" 02 01 "2" 02 01 "3" 03>` #11
+Peor caso:  `<01 02 04 "1345" 02 04 "1234" 02 04 "1234 03>` #20
+
+texto: 2n
+lista: 2n
+
+### Codificación avanzada
+
+Mejor caso: `<3.1 1.0 "1" 1.0 "2" 1.0 "3"> #7
+Peor caso:  `<3.1 4.0 "1345" 4.0 "1234" 4.0 "1234"> #16
+
+texto: (1+h)n
+lista: (1+h)n
+
+### Codificación simple con tipos
+
+Mejor caso: `<01 04 01 04 02 04 03 02>` #8
+Peor caso:  `<01 04 <1341: 2> 04 <1234: 2> 04 <1234: 2> 02>` #11*
+
+### Codificación avanzada con tipos
+
+Descripción:
+  str: xx00
+  arr: xx01
+  nat: xx10
+  etc: xx11
+    nil: 0
+    true: 1
+    fasle: 2
+    i32: 3
+    i64: 4
+    f32: 5
+    f64: 6
+
+
+
+
+Mejor caso:
+
+
+`(Map (1 2 3)(4 5 6)(7 8 9))`
+27 caracteres
+
+Expresiones Canónicas:
+`(3:Map(1:11:21:3)(1:41:51:6)(1:71:81:9))`
+40 caracteres
+
+Codificación binaria:
+`01 02 03 Map <01 02 01 "1" 02 01 "2" 02 01 "3" 03>*3 03`
+7+11*3 = 40
+
