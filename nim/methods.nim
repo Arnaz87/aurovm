@@ -1,107 +1,72 @@
-# Aquí incluyo todo lo que considero métodos de los tipos
-#   (Aunque técnicamente casi todos son procedures, no métodos, pero método
-#   en el sentido de que le pertenecen a un tipo)
 
-# Esto podría ser un constructor, pero lo siento más como un método de Object
-proc makeObject(struct: Struct): Object =
-  result = Object(struct: struct)
-  newSeq(result.data, struct.info.len)
+# # Métodos de utilidad.
+# No son necesarios para que la máquina funcione, pero le hacen más fácil
+# a otros módulos trabajar con los tipo de la máquina
 
-proc getIndex (struct: Struct, k: string): int =
-  for i in (0 .. struct.info.high):
-    if struct.info[i].s == k:
-      return i
-  let msg = "Key " & k & " not found in struct " & struct.name
-  raise newException(Exception, msg)
+# Sólo se usan los tipos, no se usa el intérprete
+import machine
 
+import sequtils
+import strutils
 
-proc getType (struct: Struct, i: int): Type =
-  return struct.info[i].t
-proc getType (struct: Struct, k: string): Type =
-  return struct.getType(struct.getIndex(k))
-proc getType (struct: Struct, k: Key): Type =
-  case k.kind
-  of intKey: return struct.getType(k.i)
-  of strKey: return struct.getType(k.s)
+proc `[]`* (types: openArray[Type], key: string): Type =
+  for t in types:
+    if t.name==key:
+      return t
+  raise newException(KeyError, "key not found: " & $key)
+proc `[]`* (procs: openArray[Proc], key: string): Proc =
+  for p in procs:
+    if p.name==key:
+      return p
+  raise newException(KeyError, "key not found: " & $key)
+proc `[]`* (modules: openArray[Module], key: string): Module =
+  for m in modules:
+    if m.name==key:
+      return m
+  raise newException(KeyError, "key not found: " & $key)
 
-proc `[]`(obj: Object, i: int): Value   = return obj.data[i]
-proc `[]=`(obj: Object, i: int, v: Value) = obj.data[i] = v
+proc intValue* (i: int): Value = Value(kind: intType, i: i)
+proc boolValue* (b: bool): Value = Value(kind: boolType, b: b)
+proc strValue* (s: string): Value = Value(kind: strType, str: s)
 
-proc `[]`(obj: Object, k: string): Value =
-  let i = obj.struct.getIndex(k)
-  return obj.data[i]
-proc `[]=`(obj: Object, k: string, v: Value) =
-  let i = obj.struct.getIndex(k)
-  obj.data[i] = v
-
-proc `[]`(obj: Object, k: Key): Value =
-  case k.kind
-  of intKey: return obj[k.i]
-  of strKey: return obj[k.s]
-proc `[]=`(obj: Object, k: Key, v: Value) =
-  case k.kind
-  of intKey: obj[k.i] = v
-  of strKey: obj[k.s] = v
-
-
-proc `$`(k: Key): string =
-  case k.kind
-  of intKey: return $k.i
-  of strKey: return k.s
-proc `$`(a: Addr): string =
-  case a.kind
-  of intKey: return $a.i
-  of strKey: return a.s
-proc `$`(inst: Inst): string =
-  case inst.kind
-  of icall:
-    let args = $inst.args.outs & " " & $inst.args.ins
-    return "call{" & inst.code.name & " " & args & "}"
-  else:
-    let cont = "a:" & $inst.a & " b:" & $inst.b & " c:" & $inst.c & " i:" & $inst.i
-    return $inst.kind & "{" & cont & "}"
-
-
-#=== Representación para Depuración ===#
-proc dbgRepr(struct: Struct, deep: bool = false): string
-proc dbgRepr(t: Type, deep: bool = false): string =
-  case t.kind:
-  of nilType: return "NilType"
-  of boolType: return "Bool"
-  of numberType: return "Number"
-  of stringType: return "String"
-  of typeType: return "Type"
-  of structType: return "Struct[" & t.struct.dbgRepr(deep) & "]"
-  of codeType: return "Code"
-proc dbgRepr(struct: Struct, deep: bool = false): string =
-  if not deep: return struct.name
-  result = ""
-  var first = true
-  for i in (0 .. struct.info.high):
-    let info = struct.info[i]
-    if first: first = false
-    else: result.add(",")
-    result.add(info.s & ": " & info.t.dbgRepr(false))
-
-proc dbgRepr(obj: Object, deep: bool = false): string
-proc dbgRepr(v: Value, deep: bool = false): string =
+proc `$`* (prc: Proc): string =
+  result = prc.name & "("
+  case prc.kind
+  of nativeProc:
+    result.add($prc.inCount & " -> " & $prc.outCount)
+  of codeProc:
+    result.add($prc.inregs.len & " -> " & $prc.outregs.len)
+  result.add(")")
+proc `$`* (tp: Type): string = return "Type[" & tp.name & "]"
+proc `$`* (v: Value): string =
   case v.kind:
   of nilType: return "nil"
+  of intType: return $v.i
   of boolType: return $v.b
-  of numberType: return $v.num
-  of stringType: return $v.str
-  of typeType: return v.tp.dbgRepr
-  of structType: return v.obj.dbgRepr(deep)
-  of codeType:
-    let name = "[" & v.code.name & "]"
-    case v.code.kind
-    of nativeCode: return "NativeCode" & name
-    of machineCode: return "MachineCode" & name
-proc dbgRepr(obj: Object, deep: bool = false): string =
-  if not deep: return "Object[" & obj.struct.name & "]"
-  result = "{\n"
-  for i in (0 .. obj.data.high):
-    let info = obj.struct.info[i]
-    let line = info.s & ": " & obj.data[i].dbgRepr(false)
-    result.add(line & "\n")
-  result.add("}")
+  of strType: return $v.str
+  of binType:
+    result = "["
+    var first = true
+    for b in v.data:
+      if first: first = false
+      else: result &= " "
+      result &= $( cast[int](b).toHex(2) )
+    result &= "]"
+
+
+proc `$$`* (prc: Proc): string =
+  result = $prc
+  case prc.kind
+  of nativeProc:
+    result.add("[Native]")
+  of codeProc:
+    result.add("{\n")
+    result.add("  ins:"  & $prc.inregs  & "\n")
+    result.add("  outs:" & $prc.outregs & "\n")
+    result.add("  regs:\n")
+    for tp in prc.regs:
+      result.add("    " & $tp & "\n")
+    result.add("  code:\n")
+    for inst in prc.code:
+      result.add("    " & $inst & "\n")
+    result.add("}")

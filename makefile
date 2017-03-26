@@ -8,5 +8,5 @@ $(scalaprojects): bin/%:
 	echo -e "#!/bin/sh\n$(realpath scala/$*/target/start) \$$@" > $@
 	chmod +x $@
 
-bin/machine: nim2/*.nim
-	nim --checks:on -o:$@ c nim2/main.nim
+bin/machine: nim/*.nim
+	nim --checks:on -o:$@ c nim/main.nim
