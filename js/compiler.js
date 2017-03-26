@@ -2,37 +2,20 @@
 // Como nodejs y el navegador funcionan diferente, tengo que usar un solo
 // archivo.
 
-// Por ahora, solo puedo leer un solo módulo, y usar la librería estándar
+(function (exports, window) {
 
-var Compiler = function (readByte, writeLine) {
-  if (!(this instanceof Compiler)) {
-    return new Compiler(readByte, writeLine);
-  }
-
-  this.readByte = readByte;
-  this.writeLine = writeLine;
-
-  this.modules = [];
-  this.types = [];
-  this.prototypes = [];
-  this.rutines = [];
-  this.constants = [];
-}
-
-Compiler.prototype.parse =  function () {
+// Por ahora, solo puedo leer un solo módulo y usar Prelude
+function parse (buffer) {
   var pos = 0;
 
   function fail (msg) { throw new Error(msg + ". at byte: " + pos.toString(16)); }
   function unsupported (msg) { fail("Unsupported: " + msg); }
 
-  var _readByte = this.readByte;
   function readByte () {
-    var byte = _readByte();
-    if (byte === null || byte === undefined) {
+    if (pos >= buffer.length) {
       fail("Unexpected end of file");
     }
-    pos++;
-    return byte & 0xff;
+    return buffer.readUInt8(pos++);
   }
 
   function readInt () {
@@ -56,11 +39,11 @@ Compiler.prototype.parse =  function () {
     return str;
   }
 
-  var modules = this.modules;
-  var types = this.types;
-  var prototypes = this.prototypes;
-  var rutines = this.rutines;
-  var constants = this.constants;
+  var modules = [];
+  var types = [];
+  var prototypes = [];
+  var rutines = [];
+  var constants = [];
 
   function parseDeps () {
     var count = readInt();
@@ -319,23 +302,30 @@ Compiler.prototype.parse =  function () {
   parsePrototypes();
   parseRutines();
   parseConstants();
+
+  return {
+    modules: modules,
+    types: types,
+    prototypes: prototypes,
+    rutines: rutines,
+    constants: constants,
+  };
 }
 
-Compiler.prototype.compile = function () {
+function compile (data) {
   
   function fail (msg) { throw new Error(msg); }
   function unsupported (msg) { fail("Unsupported: " + msg); }
 
-  var _writeLine = this.writeLine;
-
   var identation = 0;
+
+  var _str = "";
+
   function writeLine (text) {
-    var line = "";
     for (var i = 0; i < identation; i++) {
-      line += "  ";
+      _str += "  ";
     }
-    line += text;
-    _writeLine(line);
+    _str += text + "\n";
   }
 
   function joinStrings (count, sep, func) {
@@ -350,8 +340,8 @@ Compiler.prototype.compile = function () {
 
   function reg(i) { return "reg_" + (i+1); }
 
-  for (i in this.rutines) {
-    var rutine = this.rutines[i];
+  for (i in data.rutines) {
+    var rutine = data.rutines[i];
 
     if (typeof(rutine.name) !== "string") continue;
 
@@ -374,8 +364,8 @@ Compiler.prototype.compile = function () {
     writeLine("case 0:");
     identation++;
 
-    var constants = this.constants;
-    var rutines = this.rutines;
+    var constants = data.constants;
+    var rutines = data.rutines;
 
     for (var i in rutine.insts) {
       var inst = rutine.insts[i];
@@ -503,6 +493,16 @@ Compiler.prototype.compile = function () {
   }
 
   writeLine("main();")
+
+  return _str;
 }
 
-if (module) { module.exports = Compiler; }
+if (exports) {
+  exports.parse = parse;
+  exports.compile = compile;
+}
+
+})(
+  (typeof(exports) == "undefined")?
+  (window.Cobre = {}) : exports
+);
