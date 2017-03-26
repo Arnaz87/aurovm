@@ -60,13 +60,28 @@ El número de rutinas es el mismo que el número de prototipos, así que no se e
     <const: const_index>
 
 ## Internal
-    
+
     kind: 1
     <name: string>
     <reg_count: int>
     <reg: type_index>[reg_count]
     <inst_count: int>
     <inst: ...>[inst_count]
+
+### Instruction
+
+En una instrucción primero está el índice de la rutina, si el índice es menor que 16 indica una instrucción especial, si no indica una rutina en la lista de rutinas. A menos que sea una instrucción especial, luego del índice de la rutina, se indican los registros en los que se guardan los resultados. El número de registros de resultado indicado debe ser el mismo que el número de resultados que devuelve la rutina. Luego se indican los registros cuyos valores se pasan como argumentos a la rutina.
+
+En caso de ser una instrucción especial, puede ser cualquiera de las siguientes:
+
+- `0 end`: termina la ejecución de la rutina actual
+- `1 cpy (a b)`: copia el valor en el registro *b* al registro *a*
+- `2 cns (a i)`: copia el valor de la constante en la lista de constantes con el índice *i* al registro *a*
+- `3 get (a o f)`: copia el valor en el campo *f* del valor en el registro *o* al registro *a*
+- `4 set (o f a)`: copia el valor en el registro *a* al campo *f* en el registro *o*
+- `5 lbl (l)`: las instrucciones de salto con objetivo *l* pasan el control del programa a esta instrucción
+- `6 jmp (l)`: salta incondicionalmente a *l*
+- `7 jif (l a)`: salta a *l* si el valor en *a* es *true*
 
 # Constants
 
