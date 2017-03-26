@@ -5,7 +5,7 @@ scalaprojects=bin/bindump bin/cu bin/lua
 
 $(scalaprojects): bin/%:
 	cd scala; sbt $*/package $*/start-script
-	echo -e "#!/bin/sh\n$(realpath $<) \$$@" > $@
+	echo -e "#!/bin/sh\n$(realpath scala/$*/target/start) \$$@" > $@
 	chmod +x $@
 
 bin/machine: nim2/*.nim
