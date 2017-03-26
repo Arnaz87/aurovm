@@ -181,6 +181,7 @@ Compiler.prototype.parse =  function () {
 
           var proto = prototypes[index];
           var rutine = rutines[index];
+          if (rutine === undefined) { rutine = index; }
 
           var outs = [];
           var outCount = proto.outs.length;
@@ -337,22 +338,32 @@ Compiler.prototype.compile = function () {
     _writeLine(line);
   }
 
+  function joinStrings (count, sep, func) {
+    var str = "";
+    var first = true;
+    for (var i = 0; i < count; i++) {
+      if (first) {first = false;} else {str += sep;}
+      str += func(i);
+    }
+    return str;
+  }
+
+  function reg(i) { return "reg_" + (i+1); }
+
   for (i in this.rutines) {
     var rutine = this.rutines[i];
 
     if (typeof(rutine.name) !== "string") continue;
 
-    var argStr = "";
-    var firstArg = false;
-    for (var i = 0; i < rutine.inCount; i++) {
-      if (firstArg) {firstArg = false;} else {argStr += ", ";}
-      argStr += "reg_" + i;
-    }
+    var argStr = joinStrings(rutine.inCount, ", ", function(i) {
+      return "reg_" + i;
+    });
 
     writeLine("function " + rutine.name + " (" + argStr + ") {");
     identation++;
 
     writeLine("var _lbl = 0;");
+    writeLine("var _result;");
 
     for (var i = rutine.inCount; i < rutine.regs.length; i++) {
       writeLine("var reg_" + i + ";")
@@ -439,7 +450,7 @@ Compiler.prototype.compile = function () {
         case "Prelude.itos":
           writeLine(
             "reg_" + inst[1][0] +
-            " = String(" + inst[2][0] +
+            " = String(" + reg(inst[2][0]-1)+
           ");");
           break;
         case "Prelude.iadd":
@@ -461,22 +472,31 @@ Compiler.prototype.compile = function () {
           writeBinop("-", null, "1");
           break;
         default:
-          if (typeof(inst[0] == "string")) {
-            fail("Unknown rutine or instruction: " + inst[0])
+          var rut = inst[0];
+
+          if (typeof(rut) == "string") {
+            fail("Unknown rutine or instruction: " + rut)
           }
-          unsupported("custom rutine call");
+          if (typeof(rut) == "number") { rut = rutines[rut] }
+
+          var argStr = joinStrings(rut.inCount, ", ", function (i) {
+            return "reg_" + inst[2][i];
+          })
+
+          writeLine("_result = " + rut.name + "(" + argStr + ");")
+          for (var i = 0; i < rut.outCount; i++) {
+            writeLine("reg_" + inst[1][i] + " = _result[" + i + "];")
+          }
       }
     }
 
     identation--;
     writeLine("}}")
 
-    var retStr = "";
-    var firstRet = false;
-    for (var i = 0; i < rutine.outCount; i++) {
-      if (firstRet) {firstRet = false;} else {retStr += ", ";}
-      retStr += "reg_" + (i + rutine.inCount);
-    }
+    var retStr = joinStrings(rutine.outCount, ", ", function (i) {
+      return "reg_" + (i + rutine.inCount);
+    });
+
     writeLine("return [" + retStr + "];");
     identation--;
     writeLine("}");
