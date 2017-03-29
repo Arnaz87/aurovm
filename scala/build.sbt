@@ -1,12 +1,14 @@
 
-// Las fuentes no manejadas (unamaged) son fuentes creadas manualmente,
-// a diferencia de las manejadas (managed) que son creadas automáticamente.
-// Compile es el scope.
-//unmanagedSourceDirectories in Compile += baseDirectory.value / "src/machine"
-
 import com.typesafe.sbt.SbtStartScript
 
-//Seq(SbtStartScript.startScriptForClassesSettings: _*)
+
+// lazy val jsproj = (project in file("jsproj")).
+//  settings(commonSettings: _*).
+//  settings(
+//    // Sólo si tiene main, si es solo una librería esto no se pone
+//    scalaJSUseMainModuleInitializer := true
+//  ).
+//  enablePlugins(ScalaJSPlugin)
 
 lazy val commonSettings = Seq(
   scalaVersion := "2.11.8"
