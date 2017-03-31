@@ -7,6 +7,17 @@ object Ast {
   sealed trait Toplevel extends Node
   sealed trait Literal extends Expr
 
+  sealed abstract class Op
+  case object Add extends Op
+  case object Sub extends Op
+  case object Mul extends Op
+  case object Div extends Op
+  case object Gt  extends Op
+  case object Gte extends Op
+  case object Eq  extends Op
+  case object Neq extends Op
+  case object Cat extends Op // Debería ser parte de Add
+
   case class Id (name: String)
   case class Type (name: String)
 
@@ -16,6 +27,7 @@ object Ast {
   case object Null extends Literal
 
   case class Var (name: Id) extends Expr
+  case class Binop (op: Op, a: Expr, b: Expr) extends Expr
   case class Call (func: Id, args: Seq[Expr]) extends Expr with Stmt
 
   case class DeclPart (nm: Id, vl: Option[Expr])

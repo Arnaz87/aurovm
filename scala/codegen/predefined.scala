@@ -23,6 +23,10 @@ object Predefined {
           Array("String"),
           Nil
         ),
+        Proc("read",
+          Nil,
+          Array("String")
+        ),
         Proc("itos",
           Array("Int"),
           Array("String")
@@ -31,10 +35,27 @@ object Predefined {
           Array("Int", "Int"),
           Array("Int")
         ),
+        Proc("isub",
+          Array("Int", "Int"),
+          Array("Int")
+        ),
+        Proc("gt",
+          Array("Int", "Int"),
+          Array("Int")
+        ),
+        Proc("gte",
+          Array("Int", "Int"),
+          Array("Int")
+        ),
         Proc("eq",
           Array("Int", "Int"),
           Array("Bool")
         ),
+        Proc("concat",
+          Array("String", "String"),
+          Array("String")
+        ),
+
         Proc("gtz",
           Array("Int"),
           Array("Bool")
@@ -46,10 +67,6 @@ object Predefined {
         Proc("dec",
           Array("Int"),
           Array("Int")
-        ),
-        Proc("concat",
-          Array("String", "String"),
-          Array("String")
         ),
 
         Proc("makeint",

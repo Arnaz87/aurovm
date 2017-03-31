@@ -58,7 +58,9 @@ object Lexical {
     kw("null").map( _ => Ast.Null)
   )
 
-  val keywords: Set[String] = "true false null if else while return continue break goto import void int".split(' ').toSet
+  val keywords: Set[String] =
+    "true false null if else while return continue break goto import void int bool string".
+    split(' ').toSet
 
   val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
   val firstchar = CharIn('a' to 'z', 'A' to 'Z', "_")
@@ -67,7 +69,12 @@ object Lexical {
   def kw (str: String) = P(str ~ !(namechar))
 
   val ident = name.map(Ast.Id)
-  val typename = P(name | kw("int").map(_ => "Int")).map(Ast.Type)
+  val typename = P(
+    name |
+    kw("int").map(_ => "Int") |
+    kw("bool").map(_ => "Bool") |
+    kw("string").map(_ => "String")
+  ).map(Ast.Type)
 
   val lineComment = P("//" ~ CharsWhile(_ != '\n'))
   val multiComment = P("/*" ~ (!("*/") ~ AnyChar).rep ~ "*/")
@@ -83,10 +90,70 @@ import WsApi._
 import Lexical.{kw => Kw}
 
 object Expressions {
+
+  object Ops {
+    import scala.collection.mutable.{Stack, ListMap}
+
+    val precedences = ListMap[Ast.Op,Int]()
+
+    def op (s: String, o: Ast.Op, prec: Int): P[Ast.Op] = {
+      precedences(o) = prec
+      P(s) map {_ => o}
+    }
+
+    val ops = P(
+      op(">" , Ast.Gt , 2) |
+      op(">=", Ast.Gte, 2) |
+      op("==", Ast.Eq , 2) |
+      op("!=", Ast.Neq, 2) |
+      op("++", Ast.Cat, 3) |
+      op("+" , Ast.Add, 3) |
+      op("-" , Ast.Sub, 3) |
+      op("*" , Ast.Mul, 4) |
+      op("/" , Ast.Div, 4)
+    )
+
+    def helper (first: Ast.Expr, pairs: Seq[(Ast.Op, Ast.Expr)]): Ast.Expr = {
+      val values = new Stack[Ast.Expr]
+      val ops = new Stack[Ast.Op]
+
+      def unfold_until (prec: Int) {
+        while (
+          values.size >= 2 &&
+          ops.size > 0 &&
+          precedences(ops.head) >= prec
+        ) {
+          val top = ops.pop()
+          val b = values.pop()
+          val a = values.pop()
+          values.push(Ast.Binop(top, a, b))
+        }
+      }
+
+      values.push(first)
+      for ( (op, value) <- pairs ) {
+        unfold_until( precedences(op) )
+        ops.push(op)
+        values.push(value)
+      }
+      unfold_until(0)
+      values.pop()
+    }
+
+    def expr (atom: P[Ast.Expr]): P[Ast.Expr] = {
+      P(atom ~ (ops ~ atom).rep).map{
+        case (a, bs) => helper(a, bs)
+      }
+    }
+  }
+
   val variable = P(Lexical.ident) map Ast.Var
   val const = P(Lexical.number | Lexical.const | Lexical.string)
   val call = P(Lexical.ident ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.Call.tupled
-  val expr: P[Ast.Expr] = P(const | call | variable | "(" ~ expr ~ ")");
+
+  val inparen = P("(" ~/ expr ~ ")")
+  val atom = P(const | call | variable | inparen)
+  val expr: P[Ast.Expr] = Ops.expr(atom);
 }
 
 

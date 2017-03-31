@@ -41,7 +41,14 @@ class CodeGen {
       case Var(Id(name)) => CG.Var(name)
 
       case Call(Id(fnm), args) => CG.Call(fnm, args map gen)
-
+      case Binop(op, a, b) =>
+        CG.Call(op match {
+          case Ast.Add => "iadd"
+          case Ast.Sub => "isub"
+          case Ast.Eq  => "eq"
+          case Ast.Gt  => "gt"
+          case Ast.Cat => "concat"
+        }, Array(gen(a), gen(b)) )
       case Decl(Type(tp), pts) => {
         CG.Block(pts.map {
           case DeclPart(Id(nm), None) => List(CG.Declare(nm, tp))

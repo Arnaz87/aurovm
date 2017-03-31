@@ -49,6 +49,16 @@ modules.add Module(
         return @[ intValue(a+b) ]
     ),
     Proc(
+      name: "isub",
+      kind: nativeProc,
+      incount: 2,
+      outcount: 1,
+      prc: proc (ins: seq[Value]): seq[Value] =
+        let a = ins[0].i
+        let b = ins[1].i
+        return @[ intValue(a-b) ]
+    ),
+    Proc(
       name: "eq",
       kind: nativeProc,
       incount: 2,
@@ -58,6 +68,37 @@ modules.add Module(
         let b = ins[1].i
         return @[ boolValue(a==b) ]
     ),
+    Proc(
+      name: "gt",
+      kind: nativeProc,
+      incount: 2,
+      outcount: 1,
+      prc: proc (ins: seq[Value]): seq[Value] =
+        let a = ins[0].i
+        let b = ins[1].i
+        return @[ boolValue(a>b) ]
+    ),
+    Proc(
+      name: "gte",
+      kind: nativeProc,
+      incount: 2,
+      outcount: 1,
+      prc: proc (ins: seq[Value]): seq[Value] =
+        let a = ins[0].i
+        let b = ins[1].i
+        return @[ boolValue(a>=b) ]
+    ),
+    Proc(
+      name: "concat",
+      kind: nativeProc,
+      incount: 2,
+      outcount: 1,
+      prc: proc (ins: seq[Value]): seq[Value] =
+        let a = ins[0].str
+        let b = ins[1].str
+        return @[ strValue(a & b) ]
+    ),
+
     Proc(
       name: "gtz",
       kind: nativeProc,
@@ -85,16 +126,7 @@ modules.add Module(
         let a = ins[0].i
         return @[ intValue(a-1) ]
     ),
-    Proc(
-      name: "concat",
-      kind: nativeProc,
-      incount: 2,
-      outcount: 1,
-      prc: proc (ins: seq[Value]): seq[Value] =
-        let a = ins[0].str
-        let b = ins[1].str
-        return @[ strValue(a & b) ]
-    ),
+
     Proc(
       name: "makeint",
       kind: nativeProc,
