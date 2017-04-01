@@ -21,6 +21,10 @@ lazy val codegen = (project in file("codegen")).
   settings(commonSettings: _*).
   dependsOn(sexpr, bindump)
 
+lazy val codegen2 = (project in file("codegen2")).
+  settings(commonSettings: _*).
+  dependsOn(sexpr, bindump)
+
 lazy val sexpr = (project in file("sexpr")).
   settings(commonSettings: _*)
 
