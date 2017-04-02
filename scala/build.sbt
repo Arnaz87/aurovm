@@ -40,4 +40,4 @@ lazy val cu = (project in file("cu")).
   settings(
     libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
   ).
-  dependsOn(codegen)
+  dependsOn(codegen2)

@@ -8,17 +8,17 @@ void main () {
 
 int mult (int n, int m) {
   int r = 0;
-  while ( gtz(m) ) {
+  while (m > 0) {
     r = add(r, n);
-    m = dec(m);
+    m = m - 1;
   }
   return r;
 }
 
 int add (int n, int m) {
-  while ( gtz(m) ) {
-    n = inc(n);
-    m = dec(m);
+  while (m > 0) {
+    n = n + 1;
+    m = m + 1;
   }
   return n;
 }

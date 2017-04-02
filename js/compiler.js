@@ -446,8 +446,17 @@ function compile (data) {
         case "Prelude.iadd":
           writeBinop("+");
           break;
+        case "Prelude.isub":
+          writeBinop("-");
+          break;
         case "Prelude.eq":
           writeBinop("==");
+          break;
+        case "Prelude.gt":
+          writeBinop(">");
+          break;
+        case "Prelude.gte":
+          writeBinop(">=");
           break;
         case "Prelude.concat":
           writeBinop("+");

@@ -42,8 +42,7 @@ object Ast {
   case object Continue extends Stmt
 
   case class Import (module: String) extends Toplevel
-  case class Param (tp: Type, name: Id)
-  case class Proc (name: Id, params: Seq[Param], returns: Seq[Type], body: Block) extends Toplevel
+  case class Proc (name: Id, params: Seq[(Id, Type)], returns: Seq[Type], body: Block) extends Toplevel
 
   case class Program (stmts: Seq[Toplevel])
 }

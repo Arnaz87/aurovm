@@ -184,7 +184,7 @@ object Statements {
 object Toplevel {
   val moduleName = P(CharIn('a' to 'z', 'A' to 'Z').rep.!)
 
-  private val param = P(Lexical.typename ~ Lexical.ident) map Ast.Param.tupled
+  private val param = P(Lexical.typename ~ Lexical.ident) map {case (t, i) => (i, t)}
   private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
 
   private val procType: P[Seq[Ast.Type]] =

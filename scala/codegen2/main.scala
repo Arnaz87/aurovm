@@ -68,7 +68,10 @@ class Program extends Writable {
 
     def index = (modules indexOf this)+1
 
-    case class Rutine (nm: String, ins: Seq[Type], outs: Seq[Type])
+    case class Rutine (
+      nm: String,
+      ins: Seq[Program.this.Type],
+      outs: Seq[Program.this.Type])
       extends Program.this.Rutine {
       def write (w: Writer) {
         w %% 2 // Import Kind
@@ -91,24 +94,45 @@ class Program extends Writable {
     }
   }
 
-  class RutineDef(nm: String, _ins: Seq[Type], _outs: Seq[Type])
+  class RutineDef(nm: String)
     extends Rutine {
-    def ins = _ins
-    def outs = _outs
+    def ins = inregs map {reg: Reg => reg.t}
+    def outs = outregs map {reg: Reg => reg.t}
 
+    val inregs = new ArrayBuffer[Reg]()
+    val outregs = new ArrayBuffer[Reg]()
     val regs = new ArrayBuffer[Reg]()
     val code = new ArrayBuffer[Inst]()
 
     val lbls = new ArrayBuffer[Lbl]()
 
-    case class Lbl() {
+    abstract class Reg {
+      def t: Type
+      def index: Int
+    }
+    case class InReg (t: Type) extends Reg {
+      inregs += this
+      def index = (inregs indexOf this)+1
+    }
+    case class OutReg (t: Type) extends Reg {
+      outregs += this
+      def index = inregs.size + (outregs indexOf this) + 1
+    }
+    class RegDef (_t: Type) extends Reg {
+      def t = _t
+      regs += this
+      def index =
+        inregs.size + outregs.size +
+        (regs indexOf this) + 1
+    }
+    def Reg (t: Type) = new RegDef(t)
+
+    class Lbl () {
       lbls += this
       def index = (lbls indexOf this)+1
     }
-    case class Reg(t: Type) {
-      regs += this;
-      def index = (regs indexOf this)+1
-    }
+
+    def Lbl = new Lbl()
 
     sealed abstract class Inst() { code += this }
 
@@ -136,8 +160,8 @@ class Program extends Writable {
         case End() => w %% 0
         case Cpy(a, b) =>
           w %% 1; w %% a.index; w %% b.index
-        case Cns(a, b) =>
-          w %% 2; w %% a.index; w %% 0
+        case Cns(a, c) =>
+          w %% 2; w %% a.index; w %% c.index
         case Ilbl(l) =>
           w %% 5; w %% l.index
         case Jmp(l) =>
@@ -154,16 +178,13 @@ class Program extends Writable {
     }
   }
 
-  def Rutine(nm: String, ins: Seq[Type], outs: Seq[Type]): RutineDef =
-    new RutineDef(nm, ins, outs)
+  def Rutine(nm: String): RutineDef = new RutineDef(nm)
 
-  case class BinConstant (bytes: Array[Byte]) extends Constant {
+  case class BinConstant (bytes: Array[Int]) extends Constant {
     def write (w: Writer) {
       w %% 1 // Binary Kind
       w %% bytes.size
-      bytes foreach {b: Byte =>
-        w.putByte( b.asInstanceOf[Int] )
-      }
+      bytes foreach (w.putByte(_))
     }
   }
   case class CallConstant (rut: Rutine, args: Seq[Constant]) extends Constant {
@@ -194,6 +215,12 @@ class Program extends Writable {
     // Metadatos
     w putByte 0
   }
+
+  def compileBinary (): Seq[Int] = {
+    val writer = new Writer()
+    write(writer)
+    writer.buffer
+  }
 }
 
 object Main {
@@ -207,26 +234,27 @@ object Main {
     val print = prelude.Rutine("print", Nil, Array(strType))
     val mkstr = prelude.Rutine("mkstr", Array(binType), Array(strType))
 
-    val main = program.Rutine("main", Nil, Nil)
+    val plint = program.Rutine("plint")
+    val in_0 = plint.InReg(strType)
+    plint.Call(print, Array(in_0), Nil)
 
+    val main = program.Rutine("main")
     val bindata = {
       val str = "Hola Mundo!"
       val bytes = str.getBytes("UTF-8")
-      program.BinConstant(bytes)
+      program.BinConstant(
+        bytes map (_.asInstanceOf[Int])
+      )
     }
 
     val const_0 = program.CallConstant(mkstr, Array(bindata))
-
     val reg_0 = main.Reg(strType)
     main.Cns(reg_0, const_0)
-    main.Call(print, Array(reg_0), Nil)
+    main.Call(plint, Array(reg_0), Nil)
     main.End()
 
-    val writer = new Writer()
-
-    program.write(writer)
-
-    printBinary(writer.buffer)
+    val binary = program.compileBinary()
+    printBinary(binary)
   }
 
   def printBinary(bindata: Traversable[Int]) {

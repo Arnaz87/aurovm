@@ -26,7 +26,7 @@ object Main {
   }
 
   def main (_args: Array[String]) {
-    import arnaud.myvm.codegen.ProgState
+    //import arnaud.myvm.codegen.ProgState
     import arnaud.sexpr.Node
 
     object args {
@@ -80,16 +80,34 @@ object Main {
     }
     maybeExit()
 
-    val cgnode = CodeGen.program(parsed)
+    val codegen = CodeGen(parsed)
 
     if (args print "codegen") {
       args.print -= "codegen"
       println("=== Codegen AST ===")
-      println(arnaud.myvm.codegen.Nodes.sexpr(cgnode).prettyRepr)
+      //println(arnaud.myvm.codegen.Nodes.sexpr(cgnode).prettyRepr)
       println()
     }
     maybeExit()
 
+    val binary = codegen.binary
+    if (args print "binary") {
+      args.print -= "binary"
+      println("=== Compiled Binary ===")
+      arnaud.myvm.codegen.Main.printBinary(binary)
+    }
+    maybeExit()
+
+    if (args.pipe) {
+      val stream = java.lang.System.out
+      val bytes = new Array[Byte](binary.size)
+      for ( (byte, i) <- binary.zipWithIndex ) {
+        bytes(i) = byte.asInstanceOf[Byte]
+      }
+      stream.write(bytes, 0, bytes.size)
+    }
+
+    /*
     val progstate = new ProgState()
     progstate %% cgnode
     progstate.fixTypes()
@@ -122,6 +140,7 @@ object Main {
       }
       stream.write(bytes, 0, bytes.size)
     }
+    */
 
     if (!args.output.isEmpty) {
       import java.io._
