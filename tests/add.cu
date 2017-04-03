@@ -1,7 +1,7 @@
 void main () {
   int a = 5;
   int b = 6;
-  int c = mult(a, b);
+  int c = add(a, b);
   String str = itos(c);
   print(str);
 }
@@ -18,7 +18,7 @@ int mult (int n, int m) {
 int add (int n, int m) {
   while (m > 0) {
     n = n + 1;
-    m = m + 1;
+    m = m - 1;
   }
   return n;
 }

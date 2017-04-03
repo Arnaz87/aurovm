@@ -11,12 +11,19 @@ type Prototype = object
   ins: seq[int]
   outs: seq[int]
 
+type CallPromise = object
+  rutine: Proc
+  inst: int
+  target: int
+
 type Parser = ref object of RootObj
   file: File
   modules: seq[Module]
   types: seq[Type]
   procs: seq[Proc]
   prototypes: seq[Prototype]
+
+  call_promises: seq[CallPromise]
 
   exports: tuple[
     types: seq[tuple[i: int, nm: string]],
@@ -117,14 +124,26 @@ proc parseCode (parser: Parser, rut: Proc) =
       of 8: Inst(kind: inif, i: readVal(), a: readVal())
       else:
         if v<16: raise newException(Exception, "Unknown instruction: " & $v)
-        let proto = parser.prototypes[v-16]
-        let prc = parser.procs[v-16]
+
+        let n = v-16
+        if n > parser.prototypes.high:
+          raise newException(Exception, "Rutine does not exists")
+
+        let proto = parser.prototypes[n]
+        let prc = if n > parser.procs.high: nil else: parser.procs[n]
 
         let outlen = proto.outs.len
         let outs = outlen.buildSeq do () -> int: readVal()
 
         let inlen = proto.ins.len
         let ins = inlen.buildSeq do () -> int: readVal()
+
+        if n > parser.procs.high:
+          parser.call_promises.add(CallPromise(
+            rutine: rut,
+            inst: i,
+            target: n
+          ))
 
         Inst(kind: icall, prc: prc, outs: outs, ins: ins)
 
@@ -206,7 +225,10 @@ proc parseConstants (parser: Parser): seq[Value] =
         let args = inCount.buildSeq do -> Value:
           let index = parser.readInt-1
           if index > constants.high:
-            raise newException(Exception, "Constant lookahead not yet implemented")
+            if index < count:
+              raise newException(Exception, "Constant lookahead not yet implemented")
+            else:
+              raise newException(Exception, "Constant does not exists")
           return constants[index]
 
         #echo "invoking " & $rutine & " with " & $args
@@ -238,6 +260,7 @@ proc parseFile* (filename: string): Module =
     file: open(filename),
     types: newSeq[Type](),
     procs: newSeq[Proc](),
+    call_promises: @[]
   )
 
   result = Module(name: filename)
@@ -251,6 +274,9 @@ proc parseFile* (filename: string): Module =
 
     for prc in result.procs:
       prc.module = result
+
+    for promise in parser.call_promises:
+      promise.rutine.code[promise.inst].prc = parser.procs[promise.target]
 
     result.constants = parser.parseConstants()
 
