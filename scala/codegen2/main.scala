@@ -106,25 +106,27 @@ class Program extends Writable {
 
     val lbls = new ArrayBuffer[Lbl]()
 
-    abstract class Reg {
-      def t: Type
-      def index: Int
-    }
-    case class InReg (t: Type) extends Reg {
+    abstract class Reg (val t: Type) { def index: Int }
+
+    class InReg (_t: Type) extends Reg(_t) {
       inregs += this
       def index = (inregs indexOf this)+1
     }
-    case class OutReg (t: Type) extends Reg {
+
+    class OutReg (_t: Type) extends Reg(_t) {
       outregs += this
       def index = inregs.size + (outregs indexOf this) + 1
     }
-    class RegDef (_t: Type) extends Reg {
-      def t = _t
+
+    class RegDef (_t: Type) extends Reg(_t) {
       regs += this
       def index =
         inregs.size + outregs.size +
         (regs indexOf this) + 1
     }
+
+    def InReg (t: Type) = new InReg(t)
+    def OutReg (t: Type) = new OutReg(t)
     def Reg (t: Type) = new RegDef(t)
 
     class Lbl () {
