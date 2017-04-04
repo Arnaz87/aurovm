@@ -1,6 +1,5 @@
 package arnaud.culang
 import scala.collection.mutable.{ArrayBuffer, Map}
-//import arnaud.myvm.codegen.{Nodes => CG, Node => CGNode}
 import arnaud.myvm.codegen.{Program => CGProgram}
 
 class CodeGen {
@@ -236,8 +235,6 @@ object CodeGen {
     for (stmt <- prg.stmts) {
       codegen %% stmt
     }
-    //prg.stmts foreach codegen.genSyms
-    //CG.Block(CG.Import("Prelude") +: prg.stmts.map(codegen.gen _))
     return codegen
   }
 }

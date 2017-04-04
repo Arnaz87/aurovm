@@ -9,7 +9,9 @@ object Main {
     P(Toplevel.program ~ End).parse(text) match {
       case Parsed.Success(succ, _) => succ
       case fail: Parsed.Failure =>
-        print(fail.extra.traced.trace)
+        //val msg = fail.extra.traced.trace
+        val msg = ParseError(fail).getMessage
+        print(msg)
         System.exit(0)
         ???
     }
@@ -20,15 +22,12 @@ object Main {
   }
 
   def manual (): Nothing = {
-    println("Usage: (-i <code> | -f <filename>) [-o <output filename>] [--print] [--print-(ast|codegen|sexpr|binary)]")
+    println("Usage: (-i <code> | -f <filename>) [-o <output filename>] [-pipe] [--print] [--print-(ast|binary)]")
     System.exit(0)
     return ???
   }
 
   def main (_args: Array[String]) {
-    //import arnaud.myvm.codegen.ProgState
-    import arnaud.sexpr.Node
-
     object args {
       import scala.collection.mutable.Set
       sealed abstract class Input
@@ -48,10 +47,8 @@ object Main {
           case "-i" => input = Code(iter.next)
           case "-f" => input = File(iter.next)
           case "-o" => output = Some(iter.next)
-          case "--print" => print ++= Set("ast", "codegen", "sexpr", "binary")
+          case "--print" => print ++= Set("ast", "binary")
           case "--print-ast" => print += "ast"
-          case "--print-codegen" => print += "codegen"
-          case "--print-sexpr" => print += "sexpr"
           case "--print-binary" => print += "binary"
           case "--pipe" => pipe = true
           case _ => manual()
@@ -82,14 +79,6 @@ object Main {
 
     val codegen = CodeGen(parsed)
 
-    if (args print "codegen") {
-      args.print -= "codegen"
-      println("=== Codegen AST ===")
-      //println(arnaud.myvm.codegen.Nodes.sexpr(cgnode).prettyRepr)
-      println()
-    }
-    maybeExit()
-
     val binary = codegen.binary
     if (args print "binary") {
       args.print -= "binary"
@@ -106,41 +95,6 @@ object Main {
       }
       stream.write(bytes, 0, bytes.size)
     }
-
-    /*
-    val progstate = new ProgState()
-    progstate %% cgnode
-    progstate.fixTypes()
-
-
-    if (args print "sexpr") {
-      args.print -= "sexpr"
-      println("=== Compiled Sexpr ===")
-      val compiled = progstate.compileSexpr()
-      val output = compiled.prettyRepr
-      println(output)
-      println()
-    }
-    maybeExit()
-
-    val binary = progstate.compileBinary()
-
-    if (args print "binary") {
-      args.print -= "binary"
-      println("=== Compiled Binary ===")
-      arnaud.myvm.codegen.Main.printBinary(binary)
-    }
-    maybeExit()
-
-    if (args.pipe) {
-      val stream = java.lang.System.out
-      val bytes = new Array[Byte](binary.size)
-      for ( (byte, i) <- binary.zipWithIndex ) {
-        bytes(i) = byte.asInstanceOf[Byte]
-      }
-      stream.write(bytes, 0, bytes.size)
-    }
-    */
 
     if (!args.output.isEmpty) {
       import java.io._

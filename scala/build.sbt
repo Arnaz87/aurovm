@@ -1,7 +1,6 @@
 
 import com.typesafe.sbt.SbtStartScript
 
-
 // lazy val jsproj = (project in file("jsproj")).
 //  settings(commonSettings: _*).
 //  settings(
@@ -19,14 +18,14 @@ lazy val bindump = (project in file("bindump")).
 
 lazy val codegen = (project in file("codegen")).
   settings(commonSettings: _*).
-  dependsOn(sexpr, bindump)
+  dependsOn(bindump)
 
-lazy val codegen2 = (project in file("codegen2")).
+lazy val cu = (project in file("cu")).
   settings(commonSettings: _*).
-  dependsOn(sexpr, bindump)
-
-lazy val sexpr = (project in file("sexpr")).
-  settings(commonSettings: _*)
+  settings(
+    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
+  ).
+  dependsOn(codegen)
 
 lazy val lua = (project in file("lua")).
   settings(commonSettings: _*).
@@ -34,10 +33,3 @@ lazy val lua = (project in file("lua")).
     libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
   ).
   dependsOn(codegen)
-
-lazy val cu = (project in file("cu")).
-  settings(commonSettings: _*).
-  settings(
-    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
-  ).
-  dependsOn(codegen2)

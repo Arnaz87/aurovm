@@ -64,7 +64,7 @@ object Lexical {
 
   val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
   val firstchar = CharIn('a' to 'z', 'A' to 'Z', "_")
-  val name = P(firstchar ~ namechar.rep).!.filter(!keywords.contains(_))
+  val name = P(firstchar ~ namechar.rep).!.filter(!keywords.contains(_)).opaque("identifier")
 
   def kw (str: String) = P(str ~ !(namechar))
 
@@ -74,7 +74,7 @@ object Lexical {
     kw("int").map(_ => "Int") |
     kw("bool").map(_ => "Bool") |
     kw("string").map(_ => "String")
-  ).map(Ast.Type)
+  ).map(Ast.Type).opaque("type")
 
   val lineComment = P("//" ~ CharsWhile(_ != '\n'))
   val multiComment = P("/*" ~ (!("*/") ~ AnyChar).rep ~ "*/")
@@ -197,5 +197,7 @@ object Toplevel {
 
   val toplevel: P[Ast.Toplevel] = P(importstmt | proc)
 
-  val program: P[Ast.Program] = P(toplevel.rep).map(Ast.Program)
+  // El espacio en blanco solo sale en ~ y rep, por eso están los Pass, para
+  // poder seguirlos con ~ y aceptar espacios al inicio y final
+  val program: P[Ast.Program] = P(Pass ~ toplevel.rep ~ Pass).map(Ast.Program)
 }
