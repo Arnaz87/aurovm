@@ -1,9 +1,16 @@
 package arnaud.culang
 import scala.collection.mutable.{ArrayBuffer, Map}
-import arnaud.myvm.codegen.{Program => CGProgram}
+import arnaud.cobre.format.{Program => CGProgram}
 
 class CodeGen {
   import Ast._
+
+  def error(_msg: String)(implicit node: Node): Nothing = {
+    val msg = if (node.hasSrcpos) {
+      _msg + s". At line ${node.line + 1} column ${node.column}"
+    } else _msg
+    throw new Exception(msg)
+  }
 
   val program = new CGProgram()
 
@@ -68,14 +75,19 @@ class CodeGen {
 
     val outs = ArrayBuffer[Reg]()
 
-    def apply (k: String) = map(k)
+    def get (k: String) = map.get(k)
     def update (k: String, v: Reg) = map(k) = v
 
     class SubScope(parent: Scope) extends Scope(rutine) {
-      override def apply (k: String) = this.map get k match {
-        case Some(v) => v
-        case None => parent(k).asInstanceOf[this.rutine.Reg]
+      override def get (k: String) = this.map get k match {
+        case None => parent.get(k).asInstanceOf[Option[this.rutine.Reg]]
+        case somereg => somereg
       }
+    }
+
+    def apply (k: String)(implicit node: Node) = get(k) match {
+      case Some(reg) => reg
+      case None => error(s"Variable $k not in scope")
     }
 
     def Scope = new SubScope(this)
@@ -95,7 +107,9 @@ class CodeGen {
       rutines(name) = scope.rutine
   } }
 
-  def %% (node: Expr, scope: Scope): scope.rutine.Reg = node match {
+  def %% (node: Expr, scope: Scope): scope.rutine.Reg = {
+    implicit val _node = node
+    node match {
     case Var(Id(nm)) => scope(nm)
     case Num(dbl) =>
       val n = dbl.asInstanceOf[Int]
@@ -122,7 +136,7 @@ class CodeGen {
       reg
     case Call(Id(fname), args) =>
       val rutine = rutines(fname)
-      if (args.size != rutine.ins.size) throw new Exception(
+      if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
       )
       val reg = scope.rutine.Reg(rutine.outs(0))
@@ -141,14 +155,16 @@ class CodeGen {
         case Sub => (isub, intType)
         case Gt  => (igt, boolType)
         case Eq  => (ieq, boolType)
+        case _ => error(s"Unknown overload for $op with types")
       }
       val reg = scope.rutine.Reg(rtp)
       scope.rutine.Call(rutine, Array(reg), Array(a, b))
       reg
-    //case _ => scope.rutine.Reg(types("Int"))
-  }
+  } }
 
-  def %% (node: Stmt, scope: Scope) { node match {
+  def %% (node: Stmt, scope: Scope) {
+    implicit val _node = node;
+    node match {
     case Decl(Type(_tp), ps) =>
       val tp = types(_tp)
       for ( DeclPart(Id(nm), vl) <- ps ) {
@@ -163,7 +179,7 @@ class CodeGen {
       }
     case Call(Id(fname), args) =>
       val rutine = rutines(fname)
-      if (args.size != rutine.ins.size) throw new Exception(
+      if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
       )
       scope.rutine.Call( rutine, Nil, args map (%%(_, scope)) )
@@ -203,7 +219,7 @@ class CodeGen {
       val result = %%(expr, scope)
       scope.rutine.Cpy(reg, result)
     case Return(exprs) =>
-      if (exprs.size != scope.outs.size) throw new Exception(
+      if (exprs.size != scope.outs.size) error(
         s"Expected ${scope.outs.size} return values, found ${exprs.size}"
       )
       for ( (reg, expr) <- scope.outs zip exprs ) {
@@ -211,19 +227,22 @@ class CodeGen {
         scope.rutine.Cpy(reg, result)
       }
       scope.rutine.End()
-    //case _ =>
   } }
 
   def %% (node: Toplevel) { node match {
     case Import(modname) => 
     case Proc(Id(name), params, rets, body) =>
       val scope = rutine_defs(name)
-      //body.stmts foreach println
       for (stmt <- body.stmts) { %%(stmt, scope) }
       scope.rutine.End()
   } }
 
-  def binary: Seq[Int] = program.compileBinary()
+  def binary: Seq[Int] = {
+    val buffer = new ArrayBuffer[Int]()
+    val writer = new arnaud.cobre.format.Writer(buffer)
+    writer.write(program)
+    buffer
+  }
 }
 
 object CodeGen {

@@ -54,3 +54,15 @@ void main () {
 - __LLVM__: Arquitectura virtual diseñada para parecerse mucho a cpus reales, está hecha como lenguaje intermedio en un compilador, por lo que está muy atado al mundo de los compiladores, no es muy bueno como representación portable de un programa ni es fácil de interpretar. Pnacl es un proyecto para hacer LLVM portable.
 
 TLDR: Casi todos los proyectos existentes son demasiado grandes y complejos como para que una persona los entienda, y los que no, no son suficientemente versátiles.
+
+# Tareas
+
+Algunas de las cosas que necesito hacer para la máquina.
+
+- Especificación de una librería estándar.
+- Soporte para metadatos en todas mis herramientas.
+- Errores con posición en el código fuente para la máquina de nim.
+- Compilador a Javascript, con código legible, ayudandose con metadatos.
+- Html con un editor de texto para correr código Cu.
+- Compilador Lua.
+

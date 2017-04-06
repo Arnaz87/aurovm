@@ -1,16 +1,11 @@
 package arnaud.culang
 
-import fastparse.noApi._
-import WsApi._
-
 object Main {
 
   def parse_text (text: String) = {
-    P(Toplevel.program ~ End).parse(text) match {
-      case Parsed.Success(succ, _) => succ
-      case fail: Parsed.Failure =>
-        //val msg = fail.extra.traced.trace
-        val msg = ParseError(fail).getMessage
+    Parser.parse(text) match {
+      case Right(result) => result
+      case Left(msg) =>
         print(msg)
         System.exit(0)
         ???
@@ -83,7 +78,7 @@ object Main {
     if (args print "binary") {
       args.print -= "binary"
       println("=== Compiled Binary ===")
-      arnaud.myvm.codegen.Main.printBinary(binary)
+      arnaud.cobre.format.Main.printBinary(binary)
     }
     maybeExit()
 

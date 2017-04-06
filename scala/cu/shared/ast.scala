@@ -1,7 +1,13 @@
 package arnaud.culang
 
 object Ast {
-  sealed trait Node
+  sealed trait Node {
+    var _srcpos: Option[(Int, Int)] = None
+    def srcpos (ln: Int, cl: Int) { _srcpos = Some((ln, cl)) }
+    def hasSrcpos = !_srcpos.isEmpty
+    def line = _srcpos.get._1
+    def column = _srcpos.get._2
+  }
   sealed trait Expr extends Node
   sealed trait Stmt extends Node
   sealed trait Toplevel extends Node
