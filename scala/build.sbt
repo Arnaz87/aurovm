@@ -53,6 +53,6 @@ lazy val web = (project in file("web")).
   settings(commonSettings: _*).
   settings(
     // Sólo si tiene main, si es solo una librería esto no se pone
-    scalaJSUseMainModuleInitializer := true
+    //scalaJSUseMainModuleInitializer := true
   ).
   dependsOn(cuJS)

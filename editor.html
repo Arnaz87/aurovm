@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Editor web de código</title>
+  <style type="text/css">
+    html, body {
+      height: 100%;
+      padding: 0px;
+      margin: 0px;
+      font-size: 12px;
+    }
+
+    .content {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      overflow: hidden;
+    }
+
+    .terminal {
+      display: block;
+      width: 100%;
+      height: 16em;
+      padding: 0px;
+      margin: 0px;
+      overflow-x: wrap;
+      overflow-y: auto;
+      background-color: #111;
+      color: #dfd;
+      font-family: monospace;
+      cursor: text;
+    }
+    .terminal > div {
+      padding: 1em;
+    }
+
+    .terminal span {
+      white-space: pre-wrap;
+    }
+    .terminal span:focus {
+      outline: 0px solid transparent;
+    }
+
+    .editor {
+      padding: 0px;
+      margin: 0px;
+      height: calc(100% - 16em - 14px);
+    }
+
+    .menu {
+      font-size: 12px;
+      height: 14px;
+      font-family: sans-serif;
+    }
+
+    .menu a {
+      padding: 3px;
+      text-decoration: none;
+      color: inherit;
+    }
+  </style>
+  <script type="text/javascript" src="scala/web/target/scala-2.11/web-fastopt.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/ace/1.2.6/min/ace.js"></script>
+</head>
+<body>
+
+  <div id="menu" class="menu">
+    <a href="javascript:runCode();">Run</a>
+    <a href="javascript:srcRepr();">Repr</a>
+    <a href="javascript:terminal.clear();">Clear</a>
+  </div>
+
+  <div id="editor" class="editor">
+  </div>
+
+  <div id="terminal" class="terminal">
+    <div>
+      <span id="terminal-content"></span><span
+      id="terminal-input" contenteditable="true" style="color:#aca;"></span>
+      <br>
+    </div>
+  </div>
+
+
+  <script type="text/javascript">
+    var editor = ace.edit("editor");
+    editor.setTheme("ace/theme/monokai");
+    //editor.getSession().setMode("ace/mode/javascript");
+
+    editor.setValue("\nvoid main () {\n    print(\"Hola Mundo!\");\n}\n");
+
+    var terminal = {
+      div: document.getElementById("terminal"),
+      content: document.getElementById("terminal-content"),
+      input: document.getElementById("terminal-input"),
+      print: function (text) { terminal.content.textContent += text; },
+      println: function (text) { terminal.content.textContent += text + "\n"; },
+      clear: function () { terminal.content.textContent = ""; }
+    }
+
+    terminal.div.addEventListener("click", function(ev) {
+      if (window.getSelection().isCollapsed) {
+        // Evitar un ciclo infinito (si es posible).
+        if (ev.target != terminal.input) { terminal.input.focus(); }
+      }
+    });
+
+    terminal.input.addEventListener("keypress", function (ev) {
+      // Debería poder soportar shift+enter para de verdad meter nueva línea,
+      // pero es demasiado complicado.
+      if (ev.keyCode == 13) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        var str = terminal.input.textContent;
+        terminal.input.textContent = "";
+        terminal.println(str);
+      }
+    })
+
+    window.Terminal = terminal;
+
+    function srcRepr() {
+      var src = editor.getValue();
+      var result = Culang.programRepr(src);
+      terminal.println(result);
+    }
+
+    function runCode () {
+      var src = editor.getValue();
+      Culang.run(src);
+    }
+
+    terminal.input.textContent = "";
+    terminal.println("Bienvenido a mi terminal web!");
+
+    runCode()
+
+  </script>
+</body>
+</html>

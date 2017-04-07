@@ -133,7 +133,7 @@ class Parser (text: String) {
         op("-" , Ast.Sub, 3) |
         op("*" , Ast.Mul, 4) |
         op("/" , Ast.Div, 4)
-      )
+      ).opaque("operator")
 
       def helper (first: Ast.Expr, pairs: Seq[(Ast.Op, Ast.Expr)]): Ast.Expr = {
         val values = new Stack[Ast.Expr]
@@ -226,19 +226,22 @@ class Parser (text: String) {
   def parse = Toplevel.program.parse(text)
 }
 
+class ParseError(fail: fastparse.all.Parsed.Failure)
+  extends fastparse.all.ParseError(fail) {
+  // Información específica de como ocurrió el error
+  def trace = fail.extra.traced.trace
+}
+
 object Parser {
-  def parse (text: String): Either[String, Ast.Program] = {
-    import fastparse.all.{Parsed, ParseError}
+  import fastparse.all.Parsed
+
+  def parse (text: String): Ast.Program = {
 
     val parser = new Parser(text)
 
     parser.parse match {
-      case Parsed.Success(result, _) => Right(result)
-      case fail: Parsed.Failure =>
-        // No legible, pero con más información
-        //val msg = fail.extra.traced.trace
-        val msg = ParseError(fail).getMessage // Legible
-        Left(msg)
+      case Parsed.Success(result, _) => result
+      case fail: Parsed.Failure => throw new ParseError(fail)
     }
   }
 }

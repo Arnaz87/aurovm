@@ -3,13 +3,7 @@ package arnaud.culang
 object Main {
 
   def parse_text (text: String) = {
-    Parser.parse(text) match {
-      case Right(result) => result
-      case Left(msg) =>
-        print(msg)
-        System.exit(0)
-        ???
-    }
+    Parser.parse(text)
   }
 
   def parse_file (name: String) = {
@@ -72,9 +66,9 @@ object Main {
     }
     maybeExit()
 
-    val codegen = CodeGen(parsed)
+    val compiler = Compiler(parsed)
 
-    val binary = codegen.binary
+    val binary = compiler.binary
     if (args print "binary") {
       args.print -= "binary"
       println("=== Compiled Binary ===")

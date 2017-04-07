@@ -1,16 +1,16 @@
 package arnaud.culang
-import scala.collection.mutable.{ArrayBuffer, Map}
-import arnaud.cobre.format.{Program => CGProgram}
 
-class CodeGen {
+class CompileError(msg: String, node: Ast.Node) extends Exception (
+  if (node.hasSrcpos) msg + s". At line ${node.line + 1} column ${node.column}" else msg
+)
+
+class Compiler {
+  import scala.collection.mutable.{ArrayBuffer, Map}
+  import arnaud.cobre.format.{Program => CGProgram}
   import Ast._
 
-  def error(_msg: String)(implicit node: Node): Nothing = {
-    val msg = if (node.hasSrcpos) {
-      _msg + s". At line ${node.line + 1} column ${node.column}"
-    } else _msg
-    throw new Exception(msg)
-  }
+  def error(_msg: String)(implicit node: Node): Nothing =
+    throw new CompileError(_msg, node)
 
   val program = new CGProgram()
 
@@ -245,9 +245,9 @@ class CodeGen {
   }
 }
 
-object CodeGen {
-  def apply (prg: Ast.Program): CodeGen = {
-    val codegen = new CodeGen
+object Compiler {
+  def apply (prg: Ast.Program): Compiler = {
+    val codegen = new Compiler
 
     prg.stmts foreach (codegen.genSyms(_))
 
