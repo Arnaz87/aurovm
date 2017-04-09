@@ -95,14 +95,17 @@ class Parser (text: String) {
   }
 
   // Lee un nodo del Ast y lo ubica en el código
+
+  def setSrcPos[T <: Ast.Node] (nodepos: Int, node: T) = {
+    val (line, column) = srcPosFor(nodepos)
+    node.srcpos(line, column)
+    node
+  }
+
   import fastparse.{all => FPA}
   def IP[T <: Ast.Node](p: FPA.P[T]): FPA.P[T] = {
     import FPA._
-    P(P(Index) ~ P(p)) map { case (nodepos, node) =>
-      val (line, column) = srcPosFor(nodepos)
-      node.srcpos(line, column)
-      node
-    }
+    P(P(Index) ~ P(p)) map { (setSrcPos[T] _).tupled }
   }
 
   import fastparse.noApi._
@@ -118,9 +121,9 @@ class Parser (text: String) {
 
       val precedences = ListMap[Ast.Op,Int]()
 
-      def op (s: String, o: Ast.Op, prec: Int): P[Ast.Op] = {
+      def op (s: String, o: Ast.Op, prec: Int): P[(Int, Ast.Op)] = {
         precedences(o) = prec
-        P(s) map {_ => o}
+        P(Index ~ s.!) map {case (i, _) => (i, o)}
       }
 
       val ops = P(
@@ -135,27 +138,27 @@ class Parser (text: String) {
         op("/" , Ast.Div, 4)
       ).opaque("operator")
 
-      def helper (first: Ast.Expr, pairs: Seq[(Ast.Op, Ast.Expr)]): Ast.Expr = {
+      def helper (first: Ast.Expr, pairs: Seq[(Int, Ast.Op, Ast.Expr)]): Ast.Expr = {
         val values = new Stack[Ast.Expr]
-        val ops = new Stack[Ast.Op]
+        val ops = new Stack[(Int, Ast.Op)]
 
         def unfold_until (prec: Int) {
           while (
             values.size >= 2 &&
             ops.size > 0 &&
-            precedences(ops.head) >= prec
+            precedences(ops.head._2) >= prec
           ) {
-            val top = ops.pop()
+            val (index, top) = ops.pop()
             val b = values.pop()
             val a = values.pop()
-            values.push(Ast.Binop(top, a, b))
+            values push setSrcPos(index, Ast.Binop(top, a, b))
           }
         }
 
         values.push(first)
-        for ( (op, value) <- pairs ) {
+        for ( (index, op, value) <- pairs ) {
           unfold_until( precedences(op) )
-          ops.push(op)
+          ops.push((index, op))
           values.push(value)
         }
         unfold_until(0)

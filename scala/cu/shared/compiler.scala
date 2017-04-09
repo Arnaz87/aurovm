@@ -6,7 +6,8 @@ class CompileError(msg: String, node: Ast.Node) extends Exception (
 
 class Compiler {
   import scala.collection.mutable.{ArrayBuffer, Map}
-  import arnaud.cobre.format.{Program => CGProgram}
+  import arnaud.cobre.format.{Program => CGProgram, meta => Meta}
+  import Meta.implicits._
   import Ast._
 
   def error(_msg: String)(implicit node: Node): Nothing =
@@ -19,6 +20,14 @@ class Compiler {
   val rutines = Map[String, program.Rutine]()
 
   val rutine_defs = Map[String, Scope]()
+
+  object meta {
+    val srcpos = new ArrayBuffer[Meta.Item]()
+    val srcnames = new ArrayBuffer[Meta.Item]
+
+    program.metadata += new Meta.SeqItem(srcpos)
+    program.metadata += new Meta.SeqItem(srcnames)
+  }
 
   val prelude: program.Module = program.Module("Prelude", Nil)
 
@@ -68,7 +77,38 @@ class Compiler {
     Nil
   )
 
-  class Scope (val rutine: program.RutineDef) {
+  val srcmap = new ArrayBuffer[Meta.Item]()
+  srcmap += "source map"
+
+  class SrcInfo (val rutine: program.RutineDef, name: String, line: Int, column: Int) {
+    val buffer = new ArrayBuffer[Meta.Item]
+    import Meta._
+
+    // Instruction Index => (Line, Column)
+    val insts = Map[rutine.Inst, (Int, Int)]()
+
+    // Register Index => Name
+    val vars = Map[rutine.Reg, (Int, Int, String)]()
+
+    def build () {
+      import arnaud.cobre.format.meta.implicits._
+      buffer += SeqItem("name", name)
+      buffer += SeqItem("line", line)
+      buffer += SeqItem("column", column)
+
+      buffer += new SeqItem(("regs":Item) +: vars.map{
+        case (reg, (line, column, name)) =>
+          SeqItem(reg.index, line, column, name)
+      }.toSeq)
+      buffer += new SeqItem(("insts":Item) +: insts.map{
+        case (inst, (line, column)) =>
+          SeqItem(inst.index, line, column)
+      }.toSeq)
+      srcmap += new SeqItem(buffer)
+    }
+  }
+
+  class Scope (val rutine: program.RutineDef, val srcinfo: SrcInfo) {
     type Reg = rutine.Reg
 
     val map = Map[String, Reg]()
@@ -78,7 +118,7 @@ class Compiler {
     def get (k: String) = map.get(k)
     def update (k: String, v: Reg) = map(k) = v
 
-    class SubScope(parent: Scope) extends Scope(rutine) {
+    class SubScope(parent: Scope) extends Scope(rutine, srcinfo) {
       override def get (k: String) = this.map get k match {
         case None => parent.get(k).asInstanceOf[Option[this.rutine.Reg]]
         case somereg => somereg
@@ -95,8 +135,10 @@ class Compiler {
 
   def genSyms (stmt: Toplevel) { stmt match {
     case Import(modname) => 
-    case Proc(Id(name), params, rets, body) =>
-      val scope = new Scope(program.Rutine(name))
+    case node@Proc(Id(name), params, rets, body) =>
+      val rutine = program.Rutine(name)
+      val srcInfo = new SrcInfo(rutine, name, node.line, node.column)
+      val scope = new Scope(rutine, srcInfo)
       for ( (Id(ident), Type(tp)) <- params ) {
         scope(ident) = scope.rutine.InReg(types(tp))
       }
@@ -141,7 +183,10 @@ class Compiler {
       )
       val reg = scope.rutine.Reg(rutine.outs(0))
 
-      scope.rutine.Call( rutine, Array(reg), args map (%%(_, scope)) )
+      val call = scope.rutine.Call(rutine, Array(reg), args map (%%(_, scope)))
+
+      scope.srcinfo.insts(call.asInstanceOf[scope.srcinfo.rutine.Inst]) =
+        (node.line, node.column)
       reg
     case Binop(op, _a, _b) =>
       val a = %%(_a, scope)
@@ -158,7 +203,11 @@ class Compiler {
         case _ => error(s"Unknown overload for $op with types")
       }
       val reg = scope.rutine.Reg(rtp)
-      scope.rutine.Call(rutine, Array(reg), Array(a, b))
+      val call = scope.rutine.Call(rutine, Array(reg), Array(a, b))
+
+      scope.srcinfo.insts(call.asInstanceOf[scope.srcinfo.rutine.Inst]) =
+        (node.line, node.column)
+
       reg
   } }
 
@@ -167,7 +216,7 @@ class Compiler {
     node match {
     case Decl(Type(_tp), ps) =>
       val tp = types(_tp)
-      for ( DeclPart(Id(nm), vl) <- ps ) {
+      for ( decl@DeclPart(Id(nm), vl) <- ps ) {
         val reg = scope.rutine.Reg(tp)
         scope(nm) = reg
         vl match {
@@ -176,13 +225,19 @@ class Compiler {
             scope.rutine.Cpy(reg, result)
           case None =>
         }
+
+        scope.srcinfo.vars(reg.asInstanceOf[scope.srcinfo.rutine.Reg]) =
+          (node.line, node.column, nm)
       }
     case Call(Id(fname), args) =>
       val rutine = rutines(fname)
       if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
       )
-      scope.rutine.Call( rutine, Nil, args map (%%(_, scope)) )
+      var call = scope.rutine.Call(rutine, Nil, args map (%%(_, scope)))
+
+      scope.srcinfo.insts(call.asInstanceOf[scope.srcinfo.rutine.Inst]) =
+        (node.line, node.column)
     case While(cond, Block(stmts)) =>
       val $start = scope.rutine.Lbl
       val $end = scope.rutine.Lbl
@@ -217,7 +272,10 @@ class Compiler {
     case Assign(Id(nm), expr) =>
       val reg = scope(nm)
       val result = %%(expr, scope)
-      scope.rutine.Cpy(reg, result)
+      val inst = scope.rutine.Cpy(reg, result)
+
+      scope.srcinfo.insts(inst.asInstanceOf[scope.srcinfo.rutine.Inst]) =
+        (node.line, node.column)
     case Return(exprs) =>
       if (exprs.size != scope.outs.size) error(
         s"Expected ${scope.outs.size} return values, found ${exprs.size}"
@@ -235,6 +293,7 @@ class Compiler {
       val scope = rutine_defs(name)
       for (stmt <- body.stmts) { %%(stmt, scope) }
       scope.rutine.End()
+      scope.srcinfo.build()
   } }
 
   def binary: Seq[Int] = {
@@ -243,17 +302,22 @@ class Compiler {
     writer.write(program)
     buffer
   }
+
+  def writeMetadata () {
+    program.metadata += new Meta.SeqItem(srcmap)
+  }
 }
 
 object Compiler {
   def apply (prg: Ast.Program): Compiler = {
-    val codegen = new Compiler
+    val compiler = new Compiler
 
-    prg.stmts foreach (codegen.genSyms(_))
+    prg.stmts foreach (compiler.genSyms(_))
 
     for (stmt <- prg.stmts) {
-      codegen %% stmt
+      compiler %% stmt
     }
-    return codegen
+    compiler.writeMetadata()
+    return compiler
   }
 }

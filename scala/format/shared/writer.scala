@@ -87,7 +87,6 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
             for (r <- is) %%(r.index)
         }
     }
-
     %%(prg.constants.size)
     prg.constants foreach {
       case BinConstant(bytes) =>
@@ -98,8 +97,16 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
         %%(rut.index + 16)
         for (arg <- args) %%(arg.index + 1)
     }
-
-    // Metadatos
-    putByte(0)
+    
+    def writeItem (item: meta.Item) { item match {
+      case meta.SeqItem(seq) =>
+        %%(seq.size << 1)
+        for (itm <- seq) writeItem(itm)
+      case meta.StrItem(str) =>
+        val bytes = str.getBytes("UTF-8")
+        %%((bytes.size << 1) | 1)
+        putBytes(bytes map (_.asInstanceOf[Int]))
+    } }
+    writeItem(new meta.SeqItem(metadata))
   }
 }

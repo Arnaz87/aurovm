@@ -402,13 +402,20 @@ class Reader (_content: Iterator[Int]) {
   }
 
   def print_metadata () {
-    val first = readInt()
-    if (first == 0) {
-      printData("Empty Metadata")
-    } else {
-      while (content.hasNext) readByte()
-      printData("Non empty Metadata (not yet supported)")
+    def print_item (ident: String) {
+      val n = readInt()
+      val len = n>>1
+      if ((n & 1) == 0) {
+        printData(ident + s"$len Items")
+        for (i <- 1 to len) print_item(ident + "  ")
+      } else {
+        val bytes = readBytes(len) map (_.asInstanceOf[Byte])
+        val str = new String(bytes.toArray, "UTF-8")
+        printData(ident + str)
+      }
     }
+    printData("Metadatos")
+    print_item("")
   }
 
   def readAll () {

@@ -18,10 +18,14 @@
 ~~~
 source_file
 (components (type index line column name?)* )
-( rutines
+("rutines"
   ( index
-    (regs (index line column name?)*)
-    (inst (index line column)*)
+    ("name" name)
+    ("line" line)
+    ("column" column)
+
+    ("regs" (index name line column)*)
+    ("inst" (index line column)*)
   )*
 )
 ~~~

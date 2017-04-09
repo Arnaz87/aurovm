@@ -3,6 +3,13 @@
 <head>
   <meta charset="utf-8">
   <title>Editor web de código</title>
+  <script type="text/javascript" src="scala/web/target/scala-2.11/web-fastopt.js"></script>
+  
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.css">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/theme/monokai.css">
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/mode/simple.js"></script>
+  
   <style type="text/css">
     html, body {
       height: 100%;
@@ -12,8 +19,9 @@
     }
 
     .content {
+      margin-top: 16px;
       width: 100%;
-      height: 100%;
+      height: calc(100% - 16px);
       position: absolute;
       overflow: hidden;
     }
@@ -45,50 +53,107 @@
     .editor {
       padding: 0px;
       margin: 0px;
-      height: calc(100% - 16em - 14px);
+      height: calc(100% - 16em);
     }
 
     .menu {
+      top: 0px;
+      position: absolute;
       font-size: 12px;
-      height: 14px;
+      height: 16px;
       font-family: sans-serif;
+      z-index: 100;
     }
 
-    .menu a {
-      padding: 3px;
+    .menu .item {
+      padding: 2px 5px;
       text-decoration: none;
       color: inherit;
+      float: left;
+    }
+
+    .menu .submenu {
+      margin: 0px -5px;
+    }
+
+    .menu .submenu > .item {
+      background-color: #eee;
+      float: initial;
+    }
+    .submenu.hidden {
+      display: none;
+    }
+
+    .CodeMirror {
+      height: 100%;
     }
   </style>
-  <script type="text/javascript" src="scala/web/target/scala-2.11/web-fastopt.js"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/ace/1.2.6/min/ace.js"></script>
 </head>
 <body>
 
+  <div class="content">
+    <div id="editor" class="editor">
+    </div>
+
+    <div id="terminal" class="terminal">
+      <div>
+        <span id="terminal-content"></span><span
+        id="terminal-input" contenteditable="true" style="color:#aca;"></span>
+        <br>
+      </div>
+    </div>
+  </div>
+
   <div id="menu" class="menu">
-    <a href="javascript:runCode();">Run</a>
-    <a href="javascript:srcRepr();">Repr</a>
-    <a href="javascript:terminal.clear();">Clear</a>
-  </div>
-
-  <div id="editor" class="editor">
-  </div>
-
-  <div id="terminal" class="terminal">
-    <div>
-      <span id="terminal-content"></span><span
-      id="terminal-input" contenteditable="true" style="color:#aca;"></span>
-      <br>
+    <div class="item" onclick="runCode();">Run</div>
+    <div class="item" onclick="terminal.clear();">Clear</div>
+    <div class="item" onclick="examplesmenu.classList.toggle('hidden')">
+      Examples
+      <div class="submenu hidden" id="examplesmenu">
+        <div class="item" onclick="putExample('bottles.cu')">Bottles</div>
+        <div class="item" onclick="putExample('add.cu')">Add</div>
+      </div>
     </div>
   </div>
 
 
   <script type="text/javascript">
-    var editor = ace.edit("editor");
-    editor.setTheme("ace/theme/monokai");
-    //editor.getSession().setMode("ace/mode/javascript");
 
-    editor.setValue("\nvoid main () {\n    print(\"Hola Mundo!\");\n}\n");
+    CodeMirror.defineSimpleMode("cu", {
+      start: [
+        {regex: /"(?:[^\\]|\\.)*?(?:"|$)/, token: "string"},
+        {regex: /int|bool|float|string|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
+        {regex: /true|false|null/, token: "atom"},
+        {regex: /(?:void|import|return|if|while|else)\b/, token: "keyword"},
+        {regex: /[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
+        {regex: /\/\/.*$/, token: "comment"},
+        {regex: /\/\*/, token: "comment", next: "comment"},
+        {regex: /\+|-|\*|\/|==|<=|>=/, token: "operator"},
+        {regex: /[.=(),;]/, token: "punctuation"},
+        {regex: /\{/, token: "punctuation", indent: true},
+        {regex: /\}/, token: "punctuation", dedent: true},
+        {regex: /[a-z$][\w$]*/, token: "variable"},
+      ],
+      comment: [
+        {regex: /.*?\*\//, token: "comment", next: "start"},
+        {regex: /.*/, token: "comment"}
+      ],
+      meta: {
+        dontIndentStates: ["comment"],
+        lineComment: "//"
+      }
+    });
+
+    var editor = CodeMirror(document.getElementById("editor"), {
+      value: "void main () {\n  print(\"Hola Mundo!\");\n}",
+      mode: "cu",
+      theme: "monokai",
+      indentUnit: 2,
+      tabSize: 2,
+      lineNumbers: true,
+    });
+
+    //editor.setValue("\nvoid main () {\n    print(\"Hola Mundo!\");\n}\n");
 
     var terminal = {
       div: document.getElementById("terminal"),
@@ -107,8 +172,6 @@
     });
 
     terminal.input.addEventListener("keypress", function (ev) {
-      // Debería poder soportar shift+enter para de verdad meter nueva línea,
-      // pero es demasiado complicado.
       if (ev.keyCode == 13) {
         ev.stopPropagation();
         ev.preventDefault();
@@ -130,11 +193,17 @@
       var src = editor.getValue();
       Culang.run(src);
     }
+    function putExample (name) {
+      var xhttp = new XMLHttpRequest();
+      xhttp.open("GET", "tests/"+name, false);
+      xhttp.send(null);
+      if (xhttp.status == 200 || xhttp.status == 0) {
+        editor.setValue(xhttp.responseText);
+      }
+    }
 
     terminal.input.textContent = "";
-    terminal.println("Bienvenido a mi terminal web!");
-
-    runCode()
+    terminal.println("Terminal Web Simple");
 
   </script>
 </body>

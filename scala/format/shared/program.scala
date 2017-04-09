@@ -8,6 +8,8 @@ class Program {
   val rutines: Buffer[Rutine] = new ArrayBuffer[Rutine]()
   val constants = new ArrayBuffer[Constant]()
 
+  val metadata = new ArrayBuffer[meta.Item]()
+
   sealed abstract class Constant {
     constants += this
     def index = constants indexOf this
@@ -86,7 +88,14 @@ class Program {
 
     def Lbl = new Lbl()
 
-    sealed abstract class Inst() { code += this }
+    sealed abstract class Inst() {
+      code += this
+      def index = code indexOf this
+      final override def equals (o: Any) = o match {
+        case o: Inst => this eq o
+        case _ => false
+      }
+    }
 
     case class Cpy(a: Reg, b: Reg) extends Inst
     case class Cns(a: Reg, b: Constant) extends Inst

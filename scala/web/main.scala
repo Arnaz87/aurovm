@@ -103,6 +103,8 @@ class Interpreter (program: format.Program) {
             return List(args(0).asInstanceOf[Int] + args(1).asInstanceOf[Int])
           case "isub" =>
             return List(args(0).asInstanceOf[Int] - args(1).asInstanceOf[Int])
+          case "eq" =>
+            return List(args(0).asInstanceOf[Int] == args(1).asInstanceOf[Int])
           case "gt" =>
             return List(args(0).asInstanceOf[Int] > args(1).asInstanceOf[Int])
           case "gte" =>

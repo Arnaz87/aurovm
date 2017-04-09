@@ -30,6 +30,8 @@ object Main {
     main.Call(plint, Array(reg_0), Nil)
     main.End()
 
+    program.metadata += meta.StrItem("Hola Mundo!")
+
     val buffer = new scala.collection.mutable.ArrayBuffer[Int]()
     val writer = new Writer(buffer)
     writer.write(program)
