@@ -172,4 +172,21 @@ object Culang {
         throw err
     }
   }
+
+  @JSExport
+  def compile (src: String): String = {
+    try {
+      val ast = culang.Parser.parse(src)
+      val program = culang.Compiler(ast).program
+
+      return arnaud.cobre.backend.js.Compiler.compile(program)
+    } catch {
+      case err: culang.ParseError => Terminal.println(err.getMessage)
+      case err: culang.CompileError => Terminal.println(err.getMessage)
+      case err: Throwable =>
+        err.printStackTrace(TerminalStream.printWriter)
+        throw err
+    }
+    return "/* An error was produced */"
+  }
 }

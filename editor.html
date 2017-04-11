@@ -7,8 +7,9 @@
   
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.css">
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/theme/monokai.css">
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/mode/simple.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/mode/simple.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/mode/javascript/javascript.js"></script>
   
   <style type="text/css">
     html, body {
@@ -29,7 +30,7 @@
     .terminal {
       display: block;
       width: 100%;
-      height: 16em;
+      height: 100%;
       padding: 0px;
       margin: 0px;
       overflow-x: wrap;
@@ -50,11 +51,13 @@
       outline: 0px solid transparent;
     }
 
+    /*
     .editor {
       padding: 0px;
       margin: 0px;
-      height: calc(100% - 16em);
+      height: 100%;
     }
+    */
 
     .menu {
       top: 0px;
@@ -68,8 +71,13 @@
     .menu .item {
       padding: 2px 5px;
       text-decoration: none;
-      color: inherit;
+      color: #000;
       float: left;
+      cursor: pointer;
+    }
+
+    .menu .item:hover {
+      color: #aaa;
     }
 
     .menu .submenu {
@@ -92,16 +100,27 @@
 <body>
 
   <div class="content">
-    <div id="editor" class="editor">
+    <div style="width:100%;height:calc(100% - 16em);">
+
+      <div id="editor"
+        style="width:60%;height:100%;float:left;">
+      </div>
+
+      <div id="jsview"
+        style="width:40%;height:100%;float:left;">
+      </div>
+
     </div>
 
-    <div id="terminal" class="terminal">
+    <div id="terminal" class="terminal" style="width:100%;height:16em;">
       <div>
         <span id="terminal-content"></span><span
         id="terminal-input" contenteditable="true" style="color:#aca;"></span>
         <br>
       </div>
     </div>
+
+    
   </div>
 
   <div id="menu" class="menu">
@@ -110,8 +129,10 @@
     <div class="item" onclick="examplesmenu.classList.toggle('hidden')">
       Examples
       <div class="submenu hidden" id="examplesmenu">
+        <div class="item" onclick="putExample('hello.cu')">Hello</div>
         <div class="item" onclick="putExample('bottles.cu')">Bottles</div>
         <div class="item" onclick="putExample('add.cu')">Add</div>
+        <div class="item" onclick="putExample('division.cu')">Division</div>
       </div>
     </div>
   </div>
@@ -145,11 +166,17 @@
     });
 
     var editor = CodeMirror(document.getElementById("editor"), {
-      value: "void main () {\n  print(\"Hola Mundo!\");\n}",
       mode: "cu",
       theme: "monokai",
       indentUnit: 2,
       tabSize: 2,
+      lineNumbers: true,
+    });
+
+    var jsview = CodeMirror(document.getElementById("jsview"),{
+      mode: "javascript",
+      theme: "monokai",
+      readOnly: "nocursor",
       lineNumbers: true,
     });
 
@@ -181,7 +208,15 @@
       }
     })
 
+    // Esto es para que el intérprete pueda usarlo
     window.Terminal = terminal;
+
+    function compile () {
+      var src = editor.getValue();
+      var code = Culang.compile(src);
+      jsview.setValue(code);
+      return code;
+    }
 
     function srcRepr() {
       var src = editor.getValue();
@@ -190,9 +225,22 @@
     }
 
     function runCode () {
-      var src = editor.getValue();
-      Culang.run(src);
+      var code = compile()
+
+      var console = {
+        log: function (line) { terminal.println(line) }
+      }
+
+      eval(code);
+
+      if (typeof main != "function") {
+        terminal.println("No main function was found.")
+        return;
+      }
+
+      main()
     }
+
     function putExample (name) {
       var xhttp = new XMLHttpRequest();
       xhttp.open("GET", "tests/"+name, false);
@@ -203,7 +251,9 @@
     }
 
     terminal.input.textContent = "";
-    terminal.println("Terminal Web Simple");
+    terminal.println("Terminal Web");
+
+    putExample("hello.cu");
 
   </script>
 </body>

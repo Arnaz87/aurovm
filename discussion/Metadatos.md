@@ -16,7 +16,7 @@
     - índice, línea, columna
 
 ~~~
-source_file
+("file" source_file)
 (components (type index line column name?)* )
 ("rutines"
   ( index

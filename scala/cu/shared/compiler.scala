@@ -79,6 +79,9 @@ class Compiler {
 
   val srcmap = new ArrayBuffer[Meta.Item]()
   srcmap += "source map"
+  val rutmap = new ArrayBuffer[Meta.Item]()
+  rutmap += "rutines"
+  srcmap += new Meta.SeqItem(rutmap)
 
   class SrcInfo (val rutine: program.RutineDef, name: String, line: Int, column: Int) {
     val buffer = new ArrayBuffer[Meta.Item]
@@ -92,19 +95,20 @@ class Compiler {
 
     def build () {
       import arnaud.cobre.format.meta.implicits._
+      buffer += rutine.index
       buffer += SeqItem("name", name)
       buffer += SeqItem("line", line)
       buffer += SeqItem("column", column)
 
       buffer += new SeqItem(("regs":Item) +: vars.map{
         case (reg, (line, column, name)) =>
-          SeqItem(reg.index, line, column, name)
+          SeqItem(reg.index, name, line, column)
       }.toSeq)
       buffer += new SeqItem(("insts":Item) +: insts.map{
         case (inst, (line, column)) =>
           SeqItem(inst.index, line, column)
       }.toSeq)
-      srcmap += new SeqItem(buffer)
+      rutmap += new SeqItem(buffer)
     }
   }
 

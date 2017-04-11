@@ -23,6 +23,7 @@ class Program {
     def outs: Seq[Type]
     rutines += this
     def index = rutines indexOf this
+    def signature = s"${ins mkString " "} -> ${outs mkString " "}"
   }
 
   case class Module (nm: String, params: Seq[Constant]) {
@@ -36,11 +37,13 @@ class Program {
       outs: Seq[Program.this.Type])
       extends Program.this.Rutine {
       def module = Module.this
+      override def toString () = s"Rutine(${module.nm}.$name, $signature)"
     }
 
     case class Type (nm: String)
       extends Program.this.Type {
       def module = Module.this
+      override def toString () = s"Type(${module.nm}.$nm)"
     }
   }
 
@@ -108,10 +111,19 @@ class Program {
     case class Call(f: Rutine, outs: Seq[Reg], ins: Seq[Reg]) extends Inst
 
     case class End() extends Inst
+
+    override def toString () = s"Rutine($name, $signature)"
   }
 
   def Rutine(name: String): RutineDef = new RutineDef(name)
 
-  case class BinConstant (bytes: Array[Int]) extends Constant
-  case class CallConstant (rut: Rutine, args: Seq[Constant]) extends Constant
+  case class BinConstant (bytes: Array[Int]) extends Constant {
+    override def toString() = {
+      val hexSeq = bytes map {b: Int => f"$b%02x"}
+      s"BinConstant(${hexSeq mkString " "})"
+    }
+  }
+  case class CallConstant (rut: Rutine, args: Seq[Constant]) extends Constant {
+    override def toString() = s"CallConstant($rut, ${args mkString ", "})"
+  }
 }
