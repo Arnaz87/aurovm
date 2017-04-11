@@ -1,5 +1,6 @@
 package arnaud.cobre.backend.js
 
+import scala.collection.mutable
 import scala.collection.mutable.{Map, Buffer}
 
 abstract class Constant
@@ -53,8 +54,8 @@ class RutineDef (
   object vars {
     import scala.collection.mutable.Set
 
-    var ins = Set[Register]()
-    var outs = Set[Register]()
+    var ins = Buffer[Register]()
+    var outs = Buffer[Register]()
 
     var set = Set[Register]()
 

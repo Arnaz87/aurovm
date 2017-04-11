@@ -22,7 +22,6 @@ object Ast {
   case object Gte extends Op
   case object Eq  extends Op
   case object Neq extends Op
-  case object Cat extends Op // Debería ser parte de Add
 
   case class Id (name: String)
   case class Type (name: String)
@@ -39,6 +38,8 @@ object Ast {
   case class DeclPart (nm: Id, vl: Option[Expr])
   case class Decl (tp: Type, ps: Seq[DeclPart]) extends Stmt
   case class Assign (nm: Id, vl: Expr) extends Stmt
+  case class Multi (ls: Seq[Id], vl: Expr) extends Stmt
+
   case class Block (stmts: Seq[Stmt]) extends Stmt
   case class If (cond: Expr, body: Block, orelse: Option[Block]) extends Stmt
   case class While (cond: Expr, body: Block) extends Stmt

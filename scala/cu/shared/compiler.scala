@@ -60,6 +60,10 @@ class Compiler {
     Array(intType, intType), Array(boolType)
   )
 
+  val igte = prelude.Rutine("gte",
+    Array(intType, intType), Array(boolType)
+  )
+
   val ieq = prelude.Rutine("eq",
     Array(intType, intType), Array(boolType)
   )
@@ -144,7 +148,10 @@ class Compiler {
       val srcInfo = new SrcInfo(rutine, name, node.line, node.column)
       val scope = new Scope(rutine, srcInfo)
       for ( (Id(ident), Type(tp)) <- params ) {
-        scope(ident) = scope.rutine.InReg(types(tp))
+        val reg = scope.rutine.InReg(types(tp))
+        scope(ident) = reg
+        scope.srcinfo.vars(reg.asInstanceOf[scope.srcinfo.rutine.Reg]) =
+          (node.line, node.column, ident)
       }
       for (Type(tp) <- rets) {
         scope.outs += scope.rutine.OutReg(types(tp))
@@ -203,6 +210,7 @@ class Compiler {
           }
         case Sub => (isub, intType)
         case Gt  => (igt, boolType)
+        case Gte => (igte, boolType)
         case Eq  => (ieq, boolType)
         case _ => error(s"Unknown overload for $op with types")
       }
@@ -279,6 +287,18 @@ class Compiler {
       val inst = scope.rutine.Cpy(reg, result)
 
       scope.srcinfo.insts(inst.asInstanceOf[scope.srcinfo.rutine.Inst]) =
+        (node.line, node.column)
+    case Multi(ls, Call(Id(fname), args)) =>
+      val rutine = rutines(fname)
+      if (args.size != rutine.ins.size) error(
+        s"Expected ${rutine.ins.size} arguments, found ${args.size}"
+      )
+      var call = scope.rutine.Call(
+        rutine,
+        ls map {case Id(nm) => scope(nm)},
+        args map (%%(_, scope))
+      )
+      scope.srcinfo.insts(call.asInstanceOf[scope.srcinfo.rutine.Inst]) =
         (node.line, node.column)
     case Return(exprs) =>
       if (exprs.size != scope.outs.size) error(

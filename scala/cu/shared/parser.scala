@@ -127,11 +127,10 @@ class Parser (text: String) {
       }
 
       val ops = P(
-        op(">" , Ast.Gt , 2) |
         op(">=", Ast.Gte, 2) |
+        op(">" , Ast.Gt , 2) |
         op("==", Ast.Eq , 2) |
         op("!=", Ast.Neq, 2) |
-        op("++", Ast.Cat, 3) |
         op("+" , Ast.Add, 3) |
         op("-" , Ast.Sub, 3) |
         op("*" , Ast.Mul, 4) |
@@ -186,6 +185,7 @@ class Parser (text: String) {
 
     val decl = P(Lexical.typename ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
     val assign = P(Lexical.ident ~ "=" ~/ Expressions.expr ~ ";").map(Ast.Assign.tupled)
+    val multi = P(Lexical.ident.rep(sep=",", min=2) ~ "=" ~/ Expressions.call ~ ";") map Ast.Multi.tupled
     val call = Expressions.call ~ ";"
 
     val block = P("{" ~ stmt.rep ~ "}").map(Ast.Block)
@@ -200,7 +200,7 @@ class Parser (text: String) {
     val continuestmt = P(Kw("continue") ~ ";").map(_ => Ast.Continue)
 
     val stmt: P[Ast.Stmt] =
-      IP(call | assign | decl |
+      IP(call | assign | multi | decl |
         block | ifstmt | whilestmt |
         retstmt | continuestmt | breakstmt)
   }

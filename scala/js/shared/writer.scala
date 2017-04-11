@@ -61,7 +61,7 @@ class Writer (program: Program) {
       line("var $result;")
     }
 
-    val temps = ((rutine.vars.set filter {_.name.isEmpty}) | rutine.vars.outs) map regName
+    val temps = ((rutine.vars.set filter {_.name.isEmpty}) ++ rutine.vars.outs) map regName
     if (!temps.isEmpty)
       line(s"var ${temps mkString ","};")
 

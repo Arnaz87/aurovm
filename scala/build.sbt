@@ -65,13 +65,3 @@ lazy val web = (project in file("web")).
     //scalaJSUseMainModuleInitializer := true
   ).
   dependsOn(cuJS, jsJS)
-  
-/*
-lazy val jstest = (project in file("jstest")).
-  enablePlugins(ScalaJSPlugin).
-  settings(commonSettings: _*).
-  settings(
-    // Sólo si tiene main, si es solo una librería esto no se pone
-    scalaJSUseMainModuleInitializer := true
-  )
-*/
