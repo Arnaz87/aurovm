@@ -48,7 +48,9 @@ object Ast {
   case object Break extends Stmt
   case object Continue extends Stmt
 
-  case class Import (module: String) extends Toplevel
+  case class ImportRut(name: Id, ins: Seq[Type], outs: Seq[Type])
+
+  case class Import (module: Seq[String], ruts: Seq[ImportRut]) extends Toplevel
   case class Proc (name: Id, params: Seq[(Id, Type)], returns: Seq[Type], body: Block) extends Toplevel
 
   case class Program (stmts: Seq[Toplevel])

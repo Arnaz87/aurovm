@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/mode/simple.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/mode/javascript/javascript.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stacktrace.js/1.3.1/stacktrace.js"></script>
   
   <style type="text/css">
     html, body {
@@ -124,6 +125,7 @@
   </div>
 
   <div id="menu" class="menu">
+    <div class="item" onclick="compile();">Compile</div>
     <div class="item" onclick="runCode();">Run</div>
     <div class="item" onclick="terminal.clear();">Clear</div>
     <div class="item" onclick="examplesmenu.classList.toggle('hidden')">
@@ -186,9 +188,10 @@
       div: document.getElementById("terminal"),
       content: document.getElementById("terminal-content"),
       input: document.getElementById("terminal-input"),
-      print: function (text) { terminal.content.textContent += text; },
+      print: function (text) {terminal.content.textContent += text;},
       println: function (text) { terminal.content.textContent += text + "\n"; },
-      clear: function () { terminal.content.textContent = ""; }
+      clear: function () { terminal.content.textContent = ""; },
+      error: function (text) { terminal.println(text); },
     }
 
     terminal.div.addEventListener("click", function(ev) {
@@ -213,31 +216,51 @@
 
     function compile () {
       var src = editor.getValue();
-      var code = Culang.compile(src);
-      jsview.setValue(code);
-      return code;
-    }
-
-    function srcRepr() {
-      var src = editor.getValue();
-      var result = Culang.programRepr(src);
-      terminal.println(result);
+      var result = Culang.compile(src);
+      if (result.success) {
+        jsview.setValue(result.result);
+      } else {
+        if (result.msg) {
+          terminal.println(result.msg);
+        } else {
+          var err = result.err;
+          terminal.error( err.toString() );
+          StackTrace.fromError(err.stackdata).then(function (err) {
+            for (var i = 0; i < err.length; i++) {
+              terminal.error(err[i].toString());
+            }
+          })
+        }
+      }
     }
 
     function runCode () {
-      var code = compile()
+      var code = jsview.getValue();
 
-      var console = {
-        log: function (line) { terminal.println(line) }
+      var $modules = {
+        "cobre\x1fsystem": {
+          print: function(line) {terminal.println(line);}
+        },
+        "cobre\x1fstring": {
+          itos: function (i) { return String(i); }
+        },
+        "cobre\x1fprim": {
+          div: function (n, d) {
+            if (d==0) throw new Error("Division by zero");
+            return (n/d) | 0;
+          },
+          mod: function (n, d) {
+            if (d==0) throw new Error("Division by zero");
+            return n%d;
+          },
+        }
       }
 
       eval(code);
-
       if (typeof main != "function") {
         terminal.println("No main function was found.")
         return;
       }
-
       main()
     }
 

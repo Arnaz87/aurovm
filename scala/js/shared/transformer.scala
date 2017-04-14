@@ -297,6 +297,7 @@ class Transformer (rutine: RutineDef) {
   def cleanUp (stmts: Seq[Stmt]): Seq[Stmt] = {
     import Stmt._
 
+    // Labels que son usados al menos una vez
     val lbls = mutable.Set[Int]()
 
     stmts foreach {

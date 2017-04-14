@@ -81,10 +81,7 @@ class Parser (text: String) {
 
     val ident = name.map(Ast.Id)
     val typename = P(
-      name |
-      kw("int").map(_ => "Int") |
-      kw("bool").map(_ => "Bool") |
-      kw("string").map(_ => "String")
+      name | kw("int").! | kw("bool").! | kw("string").!
     ).map(Ast.Type).opaque("type")
 
     val lineComment = P("//" ~ CharsWhile(_ != '\n'))
@@ -217,7 +214,12 @@ class Parser (text: String) {
     val proc = P(procType ~/ Lexical.ident ~ params ~ Statements.block)
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
-    val importstmt = P(Kw("import") ~/ Lexical.name ~ ";") map Ast.Import
+    val importstmt = {
+      val rut = P(procType ~ Lexical.ident ~ "(" ~/ Lexical.typename.rep(sep=",") ~ ")" ~ ";")
+        .map {case (tps, nm, pms) => Ast.ImportRut(nm, pms, tps)}
+      val end = P( ("{" ~ rut.rep(min=1) ~ "}") | P(";").map(_ => Nil) )
+      P(Kw("import") ~/ Lexical.name.rep(sep=".", min=1) ~ end) map Ast.Import.tupled
+    }
 
     val toplevel: P[Ast.Toplevel] = IP(importstmt | proc)
 

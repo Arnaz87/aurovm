@@ -72,15 +72,15 @@ object Builder {
         def getBytes (const: program.Constant) = const match {
           case program.BinConstant(bytes) => bytes
         }
-        rut.name match {
-          case "makeint" =>
+        (rut.module.nm, rut.name) match {
+          case ("cobre\u001fprim", "bintoi") =>
             val data = getBytes(args(0))
             var n = 0;
             for (b <- data) {
               n = (n << 8) | b
             }
             constants(_c.index) = Constant.Num(n)
-          case "makestr" =>
+          case ("cobre\u001fstring", "bintos") =>
             val data = getBytes(args(0))
             val bytes = data.map(_.asInstanceOf[Byte]).toArray
             val str = new String(bytes, "UTF-8")

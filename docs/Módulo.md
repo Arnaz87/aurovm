@@ -19,6 +19,12 @@ No hay subclases de dependencias (todavía), así que no estan precedidas por el
 
 # Types
 
+## Null
+
+Se usa cuando no hay una definición en el módulo pero de algún modo hay garantía de que existe, por ejemplo si el componente es nativo de la plataforma, o si el módulo es solo de documentación. Igual aplica con el tipo de rutina Null.
+
+    kind: 0
+
 ## Import
 
     kind: 2
@@ -46,7 +52,11 @@ No hay subclases de dependencias (todavía), así que no estan precedidas por el
 
 # Rutines
 
-El número de rutinas es el mismo que el número de prototipos, así que no se escribe.
+El número de rutinas es el mismo que el número de prototipos, así que se omite.
+
+## Nul
+
+    kind: 0
 
 ## Import
 

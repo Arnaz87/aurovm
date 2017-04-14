@@ -36,13 +36,13 @@ class Program {
       ins: Seq[Program.this.Type],
       outs: Seq[Program.this.Type])
       extends Program.this.Rutine {
-      def module = Module.this
+      val module = Module.this
       override def toString () = s"Rutine(${module.nm}.$name, $signature)"
     }
 
     case class Type (nm: String)
       extends Program.this.Type {
-      def module = Module.this
+      val module = Module.this
       override def toString () = s"Type(${module.nm}.$nm)"
     }
   }

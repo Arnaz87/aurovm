@@ -144,7 +144,7 @@ class Reader (_content: Iterator[Int]) {
     val count = readInt()
     printData(s"$count Dependencias")
     for (i <- 1 to count) {
-      val name = readString()
+      val name = readString().replace("\u001f", ".")
       printData(s"#$i $name")
       val paramCount = readInt()
       printData(s"$paramCount parámetros")

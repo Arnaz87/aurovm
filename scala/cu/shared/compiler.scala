@@ -1,12 +1,15 @@
 package arnaud.culang
 
+import arnaud.cobre.format
+import collection.mutable
+
 class CompileError(msg: String, node: Ast.Node) extends Exception (
   if (node.hasSrcpos) msg + s". At line ${node.line + 1} column ${node.column}" else msg
 )
 
 class Compiler {
   import scala.collection.mutable.{ArrayBuffer, Map}
-  import arnaud.cobre.format.{Program => CGProgram, meta => Meta}
+  import format.{Program => CGProgram, meta => Meta}
   import Meta.implicits._
   import Ast._
 
@@ -15,71 +18,113 @@ class Compiler {
 
   val program = new CGProgram()
 
-  val modules = Map[String, program.Module]()
+  val modules = mutable.Set[Module]()
+  class Module (val names: Seq[String]) {
+    modules += this
+    val module = program.Module(names mkString "\u001F", Nil)
+
+    import module.{Rutine, Type}
+
+    val rutines = Map[String, Rutine]()
+    val types = Map[String, Type]()
+
+    def rutine(name: String): Option[Rutine] = rutines get name
+
+    def addRutine(name: String,
+      ins: Seq[program.Type],
+      outs: Seq[program.Type]) = {
+      val rutine = Rutine(name, ins, outs)
+      rutines(name) = rutine
+      rutine
+    }
+
+    //def tp(name: String): Option[Type] = ???
+  }
+
+  object rutines {
+    val defs = Map[String, Scope]()
+    def apply(name: String)(implicit node: Node): program.Rutine =
+      defs get name match {
+        case Some(scope) => scope.rutine
+        case None =>
+          ((modules.toSeq map {
+            mod: Module => mod.rutine(name)
+          }) collect {
+            case Some(rut) => rut
+          }).headOption match {
+            case Some(rut) => rut
+            case None => error(s"Rutine ${name} not found")
+          }
+      }
+    def update(name: String, scope: Scope) = defs(name) = scope
+  }
+
   val types = Map[String, program.Type]()
-  val rutines = Map[String, program.Rutine]()
 
   val rutine_defs = Map[String, Scope]()
 
   object meta {
     val srcpos = new ArrayBuffer[Meta.Item]()
-    val srcnames = new ArrayBuffer[Meta.Item]
+    val srcnames = new ArrayBuffer[Meta.Item]()
 
     program.metadata += new Meta.SeqItem(srcpos)
     program.metadata += new Meta.SeqItem(srcnames)
   }
 
-  val prelude: program.Module = program.Module("Prelude", Nil)
+  val prims: program.Module = program.Module("cobre\u001fprim", Nil)
+  val core: program.Module = program.Module("cobre\u001fcore", Nil)
+  val strmod: program.Module = program.Module("cobre\u001fstring", Nil)
 
-  val binaryType = prelude.Type("Binary")
-  val intType = prelude.Type("Int")
-  val strType = prelude.Type("String")
-  val boolType = prelude.Type("Bool")
-  types("String") = strType
-  types("Int") = intType
-  types("Bool") = boolType
+  val binaryType = core.Type("binary")
+  val boolType = core.Type("bool")
+  val intType = prims.Type("int")
+  val strType = strmod.Type("string")
 
-  val makeint = prelude.Rutine("makeint",
+  types("int") = intType
+  types("bool") = boolType
+  types("string") = strType
+
+  val makeint = prims.Rutine("bintoi",
     Array(binaryType),
     Array(intType)
   )
-  val makestr = prelude.Rutine("makestr",
+  val makestr = strmod.Rutine("bintos",
     Array(binaryType),
     Array(strType)
   )
 
-  val iadd = prelude.Rutine("iadd",
+  val iadd = prims.Rutine("iadd",
     Array(intType, intType), Array(intType)
   )
 
-  val isub = prelude.Rutine("isub",
+  val isub = prims.Rutine("isub",
     Array(intType, intType), Array(intType)
   )
 
-  val igt = prelude.Rutine("gt",
+  val igt = prims.Rutine("igt",
     Array(intType, intType), Array(boolType)
   )
 
-  val igte = prelude.Rutine("gte",
+  val igte = prims.Rutine("igte",
     Array(intType, intType), Array(boolType)
   )
 
-  val ieq = prelude.Rutine("eq",
+  val ieq = prims.Rutine("ieq",
     Array(intType, intType), Array(boolType)
   )
 
-  val concat = prelude.Rutine("concat",
+  val concat = strmod.Rutine("concat",
     Array(strType, strType), Array(strType)
   )
 
-  rutines("itos") = prelude.Rutine("itos",
+  /*rutines("itos") = prelude.Rutine("itos",
     Array(types("Int")),
     Array(types("String"))
   )
   rutines("print") = prelude.Rutine("print",
     Array(types("String")),
     Nil
-  )
+  )*/
 
   val srcmap = new ArrayBuffer[Meta.Item]()
   srcmap += "source map"
@@ -142,7 +187,15 @@ class Compiler {
   }
 
   def genSyms (stmt: Toplevel) { stmt match {
-    case Import(modname) => 
+    case Import(names, defs) =>
+      val module = new Module(names)
+      for (ImportRut(Id(name), ins, outs) <- defs) {
+        module.addRutine(
+          name,
+          ins map {case Type(tp) => types(tp)},
+          outs map {case Type(tp) => types(tp)}
+        )
+      }
     case node@Proc(Id(name), params, rets, body) =>
       val rutine = program.Rutine(name)
       val srcInfo = new SrcInfo(rutine, name, node.line, node.column)
@@ -156,8 +209,7 @@ class Compiler {
       for (Type(tp) <- rets) {
         scope.outs += scope.rutine.OutReg(types(tp))
       }
-      rutine_defs(name) = scope
-      rutines(name) = scope.rutine
+      rutines(name) = scope
   } }
 
   def %% (node: Expr, scope: Scope): scope.rutine.Reg = {
@@ -312,9 +364,9 @@ class Compiler {
   } }
 
   def %% (node: Toplevel) { node match {
-    case Import(modname) => 
+    case Import(names, ruts) => 
     case Proc(Id(name), params, rets, body) =>
-      val scope = rutine_defs(name)
+      val scope = rutines.defs(name)
       for (stmt <- body.stmts) { %%(stmt, scope) }
       scope.rutine.End()
       scope.srcinfo.build()

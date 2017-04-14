@@ -2,12 +2,53 @@ package arnaud.cobre.backend.js
 
 import scala.collection.mutable.Buffer
 
+object Macros {
+  val prim = "cobre\u001fprim"
+  val str = "cobre\u001fstring"
+
+  def binop (op: String)(args: Seq[String]) =
+    if (args.size != 2) { throw new Exception(
+      s"Binop Macro $op expects exactly 2 arguments, found (${args mkString ", "})"
+    )} else s"(${args(0)} $op ${args(1)})"
+
+  val map = Map[(String, String), Seq[String]=>String](
+    (prim, "iadd") -> binop("+"),
+    (prim, "isub") -> binop("-"),
+    (prim, "imul") -> binop("*"),
+    (prim, "ieq") -> binop("=="),
+    (prim, "igt") -> binop(">"),
+    (prim, "igte") -> binop(">="),
+    (prim, "ilt") -> binop("<"),
+    (prim, "ilte") -> binop("<="),
+    (str, "concat") -> binop("+")
+  )
+
+  def apply(mod: String, rut: String) = map.get((mod, rut))
+}
+
 class Writer (program: Program) {
   val lines = Buffer[String]()
   var identation = 0
   def line(str: String) = lines += (("  "*identation) + str)
   def ident () { identation += 1 }
   def dedent () { identation -= 1 }
+
+  def quote (str: String) = "\"" + str.
+    replace("\\", "\\\\").
+    replace("\"", "\\\"").
+    replace("\n", "\\n").
+    replace("\t", "\\t").
+    replace("\u001f", "\\x1f") + "\""
+
+  val imports: Map[(String, String), String] = (program.rutines flatMap {
+    case ImportRutine(mod, name)
+      if Macros(mod, name).isEmpty => {
+      var endname = ((mod split "\u001f") :+ name) mkString "$"
+      line(s"var $endname = $$modules[${quote(mod)}][${quote(name)}];")
+      Some(((mod, name), endname))
+    }
+    case _ => None
+  }).toMap
 
   def writeRutine (rutine: RutineDef) {
 
@@ -20,11 +61,7 @@ class Writer (program: Program) {
 
     def repr (expr: Expr): String = expr match {
       case Expr.Cns(Constant.Num(num)) => num.toString
-      case Expr.Cns(Constant.Str(str)) => "\"" + str.
-        replace("\\", "\\\\").
-        replace("\"", "\\\"").
-        replace("\n", "\\n").
-        replace("\t", "\\t") + "\""
+      case Expr.Cns(Constant.Str(str)) => quote(str)
       case Expr.Var(reg) => regName(reg)
       case Expr.Call(rut, rs) => callRepr(rut, rs)
       case Expr.Not(expr) => s"!${repr(expr)}"
@@ -34,11 +71,17 @@ class Writer (program: Program) {
 
     def callRepr (rut: Rutine, rs: Seq[Expr]): String = {
       def binop (op: String) = s"(${repr(rs(0))} $op ${repr(rs(1))})"
-      val args = rs map repr mkString ", "
+      val args = rs map repr
       rut match {
         case ImportRutine(mod, name) =>
-          //if (mod == "Prelude") name match {
-          name match {
+          Macros(mod, name) match {
+            case Some(func) => func(args)
+            case None =>
+              val fname = imports((mod, name))
+              s"$fname(${args mkString ", "})"
+          }
+          /*if (mod == "Prelude") name match {
+          //name match {
             case "iadd" => binop("+")
             case "isub" => binop("-")
             case "concat" => binop("+")
@@ -47,8 +90,9 @@ class Writer (program: Program) {
             case "gte" => binop(">=")
             case "print" => s"console.log($args)"
             case "itos" => s"String(${repr(rs(0))})"
-          }
-          //} else s"$mod.$name($args)"
+          //}
+          } else s"$mod.$name($args)"*/
+          //s"$mod.$name($args)"
         case rut: RutineDef => s"${rut.name.get}($args)"
       }
     }
