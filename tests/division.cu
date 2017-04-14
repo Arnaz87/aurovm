@@ -1,3 +1,6 @@
+import cobre.system;
+import cobre.`string`;
+
 // División con restas sucesivas.
 int, int division (int num, int denom) {
   int resto = num, resul = 0;

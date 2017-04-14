@@ -70,30 +70,17 @@ class Writer (program: Program) {
     }
 
     def callRepr (rut: Rutine, rs: Seq[Expr]): String = {
-      def binop (op: String) = s"(${repr(rs(0))} $op ${repr(rs(1))})"
       val args = rs map repr
+      val argstr = args mkString ", "
       rut match {
         case ImportRutine(mod, name) =>
           Macros(mod, name) match {
             case Some(func) => func(args)
             case None =>
               val fname = imports((mod, name))
-              s"$fname(${args mkString ", "})"
+              s"$fname($argstr)"
           }
-          /*if (mod == "Prelude") name match {
-          //name match {
-            case "iadd" => binop("+")
-            case "isub" => binop("-")
-            case "concat" => binop("+")
-            case "eq" => binop("==")
-            case "gt" => binop(">")
-            case "gte" => binop(">=")
-            case "print" => s"console.log($args)"
-            case "itos" => s"String(${repr(rs(0))})"
-          //}
-          } else s"$mod.$name($args)"*/
-          //s"$mod.$name($args)"
-        case rut: RutineDef => s"${rut.name.get}($args)"
+        case rut: RutineDef => s"${rut.name.get}($argstr)"
       }
     }
 

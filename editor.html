@@ -144,7 +144,7 @@
 
     CodeMirror.defineSimpleMode("cu", {
       start: [
-        {regex: /"(?:[^\\]|\\.)*?(?:"|$)/, token: "string"},
+        {regex: /["`](?:[^\\]|\\.)*?(?:["`]|$)/, token: "string"},
         {regex: /int|bool|float|string|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
         {regex: /true|false|null/, token: "atom"},
         {regex: /(?:void|import|return|if|while|else)\b/, token: "keyword"},

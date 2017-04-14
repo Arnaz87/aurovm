@@ -1,3 +1,6 @@
+import cobre.system;
+import cobre.`string`;
+
 void main () {
   int bottles = 5;
 

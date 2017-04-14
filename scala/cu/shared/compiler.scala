@@ -19,16 +19,63 @@ class Compiler {
   val program = new CGProgram()
 
   val modules = mutable.Set[Module]()
-  class Module (val names: Seq[String]) {
+
+  case class Proto(ins: Seq[program.Type], outs: Seq[program.Type])
+
+  class Module (val name: String) {
+    //val types: Set[String]) {
+
     modules += this
-    val module = program.Module(names mkString "\u001F", Nil)
 
-    import module.{Rutine, Type}
+    var inScope = false
 
-    val rutines = Map[String, Rutine]()
-    val types = Map[String, Type]()
+    var _module: Option[program.Module] = None
+    def module = _module match {
+      case Some(mod) => mod
+      case None =>
+        val mod = program.Module(name, Nil)
+        _module = Some(mod)
+        mod
+    }
+    //val module = program.Module(names mkString "\u001F", Nil)
 
-    def rutine(name: String): Option[Rutine] = rutines get name
+    def used = !(_module.isEmpty)
+
+    import program.{Rutine, Type}
+
+    object rutines {
+      val protos = Map[String, Proto]()
+      val map = Map[String, Rutine]()
+
+      def apply (name: String): Option[Rutine] =
+        map get name match {
+          case Some(rut) => Some(rut)
+          case None => protos get name match {
+            case Some(Proto(ins, outs)) =>
+              val rut = module.Rutine(name, ins, outs)
+              map(name) = rut
+              Some(rut)
+            case None => None
+          }
+        }
+
+      def update (name: String, proto: Proto) { protos(name) = proto }
+
+      def ++= (mp: Map[String, Proto]) { protos ++= mp }
+    }
+
+    object types {
+      val map = Map[String, Type]()
+
+      def apply (name: String) = map get name match {
+        case Some(tp) => tp
+        case None =>
+          val tp = module.Type(name)
+          map(name) = tp; tp
+      }
+    }
+
+    /*def rutine(name: String): Option[Rutine] = rutines get name
 
     def addRutine(name: String,
       ins: Seq[program.Type],
@@ -36,7 +83,7 @@ class Compiler {
       val rutine = Rutine(name, ins, outs)
       rutines(name) = rutine
       rutine
-    }
+    }*/
 
     //def tp(name: String): Option[Type] = ???
   }
@@ -47,8 +94,8 @@ class Compiler {
       defs get name match {
         case Some(scope) => scope.rutine
         case None =>
-          ((modules.toSeq map {
-            mod: Module => mod.rutine(name)
+          ((modules.toSeq.filter(_.inScope) map {
+            mod: Module => mod.rutines(name)
           }) collect {
             case Some(rut) => rut
           }).headOption match {
@@ -71,23 +118,58 @@ class Compiler {
     program.metadata += new Meta.SeqItem(srcnames)
   }
 
-  val prims: program.Module = program.Module("cobre\u001fprim", Nil)
-  val core: program.Module = program.Module("cobre\u001fcore", Nil)
-  val strmod: program.Module = program.Module("cobre\u001fstring", Nil)
+  val prims = new Module("cobre\u001fprim")
+  val core = new Module("cobre\u001fcore")
+  val strmod = new Module("cobre\u001fstring")
+  val sysmod = new Module("cobre\u001fsystem")
 
-  val binaryType = core.Type("binary")
-  val boolType = core.Type("bool")
-  val intType = prims.Type("int")
-  val strType = strmod.Type("string")
+  val binaryType = core.types("binary")
+  val boolType = core.types("bool")
+  val intType = prims.types("int")
+  val strType = strmod.types("string")
 
   types("int") = intType
   types("bool") = boolType
   types("string") = strType
 
-  val makeint = prims.Rutine("bintoi",
+  prims.rutines ++= Map(
+    "bintoi" -> Proto( Array(binaryType), Array(intType) ),
+    "iadd" -> Proto( Array(intType, intType), Array(intType) ),
+    "isub" -> Proto( Array(intType, intType), Array(intType) ),
+    "ieq"  -> Proto( Array(intType, intType), Array(boolType) ),
+    "igt"  -> Proto( Array(intType, intType), Array(boolType) ),
+    "igte" -> Proto( Array(intType, intType), Array(boolType) )
+  )
+
+  def makeint = prims.rutines("bintoi").get
+  def iadd = prims.rutines("iadd").get
+  def isub = prims.rutines("isub").get
+  def ieq  = prims.rutines("ieq").get
+  def igt  = prims.rutines("igt").get
+  def igte = prims.rutines("igte").get
+
+  strmod.rutines ++= Map(
+    "bintos" -> Proto( Array(binaryType), Array(strType) ),
+    "concat" -> Proto( Array(strType, strType), Array(strType) ),
+    "itos" -> Proto( Array(intType), Array(strType) )
+  )
+
+  def makestr = strmod.rutines("bintos").get
+  def concat = strmod.rutines("concat").get
+
+  sysmod.rutines ++= Map(
+    "print" -> Proto( Array(strType), Nil )
+  )
+
+
+  /*
+  prims.rutines("bintoi") = Proto(
     Array(binaryType),
     Array(intType)
   )
+  def makeint = prims.rutines("bintoi")
+
+
   val makestr = strmod.Rutine("bintos",
     Array(binaryType),
     Array(strType)
@@ -115,7 +197,7 @@ class Compiler {
 
   val concat = strmod.Rutine("concat",
     Array(strType, strType), Array(strType)
-  )
+  )*/
 
   /*rutines("itos") = prelude.Rutine("itos",
     Array(types("Int")),
@@ -188,13 +270,22 @@ class Compiler {
 
   def genSyms (stmt: Toplevel) { stmt match {
     case Import(names, defs) =>
-      val module = new Module(names)
-      for (ImportRut(Id(name), ins, outs) <- defs) {
-        module.addRutine(
-          name,
-          ins map {case Type(tp) => types(tp)},
-          outs map {case Type(tp) => types(tp)}
-        )
+      val modname = names mkString "\u001f"
+      modules find (_.name == modname) match {
+        case Some(module) =>
+          if (defs.size > 0) {
+            error(s"Module ${names mkString "."} cannot be redefined")(stmt)
+          }
+          module.inScope = true
+        case None =>
+          val module = new Module(modname)
+          for (ImportRut(Id(name), ins, outs) <- defs) {
+            module.rutines(name) = Proto(
+              ins map {case Type(tp) => types(tp)},
+              outs map {case Type(tp) => types(tp)}
+            )
+          }
+          module.inScope = true
       }
     case node@Proc(Id(name), params, rets, body) =>
       val rutine = program.Rutine(name)

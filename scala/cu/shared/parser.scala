@@ -51,7 +51,21 @@ class Parser (text: String) {
       ).map(Ast.Num)
     }
 
-    val string = {
+    def quoted (lim: String) = {
+      val validChars = P(!("\\" | lim) ~ AnyChar.!)
+      val uescape = P("\\u" ~/ AnyChar.rep(min=4,max=4).!).map( _.toInt.toChar)
+      val xescape = P("\\x" ~/ AnyChar.rep(min=2,max=2).!).map( _.toInt.toChar)
+      val escape = P("\\" ~ !("u"|"x"|"z") ~ AnyChar.!).map(_ match {
+        case "n" => "\n"
+        case "t" => "\t"
+        case c => c
+      })
+      P(lim ~/ (validChars|uescape|xescape|escape).rep.map(_.mkString) ~ lim)
+    }
+
+    val string = quoted("\"").map(Ast.Str)
+
+    /*val string = {
       val validChars = P(!("\\" | "\"") ~ AnyChar.!)
       val uescape = P("\\u" ~/ AnyChar.rep(min=4,max=4).!).map( _.toInt.toChar)
       val xescape = P("\\x" ~/ AnyChar.rep(min=2,max=2).!).map( _.toInt.toChar)
@@ -61,7 +75,7 @@ class Parser (text: String) {
         case c => c
       })
       P( "\"" ~/ (validChars|uescape|xescape|escape).rep.map(_.mkString) ~/ "\"" ).map(Ast.Str)
-    }
+    }*/
 
     val const = P(
       kw("true").map( _ => Ast.Bool(true)) |
@@ -75,7 +89,10 @@ class Parser (text: String) {
 
     val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
     val firstchar = CharIn('a' to 'z', 'A' to 'Z', "_")
-    val name = P(firstchar ~ namechar.rep).!.filter(!keywords.contains(_)).opaque("identifier")
+    val name = P(
+      (firstchar ~ namechar.rep).!.filter(!keywords.contains(_))
+      | quoted("`")
+    ).opaque("identifier")
 
     def kw (str: String) = P(str ~ !(namechar))
 

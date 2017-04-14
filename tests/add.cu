@@ -1,8 +1,11 @@
+import cobre.system;
+import cobre.`string`;
+
 void main () {
   int a = 5;
   int b = 6;
   int c = mult(a, b);
-  String str = itos(c);
+  string str = itos(c);
   print(str);
 }
 
