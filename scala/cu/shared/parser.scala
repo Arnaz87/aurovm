@@ -65,18 +65,6 @@ class Parser (text: String) {
 
     val string = quoted("\"").map(Ast.Str)
 
-    /*val string = {
-      val validChars = P(!("\\" | "\"") ~ AnyChar.!)
-      val uescape = P("\\u" ~/ AnyChar.rep(min=4,max=4).!).map( _.toInt.toChar)
-      val xescape = P("\\x" ~/ AnyChar.rep(min=2,max=2).!).map( _.toInt.toChar)
-      val escape = P("\\" ~ !("u"|"x"|"z") ~ AnyChar.!).map(_ match {
-        case "n" => "\n"
-        case "t" => "\t"
-        case c => c
-      })
-      P( "\"" ~/ (validChars|uescape|xescape|escape).rep.map(_.mkString) ~/ "\"" ).map(Ast.Str)
-    }*/
-
     val const = P(
       kw("true").map( _ => Ast.Bool(true)) |
       kw("false").map(_ => Ast.Bool(false)) |
@@ -84,7 +72,7 @@ class Parser (text: String) {
     )
 
     val keywords: Set[String] =
-      "true false null if else while return continue break goto import void int bool string".
+      "true false null if else while return continue break goto import typedef void int bool string".
       split(' ').toSet
 
     val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
@@ -143,6 +131,8 @@ class Parser (text: String) {
       val ops = P(
         op(">=", Ast.Gte, 2) |
         op(">" , Ast.Gt , 2) |
+        op("<=", Ast.Lte, 2) |
+        op("<" , Ast.Lt , 2) |
         op("==", Ast.Eq , 2) |
         op("!=", Ast.Neq, 2) |
         op("+" , Ast.Add, 3) |
@@ -232,10 +222,15 @@ class Parser (text: String) {
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
     val importstmt = {
+      val tpdef = P(Kw("typedef") ~/ Lexical.ident ~ ";") map Ast.ImportType
       val rut = P(procType ~ Lexical.ident ~ "(" ~/ Lexical.typename.rep(sep=",") ~ ")" ~ ";")
         .map {case (tps, nm, pms) => Ast.ImportRut(nm, pms, tps)}
-      val end = P( ("{" ~ rut.rep(min=1) ~ "}") | P(";").map(_ => Nil) )
-      P(Kw("import") ~/ Lexical.name.rep(sep=".", min=1) ~ end) map Ast.Import.tupled
+
+      val defs = P(
+        ("{" ~ (tpdef | rut).rep(min=1) ~ "}")
+        | P(";").map(_ => Nil)
+      )
+      P(Kw("import") ~/ Lexical.name.rep(sep=".", min=1) ~ defs) map Ast.Import.tupled
     }
 
     val toplevel: P[Ast.Toplevel] = IP(importstmt | proc)

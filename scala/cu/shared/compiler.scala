@@ -161,53 +161,6 @@ class Compiler {
     "print" -> Proto( Array(strType), Nil )
   )
 
-
-  /*
-  prims.rutines("bintoi") = Proto(
-    Array(binaryType),
-    Array(intType)
-  )
-  def makeint = prims.rutines("bintoi")
-
-
-  val makestr = strmod.Rutine("bintos",
-    Array(binaryType),
-    Array(strType)
-  )
-
-  val iadd = prims.Rutine("iadd",
-    Array(intType, intType), Array(intType)
-  )
-
-  val isub = prims.Rutine("isub",
-    Array(intType, intType), Array(intType)
-  )
-
-  val igt = prims.Rutine("igt",
-    Array(intType, intType), Array(boolType)
-  )
-
-  val igte = prims.Rutine("igte",
-    Array(intType, intType), Array(boolType)
-  )
-
-  val ieq = prims.Rutine("ieq",
-    Array(intType, intType), Array(boolType)
-  )
-
-  val concat = strmod.Rutine("concat",
-    Array(strType, strType), Array(strType)
-  )*/
-
-  /*rutines("itos") = prelude.Rutine("itos",
-    Array(types("Int")),
-    Array(types("String"))
-  )
-  rutines("print") = prelude.Rutine("print",
-    Array(types("String")),
-    Nil
-  )*/
-
   val srcmap = new ArrayBuffer[Meta.Item]()
   srcmap += "source map"
   val rutmap = new ArrayBuffer[Meta.Item]()
@@ -279,13 +232,17 @@ class Compiler {
           module.inScope = true
         case None =>
           val module = new Module(modname)
-          for (ImportRut(Id(name), ins, outs) <- defs) {
-            module.rutines(name) = Proto(
-              ins map {case Type(tp) => types(tp)},
-              outs map {case Type(tp) => types(tp)}
-            )
-          }
           module.inScope = true
+          defs foreach {
+            case ImportRut(Id(name), ins, outs) =>
+              module.rutines(name) = Proto(
+                ins map {case Type(tp) => types(tp)},
+                outs map {case Type(tp) => types(tp)}
+              )
+            case ImportType(Id(name)) =>
+              val tp = module.types(name)
+              types(name) = tp
+          }
       }
     case node@Proc(Id(name), params, rets, body) =>
       val rutine = program.Rutine(name)
@@ -332,6 +289,7 @@ class Compiler {
       reg
     case Call(Id(fname), args) =>
       val rutine = rutines(fname)
+      if (rutine.outs.size < 0) error("Expresions cannot return void")
       if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
       )
@@ -427,20 +385,27 @@ class Compiler {
     case Assign(Id(nm), expr) =>
       val reg = scope(nm)
       val result = %%(expr, scope)
+
+      if (reg.t != result.t) error(s"Cannot assign a ${result.t} to a ${reg.t}")
+
       val inst = scope.rutine.Cpy(reg, result)
 
       scope.srcinfo.insts(inst.asInstanceOf[scope.srcinfo.rutine.Inst]) =
         (node.line, node.column)
-    case Multi(ls, Call(Id(fname), args)) =>
+    case Multi(_ls, Call(Id(fname), args)) =>
       val rutine = rutines(fname)
       if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
       )
-      var call = scope.rutine.Call(
-        rutine,
-        ls map {case Id(nm) => scope(nm)},
-        args map (%%(_, scope))
-      )
+      val ls = _ls map {case Id(nm) => scope(nm)}
+      val rs = args map (%%(_, scope))
+
+      for ( ((l, r), i) <- (ls zip rs).zipWithIndex ) {
+        if (l.t != r.t) error(s"Cannot assign a ${result.t} to a ${reg.t}")
+      }
+
+      var call = scope.rutine.Call(rutine, ls, rs)
+      
       scope.srcinfo.insts(call.asInstanceOf[scope.srcinfo.rutine.Inst]) =
         (node.line, node.column)
     case Return(exprs) =>

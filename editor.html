@@ -20,6 +20,10 @@
       font-size: 12px;
     }
 
+    .hidden {
+      display: none;
+    }
+
     .content {
       margin-top: 16px;
       width: 100%;
@@ -89,11 +93,13 @@
       background-color: #eee;
       float: initial;
     }
-    .submenu.hidden {
-      display: none;
-    }
 
     .CodeMirror {
+      height: 100%;
+    }
+
+    #view-window > div {
+      width: 100%;
       height: 100%;
     }
   </style>
@@ -107,8 +113,10 @@
         style="width:60%;height:100%;float:left;">
       </div>
 
-      <div id="jsview"
+      <div id="view-window"
         style="width:40%;height:100%;float:left;">
+        <div id="compiled-view"></div>
+        <div id="document-view" style="overflow: auto;"></div>
       </div>
 
     </div>
@@ -127,7 +135,7 @@
   <div id="menu" class="menu">
     <div class="item" onclick="compile();">Compile</div>
     <div class="item" onclick="runCode();">Run</div>
-    <div class="item" onclick="terminal.clear();">Clear</div>
+    <div class="item" onclick="clearAll();">Clear</div>
     <div class="item" onclick="examplesmenu.classList.toggle('hidden')">
       Examples
       <div class="submenu hidden" id="examplesmenu">
@@ -135,6 +143,14 @@
         <div class="item" onclick="putExample('bottles.cu')">Bottles</div>
         <div class="item" onclick="putExample('add.cu')">Add</div>
         <div class="item" onclick="putExample('division.cu')">Division</div>
+        <div class="item" onclick="putExample('js.cu')">Js lib</div>
+      </div>
+    </div>
+    <div class="item" onclick="viewsmenu.classList.toggle('hidden')">
+      View
+      <div class="submenu hidden" id="viewsmenu">
+        <div class="item" onclick="switchView('compiled')">Compiled JS</div>
+        <div class="item" onclick="switchView('document')">Document</div>
       </div>
     </div>
   </div>
@@ -147,7 +163,7 @@
         {regex: /["`](?:[^\\]|\\.)*?(?:["`]|$)/, token: "string"},
         {regex: /int|bool|float|string|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
         {regex: /true|false|null/, token: "atom"},
-        {regex: /(?:void|import|return|if|while|else)\b/, token: "keyword"},
+        {regex: /(?:void|import|return|if|while|else|typedef)\b/, token: "keyword"},
         {regex: /[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
         {regex: /\/\/.*$/, token: "comment"},
         {regex: /\/\*/, token: "comment", next: "comment"},
@@ -175,7 +191,7 @@
       lineNumbers: true,
     });
 
-    var jsview = CodeMirror(document.getElementById("jsview"),{
+    var jsview = CodeMirror(document.getElementById("compiled-view"),{
       mode: "javascript",
       theme: "monokai",
       readOnly: "nocursor",
@@ -195,6 +211,8 @@
     }
 
     terminal.div.addEventListener("click", function(ev) {
+      // Desactivar el terminal por ahora, no esá haciendo nada aún
+      return;
       if (window.getSelection().isCollapsed) {
         // Evitar un ciclo infinito (si es posible).
         if (ev.target != terminal.input) { terminal.input.focus(); }
@@ -234,34 +252,82 @@
       }
     }
 
+    function method (fun) { return fun.call.bind(fun); }
+    function bound (obj, name) { return obj[name].bind(obj); }
+
+    var fakebody = document.getElementById("document-view");
+    fakebody.clear = function () {
+      while (this.childElementCount > 0) {
+        this.removeChild(this.childNodes[0]);
+      }
+    }
+
+    window.CobreModules = {
+      "cobre\x1fsystem": {
+        print: function(line) {terminal.println(line);}
+      },
+      "cobre\x1fstring": {
+        itos: function (i) { return String(i); }
+      },
+      "cobre\x1fprim": {
+        div: function (n, d) {
+          if (d==0) throw new Error("Division by zero");
+          return (n/d) | 0;
+        },
+        mod: function (n, d) {
+          if (d==0) throw new Error("Division by zero");
+          return n%d;
+        },
+      },
+      "js\x1fwindow": {
+        alert: bound(window, "alert"),
+        prompt: bound(window, "prompt")
+      },
+      "js\x1fdocument": {
+        body: function () { return fakebody; },
+        createElement: bound(document, "createElement"),
+        getElementById: bound(document, "getElementById")
+      },
+      "js\x1felement": {
+        // typedef Element;
+        appendChild: method(Element.prototype.appendChild),
+        getAttribute: method(Element.prototype.getAttribute),
+        setAttribute: method(Element.prototype.setAttribute),
+        getTextContent: function (elem) {return elem.textContent;},
+        setTextContent: function (elem, text) {elem.textContent = text;},
+        getStyle: function (elem, name) { return elem.style[name]; },
+        setStyle: function (elem, name, value) { elem.style[name] = value; }
+      }
+    }
+
     function runCode () {
       var code = jsview.getValue();
 
-      var $modules = {
-        "cobre\x1fsystem": {
-          print: function(line) {terminal.println(line);}
-        },
-        "cobre\x1fstring": {
-          itos: function (i) { return String(i); }
-        },
-        "cobre\x1fprim": {
-          div: function (n, d) {
-            if (d==0) throw new Error("Division by zero");
-            return (n/d) | 0;
-          },
-          mod: function (n, d) {
-            if (d==0) throw new Error("Division by zero");
-            return n%d;
-          },
-        }
-      }
+      try {
+        var $modules = window.CobreModules;
 
-      eval(code);
-      if (typeof main != "function") {
-        terminal.println("No main function was found.")
-        return;
+        eval(code);
+
+        if (typeof main != "function") {
+          terminal.println("No main function was found.")
+          return;
+        }
+
+        fakebody.clear();
+
+        main()
+      } catch (err) {
+        terminal.println(err.toString())
+        terminal.println(err.stack)
       }
-      main()
+    }
+
+    function switchView (name) {
+      function elem (id) { return document.getElementById(id + "-view"); }
+      function hide (id) { elem(id).classList.add("hidden"); }
+      hide("compiled")
+      hide("document")
+      elem(name).classList.remove("hidden");
     }
 
     function putExample (name) {
@@ -271,6 +337,11 @@
       if (xhttp.status == 200 || xhttp.status == 0) {
         editor.setValue(xhttp.responseText);
       }
+    }
+
+    function clearAll() {
+      terminal.clear();
+      fakebody.clear();
     }
 
     terminal.input.textContent = "";

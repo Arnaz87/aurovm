@@ -20,6 +20,8 @@ object Ast {
   case object Div extends Op
   case object Gt  extends Op
   case object Gte extends Op
+  case object Lt  extends Op
+  case object Lte extends Op
   case object Eq  extends Op
   case object Neq extends Op
 
@@ -48,9 +50,11 @@ object Ast {
   case object Break extends Stmt
   case object Continue extends Stmt
 
-  case class ImportRut(name: Id, ins: Seq[Type], outs: Seq[Type])
+  sealed abstract class ImportDef
+  case class ImportType(name: Id) extends ImportDef
+  case class ImportRut(name: Id, ins: Seq[Type], outs: Seq[Type]) extends ImportDef
 
-  case class Import (module: Seq[String], ruts: Seq[ImportRut]) extends Toplevel
+  case class Import (module: Seq[String], defs: Seq[ImportDef]) extends Toplevel
   case class Proc (name: Id, params: Seq[(Id, Type)], returns: Seq[Type], body: Block) extends Toplevel
 
   case class Program (stmts: Seq[Toplevel])
