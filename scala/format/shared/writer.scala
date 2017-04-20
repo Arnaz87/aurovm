@@ -74,7 +74,7 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
           case Cns(a, c) =>
             %%(2); %%(a.index); %%(c.index + 1)
           case Ilbl(l) =>
-            %%(5); %%(l.index)
+            %%(5); %%(l.index+1)
           case Jmp(l) =>
             %%(6); %%(l.index+1)
           case Ifj(l, a) =>
