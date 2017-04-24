@@ -72,7 +72,7 @@ class Parser (text: String) {
     )
 
     val keywords: Set[String] =
-      "true false null if else while return continue break goto import typedef void int bool string".
+      "true false null if else while return continue break goto import struct void new".
       split(' ').toSet
 
     val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
@@ -85,9 +85,17 @@ class Parser (text: String) {
     def kw (str: String) = P(str ~ !(namechar))
 
     val ident = name.map(Ast.Id)
-    val typename = P(
-      name | kw("int").! | kw("bool").! | kw("string").!
-    ).map(Ast.Type).opaque("type")
+    val entity = P((name ~ ".").? ~ name) map {
+      case (namespace, name) => Ast.Entity(name, namespace)
+    }
+
+    val typename = P(entity ~ "[]".!.rep).map{
+      case (ent, dims) =>
+        var tp: Ast.Type = Ast.Type.Simple(ent)
+        for (i <- 1 to dims.size)
+          tp = Ast.Type.Array(tp)
+        tp
+    }.opaque("type")
 
     val lineComment = P("//" ~ CharsWhile(_ != '\n'))
     val multiComment = P("/*" ~ (!("*/") ~ AnyChar).rep ~ "*/")
@@ -177,10 +185,14 @@ class Parser (text: String) {
 
     val variable = P(Lexical.ident) map Ast.Var
     val const = P(Lexical.number | Lexical.const | Lexical.string)
-    val call = P(Lexical.ident ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.Call.tupled
+    val call = P(Lexical.entity ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.Call.tupled
 
     val inparen = P("(" ~/ expr ~ ")")
-    val atom = IP(const | call | variable | inparen)
+    val `new` = P(Kw("new") ~/ Lexical.typename ~
+      ("[" ~ CharIn('0' to '9').rep(1).!.map(_.toInt) ~ "]").? ~
+      "{" ~ expr.rep(sep=",") ~ "}"
+    ) map Ast.New.tupled
+    val atom = IP(const | call | variable | inparen | `new`)
     val expr: P[Ast.Expr] = Ops.expr(atom)
   }
 
@@ -222,18 +234,28 @@ class Parser (text: String) {
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
     val importstmt = {
-      val tpdef = P(Kw("typedef") ~/ Lexical.ident ~ ";") map Ast.ImportType
+      val tpdef = P(Kw("struct") ~/ Lexical.ident ~ ";") map Ast.ImportType
       val rut = P(procType ~ Lexical.ident ~ "(" ~/ Lexical.typename.rep(sep=",") ~ ")" ~ ";")
         .map {case (tps, nm, pms) => Ast.ImportRut(nm, pms, tps)}
 
       val defs = P(
-        ("{" ~ (tpdef | rut).rep(min=1) ~ "}")
+        ("{" ~ IP(tpdef | rut).rep(min=1) ~ "}")
         | P(";").map(_ => Nil)
       )
-      P(Kw("import") ~/ Lexical.name.rep(sep=".", min=1) ~ defs) map Ast.Import.tupled
+      val params = P("(" ~/ Lexical.entity.rep(sep=",") ~ ")").? map (_ getOrElse Nil)
+
+      P(Kw("import") ~/
+        Lexical.name.rep(sep=".", min=1) ~
+        params ~ Lexical.name.? ~ defs
+      ) map Ast.Import.tupled
     }
 
-    val toplevel: P[Ast.Toplevel] = IP(importstmt | proc)
+    val struct = P(
+      Kw("struct") ~/ Lexical.ident ~ "{" ~
+      (Lexical.typename ~ Lexical.ident ~ ";").rep
+      ~ "}") map Ast.Struct.tupled
+
+    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | proc)
 
     // El espacio en blanco solo sale en ~ y rep, por eso están los Pass, para
     // poder seguirlos con ~ y aceptar espacios al inicio y final

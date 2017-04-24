@@ -3,6 +3,8 @@ package arnaud.culang
 import arnaud.cobre.format
 import collection.mutable
 
+// TODO: Este archivo es demasiado grande. Hay que dividirlo en varios archivos.
+
 class CompileError(msg: String, node: Ast.Node) extends Exception (
   if (node.hasSrcpos) msg + s". At line ${node.line + 1} column ${node.column}" else msg
 )
@@ -22,11 +24,10 @@ class Compiler {
 
   case class Proto(ins: Seq[program.Type], outs: Seq[program.Type])
 
-  class Module (val name: String) {
-    //val types: Set[String]) {
-
+  class Module (val name: String, val params: Seq[Ast.Entity] = Nil) {
     modules += this
 
+    var alias = ""
     var inScope = false
 
     var _module: Option[program.Module] = None
@@ -67,6 +68,7 @@ class Compiler {
     object types {
       val map = Map[String, Type]()
 
+      def get (name: String) = map get name
       def apply (name: String) = map get name match {
         case Some(tp) => tp
         case None =>
@@ -74,39 +76,95 @@ class Compiler {
           map(name) = tp; tp
       }
     }
-
-    /*def rutine(name: String): Option[Rutine] = rutines get name
-
-    def addRutine(name: String,
-      ins: Seq[program.Type],
-      outs: Seq[program.Type]) = {
-      val rutine = Rutine(name, ins, outs)
-      rutines(name) = rutine
-      rutine
-    }*/
-
-    //def tp(name: String): Option[Type] = ???
   }
 
   object rutines {
     val defs = Map[String, Scope]()
-    def apply(name: String)(implicit node: Node): program.Rutine =
-      defs get name match {
-        case Some(scope) => scope.rutine
+    def apply(entity: Ast.Entity)(implicit node: Node): program.Rutine = {
+      entity.namespace match {
         case None =>
-          ((modules.toSeq.filter(_.inScope) map {
-            mod: Module => mod.rutines(name)
-          }) collect {
-            case Some(rut) => rut
-          }).headOption match {
-            case Some(rut) => rut
-            case None => error(s"Rutine ${name} not found")
+          val name = entity.name
+          defs get name match {
+            case Some(scope) => scope.rutine
+            case None =>
+              // De todos los módulos que esten en scope, buscar alguno que
+              // tenga la rutina con el nombre y usarla.
+              ((modules.toSeq.filter(_.inScope) map {
+                mod: Module => mod.rutines(name)
+              }) collect {
+                case Some(rut) => rut
+              }).headOption match {
+                case Some(rut) => rut
+                case None => error(s"Rutine $name not found")
+              }
+          }
+        case Some(space) =>
+          modules.find(_.alias == space) match {
+            case Some(mod) =>
+              mod.rutines(entity.name) match {
+                case Some(rut) => rut
+                case None =>
+                  error(s"Rutine ${entity.name} not found in $space")
+              }
+            case None => error(s"Import $space not found")
           }
       }
+    }
     def update(name: String, scope: Scope) = defs(name) = scope
   }
 
-  val types = Map[String, program.Type]()
+  object types {
+    val default = Map[String, program.Type]()
+    val arrs = Map[Ast.Type, Module]()
+
+    def apply(tp: Ast.Type)(implicit node: Node): program.Type = {
+      tp match {
+        case Ast.Type.Simple(entity) =>
+          entity.namespace match {
+            case None =>
+              default.get(entity.name) match {
+                case Some(tp) => tp
+                case None => error(s"Type ${entity.name} not found")
+              }
+            case Some(space) =>
+              modules.find(_.alias == space) match {
+                case Some(mod) =>
+                  mod.types.get(entity.name) match {
+                    case Some(tp) => tp
+                    case None =>
+                      error(s"Type ${entity.name} not found in $space")
+                  }
+                case None => error(s"Import $space not found")
+              }
+          }
+        case Ast.Type.Array(_tp) =>
+          arrs.get(_tp) match {
+            case Some(mod) => mod.types("array")
+            case None =>
+              val tp = apply(_tp)
+              ???
+          }
+      }
+    }
+  }
+
+  val _topvars = Map[Ast.Entity, program.Constant]()
+  def topvar (entity: Ast.Entity)(implicit node: Ast.Node): Option[program.Constant] = {
+    import scala.util.{Try, Success, Failure}
+    _topvars get entity match {
+      case None =>
+        val tp = Ast.Type.Simple(entity)
+        Try(types(tp)) match {
+          case Success(tp) =>
+            val cns = program.TypeConstant(tp)
+            _topvars(entity) = cns
+            Some(cns)
+          case Failure(_) =>
+            None
+        }
+      case Some(cns) => Some(cns)
+    }
+  }
 
   val rutine_defs = Map[String, Scope]()
 
@@ -128,9 +186,9 @@ class Compiler {
   val intType = prims.types("int")
   val strType = strmod.types("string")
 
-  types("int") = intType
-  types("bool") = boolType
-  types("string") = strType
+  types.default("int") = intType
+  types.default("bool") = boolType
+  types.default("string") = strType
 
   prims.rutines ++= Map(
     "bintoi" -> Proto( Array(binaryType), Array(intType) ),
@@ -174,7 +232,7 @@ class Compiler {
     // Instruction Index => (Line, Column)
     val insts = Map[rutine.Inst, (Int, Int)]()
 
-    // Register Index => Name
+    // Register Index => (Line, Column, Name)
     val vars = Map[rutine.Reg, (Int, Int, String)]()
 
     def build () {
@@ -221,44 +279,61 @@ class Compiler {
     def Scope = new SubScope(this)
   }
 
-  def genSyms (stmt: Toplevel) { stmt match {
-    case Import(names, defs) =>
-      val modname = names mkString "\u001f"
-      modules find (_.name == modname) match {
-        case Some(module) =>
-          if (defs.size > 0) {
-            error(s"Module ${names mkString "."} cannot be redefined")(stmt)
-          }
-          module.inScope = true
-        case None =>
-          val module = new Module(modname)
-          module.inScope = true
-          defs foreach {
-            case ImportRut(Id(name), ins, outs) =>
-              module.rutines(name) = Proto(
-                ins map {case Type(tp) => types(tp)},
-                outs map {case Type(tp) => types(tp)}
-              )
-            case ImportType(Id(name)) =>
-              val tp = module.types(name)
-              types(name) = tp
-          }
+  def genSyms (stmts: Seq[Toplevel]) {
+    object mods {
+      val types = mutable.Buffer[(Module, Ast.ImportType)]()
+      val ruts  = mutable.Buffer[(Module, Ast.ImportRut)]()
+
+      for (stmt@Import(names, params, alias, defs) <- stmts) {
+        val modname = names mkString "\u001f"
+        val module = modules find { module: Module =>
+          (module.name == modname) && (module.params == params)
+        } match {
+          case None => new Module(modname, params)
+          case Some(module) =>
+            if (defs.size > 0)
+              error(s"Module ${names mkString "."} cannot be redefined")(stmt)
+            module
+        }
+
+        if (alias.isEmpty) module.inScope = true
+        else module.alias = alias.get
+
+        defs foreach {
+          case df: ImportType => types += ((module, df))
+          case df: ImportRut  => ruts  += ((module, df))
+        }
       }
-    case node@Proc(Id(name), params, rets, body) =>
+    }
+
+    for (( module, ImportType(Id(name)) ) <- mods.types)
+      module.types(name)
+
+    for (node@ Struct(Id(name), fields) <- stmts)
+      error("Structs not yet supported")(node)
+
+    for (( module, node@ImportRut(Id(name), ins, outs) ) <- mods.ruts)
+      module.rutines(name) = Proto(
+        ins map {tp: Type => types(tp)(node)},
+        outs map {tp: Type => types(tp)(node)}
+      )
+
+    for (node@ Proc(Id(name), params, rets, body) <- stmts) {
       val rutine = program.Rutine(name)
       val srcInfo = new SrcInfo(rutine, name, node.line, node.column)
       val scope = new Scope(rutine, srcInfo)
-      for ( (Id(ident), Type(tp)) <- params ) {
-        val reg = scope.rutine.InReg(types(tp))
+      for ( (Id(ident), tp) <- params ) {
+        val reg = scope.rutine.InReg( types(tp)(node) )
         scope(ident) = reg
         scope.srcinfo.vars(reg.asInstanceOf[scope.srcinfo.rutine.Reg]) =
           (node.line, node.column, ident)
       }
-      for (Type(tp) <- rets) {
-        scope.outs += scope.rutine.OutReg(types(tp))
+      for (tp <- rets) {
+        scope.outs += scope.rutine.OutReg( types(tp)(node) )
       }
       rutines(name) = scope
-  } }
+    }
+  }
 
   def %% (node: Expr, scope: Scope): scope.rutine.Reg = {
     implicit val _node = node
@@ -287,7 +362,7 @@ class Compiler {
       val reg = scope.rutine.Reg(strType)
       scope.rutine.Cns(reg, const)
       reg
-    case Call(Id(fname), args) =>
+    case Call(fname, args) =>
       val rutine = rutines(fname)
       if (rutine.outs.size < 0) error("Expresions cannot return void")
       if (args.size != rutine.ins.size) error(
@@ -327,7 +402,7 @@ class Compiler {
   def %% (node: Stmt, scope: Scope) {
     implicit val _node = node;
     node match {
-    case Decl(Type(_tp), ps) =>
+    case Decl(_tp, ps) =>
       val tp = types(_tp)
       for ( decl@DeclPart(Id(nm), vl) <- ps ) {
         val reg = scope.rutine.Reg(tp)
@@ -342,7 +417,7 @@ class Compiler {
         scope.srcinfo.vars(reg.asInstanceOf[scope.srcinfo.rutine.Reg]) =
           (node.line, node.column, nm)
       }
-    case Call(Id(fname), args) =>
+    case Call(fname, args) =>
       val rutine = rutines(fname)
       if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
@@ -392,7 +467,7 @@ class Compiler {
 
       scope.srcinfo.insts(inst.asInstanceOf[scope.srcinfo.rutine.Inst]) =
         (node.line, node.column)
-    case Multi(_ls, Call(Id(fname), args)) =>
+    case Multi(_ls, Call(fname, args)) =>
       val rutine = rutines(fname)
       if (args.size != rutine.ins.size) error(
         s"Expected ${rutine.ins.size} arguments, found ${args.size}"
@@ -401,7 +476,7 @@ class Compiler {
       val rs = args map (%%(_, scope))
 
       for ( ((l, r), i) <- (ls zip rs).zipWithIndex ) {
-        if (l.t != r.t) error(s"Cannot assign a ${result.t} to a ${reg.t}")
+        if (l.t != r.t) error(s"Cannot assign a ${r.t} to a ${l.t}")
       }
 
       var call = scope.rutine.Call(rutine, ls, rs)
@@ -420,13 +495,25 @@ class Compiler {
   } }
 
   def %% (node: Toplevel) { node match {
-    case Import(names, ruts) => 
     case Proc(Id(name), params, rets, body) =>
       val scope = rutines.defs(name)
       for (stmt <- body.stmts) { %%(stmt, scope) }
       scope.rutine.End()
       scope.srcinfo.build()
+    case _ =>
   } }
+
+  def importParams () {
+    for (module <- modules) {
+      module._module match {
+        case Some(mod) =>
+          for (entity <- module.params)
+            // TODO: ¿qué onda con este null y el get? Esto pide error a gritos
+            mod.params += topvar(entity)(null).get
+        case None =>
+      }
+    }
+  }
 
   def binary: Seq[Int] = {
     val buffer = new ArrayBuffer[Int]()
@@ -444,11 +531,12 @@ object Compiler {
   def apply (prg: Ast.Program): Compiler = {
     val compiler = new Compiler
 
-    prg.stmts foreach (compiler.genSyms(_))
-
+    compiler.genSyms(prg.stmts)
     for (stmt <- prg.stmts) {
       compiler %% stmt
     }
+    compiler.importParams()
+
     compiler.writeMetadata()
     return compiler
   }

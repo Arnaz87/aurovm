@@ -26,9 +26,10 @@ class Program {
     def signature = s"${ins mkString " "} -> ${outs mkString " "}"
   }
 
-  case class Module (nm: String, params: Seq[Constant]) {
+  case class Module (nm: String, _params: Seq[Constant] = Nil) {
     modules += this
 
+    val params = _params.toBuffer
     def index = modules indexOf this
 
     case class Rutine (
@@ -126,4 +127,6 @@ class Program {
   case class CallConstant (rut: Rutine, args: Seq[Constant]) extends Constant {
     override def toString() = s"CallConstant($rut, ${args mkString ", "})"
   }
+
+  case class TypeConstant (tp: Type) extends Constant
 }

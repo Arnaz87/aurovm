@@ -26,7 +26,13 @@ object Ast {
   case object Neq extends Op
 
   case class Id (name: String)
-  case class Type (name: String)
+  case class Entity (name: String, namespace: Option[String])
+
+  abstract class Type
+  object Type {
+    case class Simple (ent: Entity) extends Type
+    case class Array (tp: Type) extends Type
+  }
 
   case class Num (n: Double) extends Literal
   case class Str (s: String) extends Literal
@@ -35,7 +41,8 @@ object Ast {
 
   case class Var (name: Id) extends Expr
   case class Binop (op: Op, a: Expr, b: Expr) extends Expr
-  case class Call (func: Id, args: Seq[Expr]) extends Expr with Stmt
+  case class Call (func: Entity, args: Seq[Expr]) extends Expr with Stmt
+  case class New (tp: Type, size: Option[Int], vals: Seq[Expr]) extends Expr
 
   case class DeclPart (nm: Id, vl: Option[Expr])
   case class Decl (tp: Type, ps: Seq[DeclPart]) extends Stmt
@@ -50,12 +57,19 @@ object Ast {
   case object Break extends Stmt
   case object Continue extends Stmt
 
-  sealed abstract class ImportDef
+  case class Proc (name: Id, params: Seq[(Id, Type)], returns: Seq[Type], body: Block) extends Toplevel
+  case class Struct (name: Id, fields: Seq[(Type, Id)]) extends Toplevel
+
+  // Los imports son medio complicados...
+  sealed abstract class ImportDef extends Node
   case class ImportType(name: Id) extends ImportDef
   case class ImportRut(name: Id, ins: Seq[Type], outs: Seq[Type]) extends ImportDef
-
-  case class Import (module: Seq[String], defs: Seq[ImportDef]) extends Toplevel
-  case class Proc (name: Id, params: Seq[(Id, Type)], returns: Seq[Type], body: Block) extends Toplevel
+  case class Import (
+    module: Seq[String],
+    params: Seq[Entity],
+    alias: Option[String],
+    defs: Seq[ImportDef]
+  ) extends Toplevel
 
   case class Program (stmts: Seq[Toplevel])
 }

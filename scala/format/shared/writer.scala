@@ -35,6 +35,8 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
     for (module <- prg.modules) {
       %%(module.nm)
       %%(module.params.size)
+      for (cns <- module.params)
+        %%(cns.index + 1)
     }
 
     %%( types.size)
@@ -93,6 +95,9 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
         %%(1) // Binary Kind
         %%(bytes.size)
         bytes foreach putByte
+      case TypeConstant(tp) =>
+        %%(3) // Type Kind
+        %%(tp.index + 1)
       case CallConstant(rut, args) =>
         %%(rut.index + 16)
         for (arg <- args) %%(arg.index + 1)

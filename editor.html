@@ -161,9 +161,9 @@
     CodeMirror.defineSimpleMode("cu", {
       start: [
         {regex: /["`](?:[^\\]|\\.)*?(?:["`]|$)/, token: "string"},
-        {regex: /int|bool|float|string|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
-        {regex: /true|false|null/, token: "atom"},
-        {regex: /(?:void|import|return|if|while|else|typedef)\b/, token: "keyword"},
+        {regex: /(?:int|bool|float|string)\b|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
+        {regex: /(?:true|false|null)\b/, token: "atom"},
+        {regex: /(?:void|import|return|if|while|else|struct|new)\b/, token: "keyword"},
         {regex: /[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
         {regex: /\/\/.*$/, token: "comment"},
         {regex: /\/\*/, token: "comment", next: "comment"},
@@ -197,8 +197,6 @@
       readOnly: "nocursor",
       lineNumbers: true,
     });
-
-    //editor.setValue("\nvoid main () {\n    print(\"Hola Mundo!\");\n}\n");
 
     var terminal = {
       div: document.getElementById("terminal"),
