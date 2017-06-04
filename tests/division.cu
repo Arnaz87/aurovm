@@ -1,5 +1,5 @@
 import cobre.system;
-import cobre.`string`;
+import cobre.string;
 
 // División con restas sucesivas.
 int, int division (int num, int denom) {

@@ -2,9 +2,8 @@
 import com.typesafe.sbt.SbtStartScript
 
 lazy val commonSettings = Seq(
-  scalaVersion := "2.11.8"
+  scalaVersion := "2.12.2"
 )
-
 
 
 // JVM Only
@@ -28,7 +27,7 @@ lazy val cu = (crossProject in file("cu")).
   settings(commonSettings: _*).
   settings(
     scalaSource in Compile := baseDirectory.value / "../shared/",
-    libraryDependencies ++= Seq("com.lihaoyi" %%% "fastparse" % "0.3.7")
+    libraryDependencies ++= Seq("com.lihaoyi" %%% "fastparse" % "0.4.2")
   ).
   dependsOn(format)
 lazy val cuJS = cu.js

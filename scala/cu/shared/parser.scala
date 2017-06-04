@@ -72,7 +72,7 @@ class Parser (text: String) {
     )
 
     val keywords: Set[String] =
-      "true false null if else while return continue break goto import struct void new".
+      "true false null if else while return continue break goto import struct void".
       split(' ').toSet
 
     val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
@@ -84,19 +84,6 @@ class Parser (text: String) {
 
     def kw (str: String) = P(str ~ !(namechar))
 
-    val ident = name.map(Ast.Id)
-    val entity = P((name ~ ".").? ~ name) map {
-      case (namespace, name) => Ast.Entity(name, namespace)
-    }
-
-    val typename = P(entity ~ "[]".!.rep).map{
-      case (ent, dims) =>
-        var tp: Ast.Type = Ast.Type.Simple(ent)
-        for (i <- 1 to dims.size)
-          tp = Ast.Type.Array(tp)
-        tp
-    }.opaque("type")
-
     val lineComment = P("//" ~ CharsWhile(_ != '\n'))
     val multiComment = P("/*" ~ (!("*/") ~ AnyChar).rep ~ "*/")
     //val ws = P(CharsWhile(_.isSpaceChar))
@@ -105,17 +92,24 @@ class Parser (text: String) {
   }
 
   // Lee un nodo del Ast y lo ubica en el código
-
   def setSrcPos[T <: Ast.Node] (nodepos: Int, node: T) = {
     val (line, column) = srcPosFor(nodepos)
     node.srcpos(line, column)
     node
   }
 
+  implicit class NodeOps[T <: Ast.Node] (node: T) {
+    def setSrcPos (nodepos: Int) = {
+      val (line, column) = srcPosFor(nodepos)
+      node.srcpos(line, column)
+      node
+    }
+  }
+
   import fastparse.{all => FPA}
   def IP[T <: Ast.Node](p: FPA.P[T]): FPA.P[T] = {
     import FPA._
-    P(P(Index) ~ P(p)) map { (setSrcPos[T] _).tupled }
+    (Index ~ p) map { (setSrcPos[T] _).tupled }
   }
 
   import fastparse.noApi._
@@ -183,35 +177,58 @@ class Parser (text: String) {
       }
     }
 
-    val variable = P(Lexical.ident) map Ast.Var
-    val const = P(Lexical.number | Lexical.const | Lexical.string)
-    val call = P(Lexical.entity ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.Call.tupled
+    val atom = {
+      sealed abstract class Op
+      object Op {
+        case class Field (i: Int, nm: String) extends Op
+        case class Index (i: Int, field: Ast.Expr) extends Op
+        case class Call (i: Int, args: Seq[Ast.Expr]) extends Op
+        case class New (i: Int, vals: Seq[Ast.Expr]) extends Op
+      }
 
+      val field = P(Index ~ "." ~/ Lexical.name) map Op.Field.tupled
+      val index = P(Index ~ "[" ~/ expr ~ "]") map Op.Index.tupled
+      val call = P(Index ~ "(" ~/ expr.rep(sep=",") ~ ")") map Op.Call.tupled
+      val `new` = P(Index ~ "{" ~/ expr.rep(sep=",") ~ "}") map Op.New.tupled
+
+      P(IP(Lexical.name.map(Ast.Var)) ~ (field | index | call | `new`).rep ) map {
+        case (expr, ops) => ops.foldLeft[Ast.Expr](expr) {
+          case (expr, Op.Field(i, nm)) => Ast.Field(expr, nm).setSrcPos(i)
+          case (expr, Op.Index(i, field)) => Ast.Index(expr, field).setSrcPos(i)
+          case (expr, Op.Call(i, args)) => Ast.Call(expr, args).setSrcPos(i)
+          case (expr, Op.New(i, vals)) => Ast.New(expr, vals).setSrcPos(i)
+        }
+      }
+    }
+
+    val const = P(Lexical.number | Lexical.const | Lexical.string)
     val inparen = P("(" ~/ expr ~ ")")
-    val `new` = P(Kw("new") ~/ Lexical.typename ~
-      ("[" ~ CharIn('0' to '9').rep(1).!.map(_.toInt) ~ "]").? ~
-      "{" ~ expr.rep(sep=",") ~ "}"
-    ) map Ast.New.tupled
-    val atom = IP(const | call | variable | inparen | `new`)
-    val expr: P[Ast.Expr] = Ops.expr(atom)
+    val expr: P[Ast.Expr] = Ops.expr(IP(const | inparen | atom))
+    val `type` = expr map Ast.Type
   }
 
-  object Statements {
-    private val declpart = P(Lexical.ident ~ ("=" ~ Expressions.expr).?) map Ast.DeclPart.tupled
+  import Expressions.{`type` => etype, expr}
 
-    val decl = P(Lexical.typename ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
-    val assign = P(Lexical.ident ~ "=" ~/ Expressions.expr ~ ";").map(Ast.Assign.tupled)
-    val multi = P(Lexical.ident.rep(sep=",", min=2) ~ "=" ~/ Expressions.call ~ ";") map Ast.Multi.tupled
-    val call = Expressions.call ~ ";"
+  object Statements {
+    private val declpart = P(Lexical.name ~ ("=" ~ expr).?) map Ast.DeclPart.tupled
+
+    val $call = NoCut(expr)
+      .filter(_.isInstanceOf[Ast.Call])
+      .map(_.asInstanceOf[Ast.Call])
+
+    val decl = P(NoCut(etype) ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
+    val assign = P(Lexical.name ~ "=" ~/ expr ~ ";").map(Ast.Assign.tupled)
+    val multi = P(Lexical.name.rep(sep=",", min=2) ~ "=" ~/ $call ~ ";") map Ast.Multi.tupled
+    val call = $call ~ ";"
 
     val block = P("{" ~ stmt.rep ~ "}").map(Ast.Block)
 
-    val cond = P("(" ~ Expressions.expr ~ ")")
+    val cond = P("(" ~ expr ~ ")")
 
     val ifstmt = P(Kw("if") ~/ cond ~ block ~ (Kw("else") ~ block).?).map(Ast.If.tupled)
     val whilestmt = P(Kw("while") ~/ cond ~ block).map(Ast.While.tupled)
 
-    val retstmt = P(Kw("return") ~/ Expressions.expr.rep(sep=",") ~ ";").map(Ast.Return)
+    val retstmt = P(Kw("return") ~/ expr.rep(sep=",") ~ ";").map(Ast.Return)
     val breakstmt = P(Kw("break") ~ ";").map(_ => Ast.Break)
     val continuestmt = P(Kw("continue") ~ ";").map(_ => Ast.Continue)
 
@@ -224,25 +241,25 @@ class Parser (text: String) {
   object Toplevel {
     val moduleName = P(CharIn('a' to 'z', 'A' to 'Z').rep.!)
 
-    private val param = P(Lexical.typename ~ Lexical.ident) map {case (t, i) => (i, t)}
+    private val param = P(etype ~ Lexical.name)
     private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
 
     private val procType: P[Seq[Ast.Type]] =
-      P(Kw("void").map(_ => Nil) | Lexical.typename.rep(sep=",", min=1))
+      P(Kw("void").map(_ => Nil) | etype.rep(sep=",", min=1))
 
-    val proc = P(procType ~/ Lexical.ident ~ params ~ Statements.block)
+    val proc = P(procType ~/ Lexical.name ~ params ~ Statements.block)
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
     val importstmt = {
-      val tpdef = P(Kw("struct") ~/ Lexical.ident ~ ";") map Ast.ImportType
-      val rut = P(procType ~ Lexical.ident ~ "(" ~/ Lexical.typename.rep(sep=",") ~ ")" ~ ";")
+      val tpdef = P(Kw("struct") ~/ Lexical.name ~ ";") map Ast.ImportType
+      val rut = P(procType ~ Lexical.name ~ "(" ~/ etype.rep(sep=",") ~ ")" ~ ";")
         .map {case (tps, nm, pms) => Ast.ImportRut(nm, pms, tps)}
 
       val defs = P(
         ("{" ~ IP(tpdef | rut).rep(min=1) ~ "}")
         | P(";").map(_ => Nil)
       )
-      val params = P("(" ~/ Lexical.entity.rep(sep=",") ~ ")").? map (_ getOrElse Nil)
+      val params = P("(" ~/ expr.rep(sep=",") ~ ")").? map (_ getOrElse Nil)
 
       P(Kw("import") ~/
         Lexical.name.rep(sep=".", min=1) ~
@@ -251,8 +268,8 @@ class Parser (text: String) {
     }
 
     val struct = P(
-      Kw("struct") ~/ Lexical.ident ~ "{" ~
-      (Lexical.typename ~ Lexical.ident ~ ";").rep
+      Kw("struct") ~/ Lexical.name ~ "{" ~
+      (etype ~ Lexical.name ~ ";").rep
       ~ "}") map Ast.Struct.tupled
 
     val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | proc)

@@ -4,6 +4,13 @@ object Main {
 
   def parse_text (text: String) = {
     Parser.parse(text)
+    /*try { Parser.parse(text) }
+    catch { case e: ParseError =>
+      println(e.getMessage)
+      //println(e.trace)
+      System.exit(1)
+      ???
+    }*/
   }
 
   def parse_file (name: String) = {
@@ -11,7 +18,7 @@ object Main {
   }
 
   def manual (): Nothing = {
-    println("Usage: (-i <code> | -f <filename>) [-o <output filename>] [-pipe] [--print] [--print-(ast|binary)]")
+    println("Usage: (-i <code> | -f <filename>) [-o <output filename>] [--pipe] [--print] [--print-(ast|binary)]")
     System.exit(0)
     return ???
   }
@@ -66,9 +73,17 @@ object Main {
     }
     maybeExit()
 
-    val compiler = Compiler(parsed)
+    //val compiler = Compiler(parsed)
+    //val binary = compiler.binary
+    
+    val program = compiler.compile(parsed)
+    val binary = {
+      val buffer = new collection.mutable.ArrayBuffer[Int]()
+      val writer = new arnaud.cobre.format.Writer(buffer)
+      writer.write(program)
+      buffer
+    }
 
-    val binary = compiler.binary
     if (args print "binary") {
       args.print -= "binary"
       println("=== Compiled Binary ===")

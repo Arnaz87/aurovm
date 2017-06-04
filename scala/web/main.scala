@@ -36,7 +36,7 @@ object Culang {
   def compile (src: String): Result = {
     new Result(Try({
       val ast = culang.Parser.parse(src)
-      val program = culang.Compiler(ast).program
+      val program = culang.compiler.compile(ast)
 
       arnaud.cobre.backend.js.Compiler.compile(program)
     }))

@@ -6,7 +6,7 @@ import js.window {
 }
 
 import js.element {
-  typedef Element;
+  struct Element;
   void appendChild (Element, Element);
   string getTextContent (Element);
   string getAttribute (Element);

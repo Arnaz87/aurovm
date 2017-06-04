@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Editor web de código</title>
-  <script type="text/javascript" src="scala/web/target/scala-2.11/web-fastopt.js"></script>
+  <script type="text/javascript" src="scala/web/target/scala-2.12/web-fastopt.js"></script>
   
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.css">
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/theme/monokai.css">
@@ -161,7 +161,7 @@
     CodeMirror.defineSimpleMode("cu", {
       start: [
         {regex: /["`](?:[^\\]|\\.)*?(?:["`]|$)/, token: "string"},
-        {regex: /(?:int|bool|float|string)\b|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
+        {regex: /(?:int|bool|float|string|type)\b|[A-Z][a-zA-Z0-9_]*/, token: "variable-3"},
         {regex: /(?:true|false|null)\b/, token: "atom"},
         {regex: /(?:void|import|return|if|while|else|struct|new)\b/, token: "keyword"},
         {regex: /[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
