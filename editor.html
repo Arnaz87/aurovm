@@ -4,13 +4,21 @@
   <meta charset="utf-8">
   <title>Editor web de código</title>
   <script type="text/javascript" src="scala/web/target/scala-2.12/web-fastopt.js"></script>
-  
-  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.css">
+
+  <!--<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.css">
   <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/theme/monokai.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/mode/simple.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/mode/javascript/javascript.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/stacktrace.js/1.3.1/stacktrace.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/mode/javascript/javascript.js"></script>-->
+
+  <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/stacktrace.js/1.3.1/stacktrace.js"></script>-->
+
+  <link rel="stylesheet" type="text/css" href="web/codemirror/codemirror.css">
+  <!--<link rel="stylesheet" type="text/css" href="web/codemirror/monokai.css">-->
+  <script type="text/javascript" src="web/codemirror/codemirror.js"></script>
+  <script type="text/javascript" src="web/codemirror/simple.js"></script>
+
+  <script type="text/javascript" src="web/parser.js"></script>
   
   <style type="text/css">
     html, body {
@@ -24,10 +32,10 @@
       display: none;
     }
 
-    .content {
-      margin-top: 16px;
+    body > .content {
+      margin-top: 24px;
       width: 100%;
-      height: calc(100% - 16px);
+      height: calc(100% - 24px);
       position: absolute;
       overflow: hidden;
     }
@@ -40,8 +48,11 @@
       margin: 0px;
       overflow-x: wrap;
       overflow-y: auto;
-      background-color: #111;
-      color: #dfd;
+      /*background-color: #111;
+      color: #dfd;*/
+      background-color: #fff;
+      color: #222;
+      border-top: 1px solid lightgray;
       font-family: monospace;
       cursor: text;
     }
@@ -68,13 +79,15 @@
       top: 0px;
       position: absolute;
       font-size: 12px;
-      height: 16px;
+      height: 24px;
       font-family: sans-serif;
       z-index: 100;
+      width: 100%;
+      border-bottom: 1px solid lightgray;
     }
 
     .menu .item {
-      padding: 2px 5px;
+      padding: 4px 6px;
       text-decoration: none;
       color: #000;
       float: left;
@@ -86,11 +99,12 @@
     }
 
     .menu .submenu {
-      margin: 0px -5px;
+      margin: 5px -6px;
+      background-color: #fff;
+      border: 1px solid lightgray;
     }
 
     .menu .submenu > .item {
-      background-color: #eee;
       float: initial;
     }
 
@@ -102,6 +116,106 @@
       width: 100%;
       height: 100%;
     }
+
+    .hexview {
+      position: relative;
+      padding: 0px;
+      margin: 0px;
+      width: 100%;
+      height: 100%;
+      font-family: monospace;
+      overflow-x: hidden;
+      overflow-y: hidden;
+    }
+
+    .hexview-details {
+      position: absolute;
+      width: 100%;
+      overflow-x: hidden;
+      border-bottom: 1px solid #ddd;
+      background-color: #fff;
+    }
+
+    .hexview-details .field {
+      float: left;
+      height: 1em;
+      padding: 3px;
+      overflow: hidden;
+    }
+
+    .hexview-details .field .title {
+      color: #aaa;
+    }
+
+    .hexview-details .field .value {
+      white-space: pre;
+      color: #000;
+    }
+
+    .hexview .gutter {
+      display: inline-block;
+      width: 3em;
+      text-align: right;
+      border-right: 1px solid #ddd;
+      padding-right: 4px;
+      background-color: #f7f7f7;
+      color: #888;
+    }
+
+    .hexview-content {
+      overflow: auto;
+      height: calc(100% - 1em - 6px);
+      margin-top: calc(1em + 6px);
+    }
+
+    .hexview-content > div {
+      white-space: nowrap;
+    }
+
+    .hexview-content span:hover { background-color: #eef; }
+    .hexview-content span.selected { background-color: #acf; }
+    .hexview-content span.mark { background-color: #fca; }
+
+    .hexview .line {
+      display: inline-block;
+    }
+
+    .hexview .line span {
+      cursor: pointer;
+      padding: 0 0.5em;
+    }
+
+    .hexview .line span:nth-child(4n) {
+      padding-right: 0.7em;
+    }
+
+    .hexview .line span:nth-child(4n+1) {
+      padding-left: 0.7em;
+    }
+
+    .jsonview {
+      position: relative;
+      padding: 0px;
+      margin: 0px;
+      width: 100%;
+      height: 100%;
+      font-family: monospace;
+      overflow: auto;
+    }
+
+    .jsonview .name::after {
+      content: ":";
+      color: #bbb;
+      padding: 0 0.5em;
+    }
+
+    .jsonview .content > div { margin-left: 1em; }
+
+    .jsonview span.string { color: #491; }
+    .jsonview span.number { color: #941; }
+
+    .jsonview span.string::before { content: '"'; color: #bca; }
+    .jsonview span.string::after  { content: '"'; color: #bca; }
   </style>
 </head>
 <body>
@@ -110,12 +224,15 @@
     <div style="width:100%;height:calc(100% - 16em);">
 
       <div id="editor"
-        style="width:60%;height:100%;float:left;">
+        style="width:50%;height:100%;float:left;">
       </div>
 
       <div id="view-window"
-        style="width:40%;height:100%;float:left;">
-        <div id="compiled-view"></div>
+        style="width:50%;height:100%;float:left;">
+        <div id="compiled-view">
+          <div id="hex-view" style="width:25em;height:100%;float:left;"></div>
+          <div id="json-view" style="width:calc(100% - 25em);height:100%;float:left;"></div>
+        </div>
         <div id="document-view" style="overflow: auto;"></div>
       </div>
 
@@ -185,24 +302,28 @@
 
     var editor = CodeMirror(document.getElementById("editor"), {
       mode: "cu",
-      theme: "monokai",
+      //theme: "monokai",
       indentUnit: 2,
       tabSize: 2,
       lineNumbers: true,
     });
 
-    var jsview = CodeMirror(document.getElementById("compiled-view"),{
+    /*var jsview = CodeMirror(document.getElementById("compiled-view"),{
       mode: "javascript",
-      theme: "monokai",
+      //theme: "monokai",
       readOnly: "nocursor",
       lineNumbers: true,
-    });
+    });*/
 
     var terminal = {
       div: document.getElementById("terminal"),
       content: document.getElementById("terminal-content"),
       input: document.getElementById("terminal-input"),
-      print: function (text) {terminal.content.textContent += text;},
+      print: function (text) {
+        if (typeof text != "string")
+          text = JSON.stringify(text);
+        terminal.content.textContent += text;
+      },
       println: function (text) { terminal.content.textContent += text + "\n"; },
       clear: function () { terminal.content.textContent = ""; },
       error: function (text) { terminal.println(text); },
@@ -230,22 +351,288 @@
     // Esto es para que el intérprete pueda usarlo
     window.Terminal = terminal;
 
+    var hexview = (function (container) {
+      var div = document.createElement("div");
+      div.className = "hexview";
+
+      var details = document.createElement("div");
+      details.className = "hexview-details";
+      div.appendChild(details);
+
+      var content = document.createElement("div");
+      content.className = "hexview-content";
+      div.appendChild(content);
+
+      container.appendChild(div);
+
+      function makeField (name) {
+        var div = document.createElement("div");
+        div.className = "field";
+        //div.style.width = "7em";
+        var title = document.createElement("span");
+        title.className = "title";
+        title.textContent = " " + name + ": ";
+        var span = document.createElement("span");
+        span.className = "value";
+        div.appendChild(title);
+        div.appendChild(span);
+        details.appendChild(div);
+        return {setValue: function (value) {
+          span.textContent = value;
+        }};
+      }
+
+      var bitsField = makeField("Bits");
+      var decimalField = makeField("Base10");
+      var asciiField = makeField("ASCII");
+
+      var data = null;
+      var spans = [];
+      var selected = 0;
+
+      var asciiSpecials = [
+        "nul","soh","stx","etx","eot","enq","ack","bel","bs","ht","lf",
+        "vt","ff","cr","so","si","dle","dc1","dc2","dc3","dc4","nak",
+        "syn","etb","can","em","sub","esc","fs","gs","rs","us","sp"
+      ];
+
+      function displayIndex (index) {
+        var value = data[index];
+
+        var dec = value.toString(10);
+        while (dec.length<3) dec=" "+dec;
+        decimalField.setValue(dec);
+
+        var asciiValue =
+          value < 33   ? asciiSpecials[value] :
+          value == 127 ? "del" : String.fromCharCode(value);
+        asciiField.setValue(asciiValue);
+        var bitValue = value.toString(2);
+        while (bitValue.length < 8) bitValue = "0"+bitValue;
+        bitsField.setValue(bitValue);
+      }
+
+      function selectIndex (index) {
+        spans[selected].classList.remove("selected");
+        selected = index;
+        var target = spans[index].classList.add("selected");
+        var value = data[index];
+        displayIndex(selected);
+      }
+
+      content.addEventListener("mouseover", function (ev) {
+        var target = ev.target;
+        var attr = ev.target.getAttribute("x-hexview-index");
+        if (attr !== null && attr !== undefined) {
+          var index = parseInt(attr);
+          displayIndex(index);
+        }
+      });
+
+      content.addEventListener("mouseleave", function (ev) {
+        if (spans.length > 0) displayIndex(selected);
+      });
+
+      container.addEventListener("click", function (ev) {
+        var target = ev.target;
+        var attr = ev.target.getAttribute("x-hexview-index");
+        if (attr !== null && attr !== undefined) {
+          var index = parseInt(attr);
+          selectIndex(index);
+        }
+      });
+
+      function setValue (_data) {
+        data = _data;
+        while (content.childNodes.length > 0)
+          content.removeChild(content.childNodes[0]);
+        spans.splice(0, spans.length);
+
+        var line;
+        for (var i = 0; i < data.length; i++) {
+          if (i%8 == 0) {
+            var ldiv = document.createElement("div");
+            var gutter = document.createElement("div");
+            line = document.createElement("div");
+
+            gutter.className = "gutter";
+            line.className = "line";
+
+            gutter.textContent = i.toString(16);
+
+            ldiv.appendChild(gutter);
+            ldiv.appendChild(line);
+            content.appendChild(ldiv);
+          }
+          var repr = data[i].toString(16);
+          if (repr.length == 1) repr = "0" + repr;
+          var span = document.createElement("span");
+          span.setAttribute("x-hexview-index", i);
+          span.textContent = repr;
+          spans.push(span);
+          line.appendChild(span);
+        }
+        selectIndex(0);
+      }
+
+      function mark (start, length) {
+        spans.slice(start, start+length).forEach(function (span) {
+          span.classList.add("mark");
+        });
+      }
+
+      function unmark () {
+        spans.forEach(function (span) {
+          span.classList.remove("mark");
+        });
+      }
+
+      return { setValue: setValue, mark: mark, unmark: unmark };
+    })(document.getElementById("hex-view"));
+
+    var jsonview = (function (container, hexview) {
+      var div = document.createElement("div");
+      div.className = "jsonview";
+      container.appendChild(div);
+
+      function makeField (name, _value) {
+        
+        // Si _value tiene la forma {value: (...), srcpos: (...)}, tomar value
+        var keys = Object.keys(_value);
+        var value = (keys.length == 2 &&
+          keys.indexOf("value") >= 0 &&
+          keys.indexOf("srcpos") >= 0) ? _value.value : _value;
+        var srcpos = _value.srcpos;
+
+        var div = document.createElement("div");
+        div.className = "field";
+
+        var line = document.createElement("div");
+        div.appendChild(line);
+
+        if (srcpos && hexview) {
+          line.addEventListener("mouseover", function () {
+            hexview.mark(srcpos.start, srcpos.length);
+          })
+
+          line.addEventListener("mouseleave", function () {
+            hexview.unmark();
+          })
+        }
+
+        if (name) {
+          var nmspan = document.createElement("span");
+          nmspan.className = "name";
+          nmspan.textContent = name;
+          line.appendChild(nmspan);
+        }
+
+        var keys = (typeof value == "object") ? Object.keys(value) : null;
+        if (keys != null) {
+          var i = keys.indexOf("srcpos");
+          if (i >= 0) { keys.splice(i, 1); }
+        }
+
+        if (typeof value != "object") {
+          // Si es un valor primitivo
+
+          var span = document.createElement("span");
+
+          // Remplazar especiales por representaciones imrimibles
+          if (typeof value == "string") {
+            nstr = "";
+            for (var i = 0; i < value.length; i++) {
+              // https://en.wikipedia.org/wiki/Control_Pictures
+              var nulcode = 0x2400;
+              var code = value.charCodeAt(i);
+              nstr += (code>31) ? value.charAt(i) :
+                String.fromCharCode(nulcode + code);
+            }
+            value = nstr;
+          }
+
+          span.textContent = value;
+          span.className = typeof value;
+          line.appendChild(span);
+
+        } else if (keys != null && keys.length == 0) {
+          // Si es un objeto vacío
+
+          line.appendChild(document.createTextNode(
+            (value instanceof Array) ? "[]" : "{}"
+          ));
+        } else {
+          // Si es un objeto. Los arrays se tratan igual.
+
+          var toggle = document.createElement("span");
+          toggle.className = "toggle";
+          toggle.textContent = "▾"; // ▸▾
+          line.append(toggle);
+          line.style.cursor = "pointer";
+
+          var content = document.createElement("div");
+          content.className = "content";
+
+          keys.forEach(function (k) {
+            var div = document.createElement("div");
+            div.appendChild(makeField(k, value[k]));
+            content.appendChild(div);
+          })
+
+          var toggled = true;
+          line.addEventListener("click", function (ev) {
+            if (toggled) {
+              content.style.display = "none";
+              toggle.textContent = "▸";
+              toggled = false;
+            } else {
+              content.style.display = "";
+              toggle.textContent = "▾";
+              toggled = true;
+            }
+          });
+
+          div.appendChild(content);
+        }
+
+        return div;
+      }
+
+      function setValue (data) {
+        while (div.childNodes.length > 0)
+          div.removeChild(div.childNodes[0]);
+        div.appendChild(makeField(null, data));
+      }
+
+      return {setValue: setValue};
+    })(document.getElementById("json-view"), hexview)
+
     function compile () {
       var src = editor.getValue();
       var result = Culang.compile(src);
       if (result.success) {
-        jsview.setValue(result.result);
+        hexview.setValue(result.result);
+
+        var compiled = parse(result.result);
+
+        jsonview.setValue(compiled);
+
+        //jsview.setValue(text);
       } else {
         if (result.msg) {
           terminal.println(result.msg);
         } else {
           var err = result.err;
           terminal.error( err.toString() );
-          StackTrace.fromError(err.stackdata).then(function (err) {
-            for (var i = 0; i < err.length; i++) {
-              terminal.error(err[i].toString());
-            }
-          })
+          if (window.StackTrace) {
+            StackTrace.fromError(err.stackdata).then(function (err) {
+              for (var i = 0; i < err.length; i++) {
+                terminal.error(err[i].toString());
+              }
+            })
+          } else {
+            terminal.error( err.stackdata.stack );
+          }
         }
       }
     }
