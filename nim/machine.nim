@@ -77,16 +77,18 @@ proc addState*(prc: Proc) =
     regs: newSeq[Value](prc.regs.len),
   ))
 
+proc popState () =
+  let st = states.pop
+  if states.len > 0:
+    let ost = states[states.high]
+    for pair in zip(st.rets, st.prc.outregs):
+      ost.regs[pair.a] = st.regs[pair.b]
+
 proc run* (inst: Inst) =
   var st = states[states.high]
   #echo "pc: " & $st.pc
   case inst.kind
-  of iend:
-    discard states.pop
-    if states.len > 0:
-      let ost = states[states.high]
-      for pair in zip(st.rets, st.prc.outregs):
-        ost.regs[pair.a] = st.regs[pair.b]
+  of iend: popState()
   of icpy:
     st.regs[inst.a] = st.regs[inst.b]
     st.pc.inc()
@@ -124,8 +126,10 @@ proc run* () =
   try:
     while states.len > 0:
       var st = states[states.high]
-      let inst = st.prc.code[st.pc]
-      inst.run()
+      if st.pc < st.prc.code.len:
+        let inst = st.prc.code[st.pc]
+        inst.run()
+      else: popState()
   except Exception:
     let e = getCurrentException()
 

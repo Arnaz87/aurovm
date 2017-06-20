@@ -19,6 +19,7 @@
   <script type="text/javascript" src="web/codemirror/simple.js"></script>
 
   <script type="text/javascript" src="web/parser.js"></script>
+  <script type="text/javascript" src="web/compiler.js"></script>
   
   <style type="text/css">
     html, body {
@@ -490,7 +491,7 @@
       return { setValue: setValue, mark: mark, unmark: unmark };
     })(document.getElementById("hex-view"));
 
-    var jsonview = (function (container, hexview) {
+    var jsonview = (function (container, map) {
       var div = document.createElement("div");
       div.className = "jsonview";
       container.appendChild(div);
@@ -498,11 +499,6 @@
       function makeField (name, _value) {
         
         // Si _value tiene la forma {value: (...), srcpos: (...)}, tomar value
-        var keys = Object.keys(_value);
-        var value = (keys.length == 2 &&
-          keys.indexOf("value") >= 0 &&
-          keys.indexOf("srcpos") >= 0) ? _value.value : _value;
-        var srcpos = _value.srcpos;
 
         var div = document.createElement("div");
         div.className = "field";
@@ -510,27 +506,13 @@
         var line = document.createElement("div");
         div.appendChild(line);
 
-        if (srcpos && hexview) {
-          line.addEventListener("mouseover", function () {
-            hexview.mark(srcpos.start, srcpos.length);
-          })
-
-          line.addEventListener("mouseleave", function () {
-            hexview.unmark();
-          })
-        }
+        var value = map ? map(_value, line) : _value;
 
         if (name) {
           var nmspan = document.createElement("span");
           nmspan.className = "name";
           nmspan.textContent = name;
           line.appendChild(nmspan);
-        }
-
-        var keys = (typeof value == "object") ? Object.keys(value) : null;
-        if (keys != null) {
-          var i = keys.indexOf("srcpos");
-          if (i >= 0) { keys.splice(i, 1); }
         }
 
         if (typeof value != "object") {
@@ -555,9 +537,7 @@
           span.className = typeof value;
           line.appendChild(span);
 
-        } else if (keys != null && keys.length == 0) {
-          // Si es un objeto vacío
-
+        } else if (Object.keys(value).length == 0) {
           line.appendChild(document.createTextNode(
             (value instanceof Array) ? "[]" : "{}"
           ));
@@ -573,11 +553,11 @@
           var content = document.createElement("div");
           content.className = "content";
 
-          keys.forEach(function (k) {
-            var div = document.createElement("div");
-            div.appendChild(makeField(k, value[k]));
-            content.appendChild(div);
-          })
+          for (k in value) {
+            var field = document.createElement("div");
+            field.appendChild(makeField(k, value[k]));
+            content.appendChild(field);
+          };
 
           var toggled = true;
           line.addEventListener("click", function (ev) {
@@ -605,7 +585,25 @@
       }
 
       return {setValue: setValue};
-    })(document.getElementById("json-view"), hexview)
+    })(document.getElementById("json-view"), function (value, elem) {
+      // Esta función elimina srcpos del valor si existe, 
+      if (typeof value == "object" && "srcpos" in value) {
+        var srcpos = value.srcpos;
+
+        elem.addEventListener("mouseover", function () {
+          hexview.mark(srcpos.start, srcpos.length);
+        })
+        elem.addEventListener("mouseleave", function () {
+          hexview.unmark();
+        })
+
+        if (Object.keys(value).length == 2 && "value" in value) {
+          return value.value;
+        }
+        delete value.srcpos;
+      }
+      return value;
+    });
 
     function compile () {
       var src = editor.getValue();
@@ -613,9 +611,11 @@
       if (result.success) {
         hexview.setValue(result.result);
 
-        var compiled = parse(result.result);
+        var parsed = parse(result.result);
 
-        jsonview.setValue(compiled);
+        jsonview.setValue(parsed);
+
+        window.compiled = window.compileParsed(parsed, window.CobreModules);
 
         //jsview.setValue(text);
       } else {
@@ -652,7 +652,12 @@
         print: function(line) {terminal.println(line);}
       },
       "cobre\x1fstring": {
-        itos: function (i) { return String(i); }
+        itos: function (i) { return String(i); },
+        bintos: function (bin) {
+          bin.map(function (code) {
+            return String.fromCharCode(code);
+          }).join("")
+        }
       },
       "cobre\x1fprim": {
         div: function (n, d) {

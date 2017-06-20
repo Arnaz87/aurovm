@@ -111,49 +111,55 @@ window.parse = (buffer) ->
           instructions: parse ->
             parseN readInt(), ->
               pd = parse readInt
+              with_pos = (x) -> copy_srcpos pd, x
               switch inst=pd.value
                 when 0
-                  type: copy_srcpos pd, "end"
+                  type: with_pos "end"
                 when 1
-                  type: copy_srcpos pd, "cpy"
+                  type: with_pos "cpy"
                   reg_a: parse -> readInt()-1
                   reg_b: parse -> readInt()-1
                 when 2
-                  type: copy_srcpos pd, "cns"
+                  type: with_pos "cns"
                   reg_a: parse -> readInt()-1
                   const: parse -> readInt()-1
                 when 3
-                  type: copy_srcpos pd, "get"
+                  type: with_pos "get"
                   reg_a: parse -> readInt()-1
                   reg_b: parse -> readInt()-1
                   field: parse -> readInt()
                 when 4
-                  type: copy_srcpos pd, "set"
+                  type: with_pos "set"
                   reg_a: parse -> readInt()-1
                   field: parse -> readInt()
                   reg_b: parse -> readInt()-1
                 when 5
-                  type: copy_srcpos pd, "lbl"
+                  type: with_pos "lbl"
                   lbl: parse -> readInt()-1
                 when 6
-                  type: copy_srcpos pd, "jmp"
+                  type: with_pos "jmp"
                   lbl: parse -> readInt()-1
                 when 7
-                  type: copy_srcpos pd, "jif"
+                  type: with_pos "jif"
                   lbl: parse -> readInt()-1
                   reg_a: parse -> readInt()-1
                 when 8
-                  type: copy_srcpos pd, "nif"
+                  type: with_pos "nif"
                   lbl: parse -> readInt()-1
                   reg_a: parse -> readInt()-1
                 else
                   if inst < 16 then fail "unrecognized instruction #{inst}"
                   else
-                    index = inst-16
+                    index = inst - 16
                     proto = prototypes[index]
                     outs = parse -> parseN proto.outs.length, -> readInt()-1
                     ins = parse ->parseN proto.ins.length, -> readInt()-1
-                    {rutine_index: copy_srcpos(pd, index), outs, ins}
+                    {
+                      type: with_pos "call"
+                      rutine_index: with_pos index
+                      outs: outs
+                      ins: ins
+                    }
         when 2
           kind: kind
           module_index: parse -> readInt()-1

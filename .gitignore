@@ -3,3 +3,4 @@ out.js
 out.txt
 out
 web/parser.js
+web/compiler.js

@@ -191,8 +191,8 @@ proc parseRutines (parser: Parser): seq[Proc] =
 
 proc parseConstants (parser: Parser): seq[Value] =
 
-  let IntType = modules["Prelude"].types["Int"]
-  let StringType = modules["Prelude"].types["String"]
+  let IntType = modules["cobre\x1fprim"].types["int"]
+  let StringType = modules["cobre\x1fstring"].types["string"]
 
   let count = parser.readInt
 
