@@ -59,10 +59,24 @@ TLDR: Casi todos los proyectos existentes son demasiado grandes y complejos como
 
 Algunas de las cosas que necesito hacer para la máquina.
 
+- Structs
+- Arrays
+- Cargar múltiples módulos
+- Módulos paramétricos
+- Uso de componentes como valores
+- Uso de valores como componentes
+- Resolver si van a llamarse rutinas, procedures, funciones u operadores...
+
+## Terminadas
+
 - Especificación de una librería estándar.
 - Soporte para metadatos en todas mis herramientas.
-- Errores con posición en el código fuente para la máquina de nim.
-- Compilador a Javascript, con código legible, ayudandose con metadatos.
 - Html con un editor de texto para correr código Cu.
-- Compilador Lua.
+- Compilador a Javascript, con código legible, ayudandose con metadatos.
+- Constantes y parámetros import en Culang (Solo en el lenguaje, no en la VM).
 
+## Secundarias
+
+- Chequeo de tipos.
+- Errores con posición en el código fuente para la máquina de nim. (Secundaria)
+- Compilador Lua.

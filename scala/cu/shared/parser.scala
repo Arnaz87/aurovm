@@ -247,7 +247,7 @@ class Parser (text: String) {
     private val procType: P[Seq[Ast.Type]] =
       P(Kw("void").map(_ => Nil) | etype.rep(sep=",", min=1))
 
-    val proc = P(procType ~/ Lexical.name ~ params ~ Statements.block)
+    val proc = P(procType ~ Lexical.name ~ params ~/ Statements.block)
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
     val importstmt = {
@@ -272,7 +272,9 @@ class Parser (text: String) {
       (etype ~ Lexical.name ~ ";").rep
       ~ "}") map Ast.Struct.tupled
 
-    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | proc)
+    val constant = P(etype ~ Lexical.name ~ "=" ~/ expr ~ ";") map Ast.Const.tupled
+
+    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | proc | constant)
 
     // El espacio en blanco solo sale en ~ y rep, por eso están los Pass, para
     // poder seguirlos con ~ y aceptar espacios al inicio y final

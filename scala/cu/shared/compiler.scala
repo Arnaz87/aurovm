@@ -23,6 +23,7 @@ package object compiler {
     val modules = mutable.Set[Module]()
     val rutines = mutable.Set[Rutine]()
     val types = mutable.Map[String, program.Type]()
+    val constants = mutable.Map[String, ConstItem]()
 
     case class TypeItem (tp: program.Type) extends Item
     case class RutItem (rut: program.Rutine) extends Item
@@ -114,13 +115,14 @@ package object compiler {
         }
       ) yield item
 
-      ( rutines.
+      ( constants.get(name) orElse // Constantes
+        rutines. // Rutinas de este módulo
           find(_.name == name).
           map(_.rdef).map(RutItem) orElse
-        types.get(name).map(TypeItem) orElse
-        items.headOption orElse
-        modules.find(_.alias == name) orElse
-        default(name) )
+        types.get(name).map(TypeItem) orElse // tipos de este módulo
+        items.headOption orElse // rutinas o tipos en otros módulos
+        modules.find(_.alias == name) orElse // modulos con el nombre
+        default(name) ) // builtins (string, true, null, etc..)
     }
 
     def %% (node: Ast.Expr): Item = node match {
@@ -150,6 +152,13 @@ package object compiler {
               s"$name not found in ${mod.name}"
             )
         }
+    }
+
+    def %%! (node: Ast.Expr): program.Constant = {
+      %%(node) match {
+        case ConstItem(const, _) => const
+        case TypeItem(tp) => program.TypeConstant(tp)
+      }
     }
 
     def getType (node: Ast.Type): program.Type = %%(node.expr) match {
@@ -207,6 +216,16 @@ package object compiler {
         case node: Ast.Proc =>
           new Rutine(this, node)
       }
+
+      for (node@Ast.Const(Ast.Type(tpexp), name, expr) <- stmts) {
+        val tp = %%(tpexp) match {
+          case TypeItem(tp) => tp
+          case _ => node.error("Not a type")
+        }
+        constants(name) = ConstItem(%%!(expr), tp)
+      }
+
+      modules foreach (_.computeParams)
 
       // Solo compilar las rutinas después de haber creado todos los
       // items de alto nivel
@@ -484,6 +503,10 @@ package object compiler {
     def get (k: String): Option[Item] =
       rutines(k).map(program.RutItem) orElse
       types.get(k).map(program.TypeItem)
+
+    def computeParams () {
+      for (p <- params) module.params += program %%! p
+    }
   }
 
   def compile (prg: Ast.Program): format.Program = {
