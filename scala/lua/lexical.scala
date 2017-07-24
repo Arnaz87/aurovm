@@ -75,7 +75,11 @@ object Lexical {
 
   def kw (str: String) = P(str ~ !(namechar))
 
-  val comment = P("--" ~ CharsWhile(_ != '\n'))
+  val comment = {
+    val single = CharsWhile(_ != '\n')
+    val multi = "[[" ~ (!"]]" ~ AnyChar).rep ~ "]]"
+    P("--" ~ (multi | single))
+  }
   val ws = P(CharsWhile(" \n\t".toSet))
   val wscomment = P( (ws|comment).rep )
 
@@ -87,8 +91,8 @@ object Lexical {
     ;     :     ,     .     ..    ...
     añadidos en lua 5.3:
     &     ~     |     <<    >>    //    ::
-  */
-  /* Precedencias de operadores:
+    
+  Precedencias de operadores:
     1: or
     2: and
     3: < > <= >= ~= == (Lua usa ~= en vez de !=)

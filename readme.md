@@ -1,36 +1,28 @@
 # Cobre VM
 
-Cobre es una especificación de una máquina virtual, diseñada para ser simple y muy limpia en su diseño, tal que sea fácil escribir una implementación completa, interpretada, compilada o jit, pero también versátil y poderosa como para poder representar fácilmente muchas ideas diferentes de diversos lenguajes y paradigmas de programación.
+Cobre is an abstract machine specification, simple enough to make it easy to write a complete implementation from scratch, and versatile enough to represent a wide range of languages and paradigms.
 
-Idealmente sería una plataforma en la que se puede escribir con cualquier lenguaje, cada uno interactuando fácilmente con los demás, y que pueda correr en muchas plataformas diferentes, como nativo en diferentes sistemas operativos, la web, la JVM, o embedido en juegos y aplicaciones.
+Ideally, Cobre would be a platform in which a developer can write in any language and can interact easily with modules written in any other, which can run in a lot of different platforms, like different OS's, the web, the JVM or embedded in games and applications.
 
-Este proyecto en particular tiene varias cosas desarrollándose en paralelo, que son la especificación, discusiones de diseño, un intérprete de la máquina, implementaciones de algunos lenguajes, y un lenguaje especial que refleja el diseño de Cobre.
+This project has many things being developed in parallel: the design, an example interpreter, a few language implementations, and a special language for the machine.
 
 ## nim
 
-Por ahora la carpeta está desordenada, pero ahí está la implementación de la máquina virtual y algunas cosas necesarias para eso (como el parser de S-Expressions).
-
-La máquina estaba hecha al principio en Scala, pero debido a que es una máquina virtual, es mejor si el lenguaje de la implementación no tiene un runtime muy pesado, por eso necesito un lenguaje de sistemas. Escojo Nim sobre C y C++ porque es más rápido escribir programas en Nim y es más fácil de leer.
-
-## scala/sexpr
-
-Una pequeña librería para manejar S-Expressions, ese es el formato de representación que estoy usando en todo el proyecto.
-
-Aunque para este punto ya me estoy independizando de este formato para trabajar con el binario.
+An example interpreter written in the Nim programming language. I choose Nim because it's low level enough so I can say how machine resources are managed, but it's also very easy to read and write.
 
 ## scala/codegen
 
-Esta es el más importante de Scala, aquí defino un AST agnóstico, y procedimientos que lo transforman y compilan al formato con el que trabaja la máquina virtual, con la ayuda de __scala/sxpr__.
+This is the most important of the scala projects, it's a library that helps with code generation from other languages.
 
 ## scala/lua
 
-Lee y analiza código Lua, y con la ayuda de __scala/codegen__ lo compila. No lo ejecuta, el archivo generado tiene que ejecutarse por separado.
+Reads and compiles Lua code.
 
 ## scala/cu
 
-Cu es un lenguaje tipo C o Java para Cobre, lo estoy haciendo para probar las características básicas de la máquina virtual.
+Culang is a language like C that reflects Cobre's internals.
 
-```java
+```
 import void Prelude.print(String);
 
 int, int sumsub (int a, int b) {
@@ -44,7 +36,13 @@ void main () {
 }
 ```
 
+## scala/js
+
+Compiles Cobre's instructions to Javascript code, so it can run in browsers.
+
 # Proyectos Similares
+
+(Too long to translate, TLDR in english)
 
 - __JVM__: Este es el principal proyecto que me inspiró a iniciar el mío, me gusta mucho el ecosistema que se ha creado alrededor de él, como su inmensa cantidad de librerías y frameworks y, más que todo, los asombrosos lenguajes que se crearon para ella (Scala, Groovy, Jython, JRuby, Frege, Clojure), y que pueden trabajar fácilmente con lo que ya existe ahí, pero no me gusta que es muy específico de Java, la semántica de la JVM refleja a la del lenguaje Java, y más que todo lo complejo del proyecto, crear un lenguaje así o una implementación de la JVM es una misión imposible.
 - __CLI/.Net__: Igual que la JVM, mejora lo referente a la semántica de la máquina, no está atada a ningún lenguaje en particular, y ofrece facilidades para la interacción entre lenguajes, pero sigue siendo muy grande y complejo, y es muy específico de Microsoft (No siento que Mono reciba tanta atención de la gente en general como lo hace .Net).
@@ -53,7 +51,7 @@ void main () {
 - __Lua__: El tamaño y simplicidad de Lua es absolutamente perfecto, es justo lo que busco, pero es solo un lenguaje, con una semántica muy específica, por lo que no es tan fácil desarrollar paradigmas diferentes o lenguajes sobre Lua eficientemente.
 - __LLVM__: Arquitectura virtual diseñada para parecerse mucho a cpus reales, está hecha como lenguaje intermedio en un compilador, por lo que está muy atado al mundo de los compiladores, no es muy bueno como representación portable de un programa ni es fácil de interpretar. Pnacl es un proyecto para hacer LLVM portable.
 
-TLDR: Casi todos los proyectos existentes son demasiado grandes y complejos como para que una persona los entienda, y los que no, no son suficientemente versátiles.
+TLDR: Most of the existing projects are too big and complex for one single person to understand, and those that aren't (Lua), are not versatile enough.
 
 # Tareas
 
@@ -64,13 +62,13 @@ Algunas de las cosas que necesito hacer para la máquina.
 - Cargar múltiples módulos
 - Módulos paramétricos
 - Uso de componentes como valores
-- Uso de valores como componentes
-- Resolver si van a llamarse rutinas, procedures, funciones u operadores...
+- Uso de valores como componentes 
+- Resolver si van a llamarse rutinas, procedures, funciones u operaciones...
 
 ## Terminadas
 
 - Especificación de una librería estándar.
-- Soporte para metadatos en todas mis herramientas.
+- Soporte para metadatos en todas mis herramientas. (Faltan la VM y Lua)
 - Html con un editor de texto para correr código Cu.
 - Compilador a Javascript, con código legible, ayudandose con metadatos.
 - Constantes y parámetros import en Culang (Solo en el lenguaje, no en la VM).

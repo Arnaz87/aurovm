@@ -8,34 +8,67 @@ class Compiler {
 
   val program = new format.Program()
 
-  val core = program.Module("cobre\u001fcore", Nil)
-  val prim = program.Module("cobre\u001fprim", Nil)
-  val dyn = program.Module("cobre\u001fdynamic", Nil)
-  val strmod = program.Module("cobre\u001fstring", Nil)
+  lazy val core = program.Module("cobre\u001fcore", Nil)
+  lazy val prim = program.Module("cobre\u001fprim", Nil)
+  lazy val dyn = program.Module("cobre\u001fdynamic", Nil)
+  lazy val strmod = program.Module("cobre\u001fstring", Nil)
 
-  val binType = core.Type("bin")
-  val intType = prim.Type("int")
-  val boolType = core.Type("bool")
-  val strType = prim.Type("int")
+  lazy val binType = core.Type("bin")
+  lazy val intType = prim.Type("int")
+  lazy val boolType = core.Type("bool")
+  lazy val strType = prim.Type("int")
 
-  val makeint = prim.Rutine("bintoi", Array(binType), Array(intType))
-  val makestr = strmod.Rutine("bintos", Array(binType), Array(strType))
+  lazy val makeint = prim.Rutine("bintoi", Array(binType), Array(intType))
+  lazy val makestr = strmod.Rutine("bintos", Array(binType), Array(strType))
 
-  val any = dyn.Type("any")
-  val varargs = dyn.Type("varargs")
+  lazy val any = dyn.Type("any")
 
   object lua {
     val luamod = program.Module("lua", Nil)
-    val call = luamod.Rutine("call", Array(varargs), Array(any))
-    val print = luamod.Rutine("print", Array(any), Nil)
-    val bool = luamod.Rutine("bool", Array(any), Array(boolType))
 
-    val eq  = luamod.Rutine("eq" , Array(any, any), Array(any))
-    val gt  = luamod.Rutine("gt" , Array(any, any), Array(any))
-    val gte = luamod.Rutine("gte", Array(any, any), Array(any))
-    val add = luamod.Rutine("add", Array(any, any), Array(any))
-    val sub = luamod.Rutine("sub", Array(any, any), Array(any))
-    val append = luamod.Rutine("append", Array(any, any), Array(any))
+    lazy val list = luamod.Type("list")
+
+    lazy val call = luamod.Rutine("call", Array(any, list), Array(any))
+    lazy val print = luamod.Rutine("print", Array(list), Array(list))
+    lazy val bool = luamod.Rutine("bool", Array(any), Array(boolType))
+
+    lazy val new_list = luamod.Rutine("new_list", Nil, Array(list))
+    lazy val list_add = luamod.Rutine("list_add", Array(list, any), Nil)
+    lazy val list_get = luamod.Rutine("list_add", Array(list), List(any))
+
+    lazy val eq  = luamod.Rutine("eq" , Array(any, any), Array(any))
+    lazy val gt  = luamod.Rutine("gt" , Array(any, any), Array(any))
+    lazy val gte = luamod.Rutine("gte", Array(any, any), Array(any))
+    lazy val add = luamod.Rutine("add", Array(any, any), Array(any))
+    lazy val sub = luamod.Rutine("sub", Array(any, any), Array(any))
+    lazy val append = luamod.Rutine("append", Array(any, any), Array(any))
+
+    lazy val ftype = {
+      val l_const = program.TypeConstant(list)
+      val l_arr = program.ArrayConstant(Array(l_const))
+      val fmod = program.Module("cobre.rutine", Array(l_arr, l_arr))
+      fmod.Type("rutine")
+    }
+  }
+
+  val funmap = mutable.Map[String, program.Rutine](
+    "print" -> lua.print
+  )
+
+  object funconsts {
+    val map = mutable.Map[String, program.Constant]()
+
+    def apply (k: String) = map.get(k) match {
+      case None =>
+        funmap.get(k) match {
+          case None => None
+          case Some(f) =>
+            val const = program.RutineConstant(f)
+            map(k) = const
+            Some(const)
+        }
+      case somereg => somereg
+    }
   }
 
   val main = program.Rutine("main")
@@ -47,7 +80,18 @@ class Compiler {
 
     def global = this
 
-    def get (k: String) = map.get(k)
+    def get (k: String) = map.get(k) match {
+      case None =>
+        funconsts(k) match {
+          case Some(const) =>
+            val reg = main.Reg(lua.ftype)
+            map(k) = reg
+            main.Cns(reg, const)
+            Some(reg)
+          case None => None
+        }
+      case somereg => somereg
+    }
 
     class SubScope(parent: Scope) extends Scope {
       override def get (k: String) = this.map get k match {
@@ -71,6 +115,25 @@ class Compiler {
     }
 
     def Scope = new SubScope(this)
+  }
+
+  def make_call (fx: Ast.expr, args: Seq[Ast.expr], scope: Scope) = {
+    val list = main.Reg(lua.list)
+    main.Call(lua.new_list, Array(list), Nil)
+    for (_arg <- args) {
+      val arg = %%(_arg, scope)
+      main.Call(lua.list_add, Nil, Array(list, arg))
+    }
+    val result = main.Reg(lua.list)
+    fx match {
+      case Ast.Var(nm) if funmap.contains(nm) =>
+        val f = funmap(nm)
+        main.Call(f, Array(result), Array(list))
+      case _ =>
+        val f = %%(fx, scope)
+        main.Call(lua.call, Array(result), Array(f, list))
+    }
+    result
   }
 
   def %% (node: Ast.expr, scope: Scope): Reg = { node match {
@@ -109,11 +172,10 @@ class Compiler {
         case Ast.Eq  => lua.eq
         case Ast.Gt  => lua.gt
         case Ast.Gte => lua.gte
-        case _ => error(s"Unsupported operation: $op")
       }
       main.Call(f, List(result), Array(l, r))
       result
-    case _ => ???
+    case Ast.Call(fx, args) => make_call(fx, args, scope)
   } }
 
   def %% (node: Ast.stmt, scope: Scope) { node match {
@@ -126,13 +188,7 @@ class Compiler {
         case _:Ast.Field =>
           error("Field assignment not yet supported")
       }
-    case Ast.Call(f, vs) =>
-      f match {
-        case Ast.Var("print") =>
-          val arg = %%(vs.head, scope)
-          main.Call(lua.print, Nil, List(arg))
-        case _ => error("Arbitrary function call not yet supported")
-      }
+    case Ast.Call(fx, args) => make_call(fx, args, scope)
     case Ast.If(ifs, els) =>
       if (ifs.isEmpty) error(throw new Exception("Empty if list"))
       val $end  = main.Lbl

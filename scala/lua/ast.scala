@@ -43,7 +43,9 @@ object Ast {
   case class Var (name: String) extends expr with assignable
   case class Field (l: expr, name: expr) extends expr with assignable
   case class Binop (l: expr, r: expr, op: Op) extends expr
-  case class Call (l: expr, args: Seq[expr]) extends expr with stmt
+  case class Call (f: expr, args: Seq[expr]) extends expr with stmt
+
+  case class Return (vals: Seq[expr]) extends stmt
 
   case class Block (stmts: Seq[stmt]) extends Node
   case class Assign (l: Seq[assignable], r: Seq[expr]) extends stmt

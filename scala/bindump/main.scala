@@ -378,13 +378,17 @@ class Reader (_content: Iterator[Int]) {
           i += 1
         case 2 =>
           val size = readInt
-          val vals = (1 to size) map {_ => readInt()}
+          val vals = (0 until size) map {_ => readInt()}
           val txt = vals map {v => s"const_$v"} mkString " "
           printData(s"#$i Arreglo: $txt")
           i += 1
         case 3 =>
           val index = readInt
           printData(s"#$i Tipo: #$index")
+          i += 1
+        case 4 =>
+          val index = readInt
+          printData(s"#$i Rutina: #$index")
           i += 1
         case k if k<16 => throw new Exception(s"Unknown Kind $k")
         case j =>

@@ -95,9 +95,16 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
         %%(1) // Binary Kind
         %%(bytes.size)
         bytes foreach putByte
+      case ArrayConstant(xs) =>
+        %%(2) // Array Kind
+        %%(xs.size)
+        for (c <- xs) %%(c.index + 1)
       case TypeConstant(tp) =>
         %%(3) // Type Kind
         %%(tp.index + 1)
+      case RutineConstant(rut) =>
+        %%(4) // Rutine Kind
+        %%(rut.index + 1)
       case CallConstant(rut, args) =>
         %%(rut.index + 16)
         for (arg <- args) %%(arg.index + 1)

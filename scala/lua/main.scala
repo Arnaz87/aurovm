@@ -61,15 +61,14 @@ object Main {
 
     val binary = {
       val buf = new collection.mutable.ArrayBuffer[Int]
-      val writer = new format.Writer(buf)
+      val writer = new arnaud.cobre.format.Writer(buf)
       writer.write(compiler.program)
       buf
     }
 
     if (params has "print-binary") {
-      import arnaud.cobre.format
       println("== Compiled Binary ==")
-      format.Main.printBinary(binary)
+      arnaud.cobre.format.Main.printBinary(binary)
     }
 
     /*if (params.has("o")) {

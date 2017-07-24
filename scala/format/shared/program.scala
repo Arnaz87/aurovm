@@ -124,9 +124,17 @@ class Program {
       s"BinConstant(${hexSeq mkString " "})"
     }
   }
+
+  case class ArrayConstant (xs: Array[Constant]) extends Constant {
+    override def toString() = {
+      s"ArrayConstant(${xs mkString " "})"
+    }
+  }
+
   case class CallConstant (rut: Rutine, args: Seq[Constant]) extends Constant {
     override def toString() = s"CallConstant($rut, ${args mkString ", "})"
   }
 
   case class TypeConstant (tp: Type) extends Constant
+  case class RutineConstant (tp: Rutine) extends Constant
 }

@@ -103,10 +103,10 @@ object Expressions {
 
   val prefix = Prefix.prefix
   val call =
-    P(prefix.filter(_.isInstanceOf[Ast.Call])
+    P(NoCut(prefix).filter(_.isInstanceOf[Ast.Call])
             .map(_.asInstanceOf[Ast.Call]))
   val assignable =
-    P(prefix.filter(_.isInstanceOf[Ast.assignable])
+    P(NoCut(prefix).filter(_.isInstanceOf[Ast.assignable])
             .map(_.asInstanceOf[Ast.assignable]) )
 
   private val fieldsep = P(","|";")
@@ -156,7 +156,9 @@ object Statements {
     case (name, fun) => Ast.Assign(Seq(Ast.Var(name)), Seq(fun))
   }
 
-  val block: P[Ast.Block] = P(stmt.rep(sep=P(";".?), min=1)).map(Ast.Block)
+  val `return` = P(Kw("return") ~/ expr.rep(sep=",") ).map(Ast.Return)
 
-  val stmt: P[Ast.stmt] = P(assign | call | ifstmt | whilestmt | function)
+  val block: P[Ast.Block] = P(Pass ~ stmt.rep(sep=P(";".?)) ~ Pass).map(Ast.Block)
+
+  val stmt: P[Ast.stmt] = P(assign | call | ifstmt | whilestmt | function | `return`)
 }

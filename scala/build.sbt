@@ -50,7 +50,7 @@ lazy val jsJVM = js.jvm.dependsOn(cuJVM)
 lazy val lua = (project in file("lua")).
   settings(commonSettings: _*).
   settings(
-    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.3.7")
+    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.4.2")
   ).
   dependsOn(formatJVM)
 
