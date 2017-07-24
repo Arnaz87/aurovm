@@ -1,0 +1,75 @@
+
+// Cobre
+
+print(true ? "true" : "false");
+
+// Cobre Alt
+
+string _tmp;
+
+if (true) {
+  _tmp = "true";
+} else {
+  _tmp = "false";
+}
+
+print(_tmp);
+
+// SSA
+
+ 0: cns 0 // true
+ 2: ifn 0 :9
+ 5: cns 1 // "true"
+ 7: jmp :11
+ 9: cns 2 // "false"
+11: phi 2 [2 9] [5 9]
+17: print 11
+19
+
+// Set #1
+
+ 0: cns 0 // true
+ 2: var
+ 3: ifn 0 :13
+ 6: cns 1 // "true"
+ 8: set 2 6
+11: jmp :18
+13: cns 2 // "false"
+15: set 2 13
+18: print 2
+20
+
+// Set #2
+
+ 0: cns 0 // true
+ 2: ifn 0 :9
+ 5: cns 1 // "true"
+ 7: jmp :14
+ 9: cns 2 // "false"
+11: set 5 13
+14: print 5
+16
+
+// Cobre
+
+any x = any.from<int>(3) || any.from<string>("4");
+
+// Cobre Alt
+
+any x = any.from<int>(3);
+if ( !truthy(x) ) {
+  x = any.from<string>("4");
+}
+
+// Set #1
+
+ 0: const 0 // 3
+ 2: anyfrom 1 // x
+ 4: truthy 2
+ 6: if 4 :16
+ 9: const 1 // "4"
+11: anyfrom 9
+13: set 2 11
+16: end
+
+// Set #2

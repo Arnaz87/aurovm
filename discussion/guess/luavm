@@ -1,0 +1,79 @@
+
+main <guess.lua:0,0> (49 instructions at 0x9cb6f30)
+0+ params, 9 slots, 1 upvalue, 5 locals, 18 constants, 0 functions
+	1	[1]	GETTABUP 	0 0 -1	; _ENV "math"
+	2	[1]	GETTABLE 	0 0 -2	; "randomseed"
+	3	[1]	GETTABUP 	1 0 -3	; _ENV "os"
+	4	[1]	GETTABLE 	1 1 -4	; "time"
+	5	[1]	CALL     	1 1 0
+	6	[1]	CALL     	0 0 1
+	7	[3]	LOADK    	0 -5	; 1
+	8	[4]	LOADK    	1 -6	; 100
+	9	[5]	GETTABUP 	2 0 -1	; _ENV "math"
+	10	[5]	GETTABLE 	2 2 -7	; "random"
+	11	[5]	MOVE     	3 0
+	12	[5]	MOVE     	4 1
+	13	[5]	CALL     	2 3 2
+	14	[6]	LOADK    	3 -8	; 0
+	15	[7]	LOADK    	4 -8	; 0
+	16	[10]	GETTABUP 	5 0 -9	; _ENV "print"
+	17	[10]	LOADK    	6 -10	; "Guess the number: "
+	18	[10]	CALL     	5 2 1
+	19	[12]	ADD      	3 3 -5	; - 1
+	20	[13]	GETTABUP 	5 0 -11	; _ENV "tonumber"
+	21	[13]	GETTABUP 	6 0 -12	; _ENV "io"
+	22	[13]	GETTABLE 	6 6 -13	; "read"
+	23	[13]	CALL     	6 1 0
+	24	[13]	CALL     	5 0 2
+	25	[13]	MOVE     	4 5
+	26	[15]	LT       	0 2 4
+	27	[15]	JMP      	0 4	; to 32
+	28	[16]	GETTABUP 	5 0 -9	; _ENV "print"
+	29	[16]	LOADK    	6 -14	; "Too high!"
+	30	[16]	CALL     	5 2 1
+	31	[16]	JMP      	0 15	; to 47
+	32	[17]	LT       	0 4 2
+	33	[17]	JMP      	0 4	; to 38
+	34	[18]	GETTABUP 	5 0 -9	; _ENV "print"
+	35	[18]	LOADK    	6 -15	; "Too low!"
+	36	[18]	CALL     	5 2 1
+	37	[18]	JMP      	0 9	; to 47
+	38	[20]	GETTABUP 	5 0 -9	; _ENV "print"
+	39	[20]	LOADK    	6 -16	; "You got it!"
+	40	[20]	CALL     	5 2 1
+	41	[21]	GETTABUP 	5 0 -9	; _ENV "print"
+	42	[21]	LOADK    	6 -17	; "It took you "
+	43	[21]	MOVE     	7 3
+	44	[21]	LOADK    	8 -18	; " guesses."
+	45	[21]	CONCAT   	6 6 8
+	46	[21]	CALL     	5 2 1
+	47	[23]	EQ       	0 4 2
+	48	[23]	JMP      	0 -33	; to 16
+	49	[23]	RETURN   	0 1
+constants (18) for 0x9cb6f30:
+	1	"math"
+	2	"randomseed"
+	3	"os"
+	4	"time"
+	5	1
+	6	100
+	7	"random"
+	8	0
+	9	"print"
+	10	"Guess the number: "
+	11	"tonumber"
+	12	"io"
+	13	"read"
+	14	"Too high!"
+	15	"Too low!"
+	16	"You got it!"
+	17	"It took you "
+	18	" guesses."
+locals (5) for 0x9cb6f30:
+	0	from	8	50
+	1	to	9	50
+	2	rand	14	50
+	3	guesses	15	50
+	4	guess	16	50
+upvalues (1) for 0x9cb6f30:
+	0	_ENV	1	0

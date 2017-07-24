@@ -1,0 +1,11 @@
+// lbl dominante length [anteriores]
+// -1: arr
+
+ 0: isEmpty -1
+ 2: ifn 0 :?
+ 5: lbl 0 0 []
+ 8: const 0 // 0
+10: get -1 8
+13: newList
+14: newList
+

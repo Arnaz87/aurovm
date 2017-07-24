@@ -1,0 +1,49 @@
+// lbl dominant length [previous]
+
+ 0: input_scanner
+ 1: new_random
+ 2: const 0 // 1
+ 4: const 1 // 100
+ 6: sub 4 2
+ 9: const 0 // 1
+11: add 6 9
+14: randNextInt 1 11
+17: add 14 4 // randomNumber
+20: const 2 // 0 guessedNumber
+22: const 2 // 0 guesses
+-- 24: lbl 0 2 [0 99]
+29: phi 20 41 // guessedNumber
+32: phi 22 39 // guesses
+35: const 3 // "Guess the number: "
+37: print 35
+39: inc 32
+41: scanNextInt 0
+43: gt 41 17
+46: ifn 43 :56
+-- 47: lbl 24 0 []
+50: cns 4 // "Too high!"
+52: println 50
+54: jmp :99
+-- 56: lbl 24 0 []
+59: lt 41 17
+62: ifn 59 :74
+-- 65: lbl 24 0 []
+68: cns 5 // "Too low!"
+70: println 68
+72: jmp :99
+-- 74: lbl 24 0 []
+77: cns 6 // "You got it!"
+79: println 77
+81: new_StringBuilder
+82: cns 7 // "It took you "
+84: appendString 81 82
+87: appendInt 81 39
+90: cns 9 // " guesses."
+92: appendString 81 90
+95: buildString 81
+97: println 95
+-- 99: lbl 24 3 [47 65 74]
+105: neq 41 17
+108: if 105 :24
+-- 111: lbl 99 0 []
+114: end

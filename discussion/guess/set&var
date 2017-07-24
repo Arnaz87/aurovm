@@ -1,0 +1,49 @@
+
+
+ 0: input_scanner
+ 1: new_random
+ 2: const 0 // 1
+ 4: const 1 // 100
+ 6: sub 4 2
+ 9: const 0 // 1
+11: add 6 9
+14: randNextInt 1 11
+17: add 14 4 // randomNumber
+20: const 2 // 0 guessedNumber
+22: const 2 // 0 guesses
+
+24: const 3 // "Guess the number: "
+26: print 24
+28: inc 22
+30: set 22 28
+33: scanNextInt 0
+35: set 20 33
+38: gt 20 17
+41: ifn 38 :50
+
+44: cns 4 // "Too high!"
+46: println 44
+48: jmp :84
+
+50: lt 20 17
+53: ifn 50 :62
+
+56: cns 5 // "Too low!"
+58: println 56
+60: jmp :84
+
+62: cns 6 // "You got it!"
+64: println 62
+66: new_StringBuilder
+67: cns 7 // "It took you "
+69: appendString 66 67
+72: appendInt 66 22
+75: cns 9 // " guesses."
+77: appendString 66 75
+80: buildString 66
+82: println 80
+
+84: neq 20 17
+87: if 84 :24
+
+90: end

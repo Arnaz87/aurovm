@@ -1,0 +1,70 @@
+
+function sum (a, b)
+  return a+b
+end
+
+function mul (a, b)
+  return a*b
+end
+
+sel = read()
+
+if sel == "sum"
+  fun = sum
+else
+  fun = mul
+end
+
+print(fun(2, 3))
+
+-------------------
+
+import lua lua;
+
+import any (int) any_int {
+  any from (int);
+  int get (any);
+}
+
+import rutine ([lua.stack], [lua.stack]) luaf {
+  struct rutine;
+}
+
+import any (luaf.rutine) any_luaf {
+  any from(luaf.rutine);
+  luaf.rutine get (any);
+}
+
+lua.stack sum_f (lua.stack inp) {
+  any b = lua.pop(inp);
+  any a = lua.pop(inp);
+  lua.stack out = lua.new_stack();
+  out.push(lua.add(a, b));
+  return out;
+}
+
+lua.stack mul_f (lua.stack inp) {
+  any b = lua.pop(inp);
+  any a = lua.pop(inp);
+  lua.stack out = lua.new_stack();
+  out.push(lua.mul(a, b));
+  return out;
+}
+
+any sum = any_luaf.from(sum_f);
+any mul = any_luaf.from(mul_f);
+
+void main () {
+  any sel = lua.read();
+  any fun;
+  if (lua.eq(sel, "sum")) {
+    fun = sum;
+  } else {
+    fun = mul;
+  }
+
+  lua.stack args = lua.new_stack();
+  args.push( any_int.from(2) );
+  args.push( any_int.from(3) );
+  lua.print( lua.call(fun, args) );
+}
