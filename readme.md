@@ -6,6 +6,8 @@ Ideally, Cobre would be a platform in which a developer can write in any languag
 
 This project has many things being developed in parallel: the design, an example interpreter, a few language implementations, and a special language for the machine.
 
+The main documentation is in [docs/Module Format.md](docs/Module Format.md).
+
 ## nim
 
 An example interpreter written in the Nim programming language. I choose Nim because it's low level enough so I can say how machine resources are managed, but it's also very easy to read and write.
