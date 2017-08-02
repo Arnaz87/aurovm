@@ -74,7 +74,7 @@ Runtime function.
     <out_count: int>
     <outs: type_index>[out_count]
 
-# Operations
+# Functions
 
 ## Null
 
@@ -173,13 +173,13 @@ Binary data, the value has type `cobre.core.bin`.
 
 ## Null
 
-Any number greater than 15 represents an uninitialized static, the type is the one with index `kind - 15`. If the type is nullable the value is a valid null, otherwise the value must be set statically. If there is at least one control path in the static code in which a non-nullable null static isn't set, the whole module is invalid.
+Any kind greater than 15 represents an uninitialized static, the type is the one with index `kind - 15`. If the type is nullable the value is a valid null, otherwise the value must be set statically. If there is at least one control path in the static code in which a non-nullable null static isn't set, the whole module is invalid.
 
     kind > 15
 
 # Exports
 
-Kind indicates what type of item to use, either a type (1) or an operation (2).
+Kind indicates what type of item to use, either a type (1) or an function (2).
 
     <kind: int>
     <index: int>
@@ -187,11 +187,11 @@ Kind indicates what type of item to use, either a type (1) or an operation (2).
 
 # Code
 
-Each one of the blocks is linked to the code operation declared with the same index, relative to the other code operations. Code has no kind, and no count as it's implicit by the number of code operations declared.
+Each one of the blocks is linked to the code function declared with the same index, relative to the other code functions. Code has no kind, and no count as it's implicit by the number of code functions declared.
 
 ## Bytecode
 
-If an instruction index is less than 16 it's a builtin instruction, otherwise is an index to an operation. Each value that results of an instruction is assigned an index incrementally, the index of an instruction is not the same as the index of its values as some have many results and some none. If a value is used only once after it's created it's a temporary, if it's used more times or is reassigned later it becomes a variable, they must be treated differently by an optimal implementation because using a register for each temporary is too inefficient.
+If an instruction index is less than 16 it's a builtin instruction, otherwise is an index to an function. Each value that results of an instruction is assigned an index incrementally, the index of an instruction is not the same as the index of its values as some have many results and some none. If a value is used only once after it's created it's a temporary, if it's used more times or is reassigned later it becomes a variable, they must be treated differently by an optimal implementation because using a register for each temporary is too inefficient.
 
 The builtin instructions are:
 
@@ -204,7 +204,7 @@ The builtin instructions are:
 - `6 jmp (i)`: Jumps to the instruction with index *i*.
 - `7 jif (i a)`: If the value at *a* is true, jumps to *i*.
 - `8 nif (i a)`: If the value at *a* is false, jumps to *i*.
-- `9 any (i a)`: If the value at *a* is null, jumps to *i*, otherwise unboxes the value.
+- `9 var (i a)`: If the value at *a* is null, jumps to *i*, otherwise unboxes the value.
 
 # Metadata
 

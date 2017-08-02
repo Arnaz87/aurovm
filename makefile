@@ -1,7 +1,7 @@
 
 scalaprojects=bin/bindump bin/lua
 
-.PHONY: $(scalaprojects)
+.PHONY: $(scalaprojects) test
 
 #$(scalaprojects): bin/%:
 #	cd scala; sbt $*/package $*/start-script
@@ -15,3 +15,9 @@ bin/cu:
 
 bin/machine: nim/*.nim
 	nim --checks:on -o:$@ c nim/main.nim
+
+bin/nimtest: nim/test.nim nim/parse.nim
+	nim --checks:on -o:$@ c nim/test.nim
+
+test: bin/nimtest
+	bin/nimtest
