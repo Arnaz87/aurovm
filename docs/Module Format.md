@@ -130,6 +130,13 @@ With product types works like a regular setter, for sum types this creates a new
     <type: type_index>
     <field: index>
 
+## Call
+
+Receives a function value with arguments and calls the function, returning the results.
+
+    kind: 8
+    <type: type_index>
+
 # Statics
 
 ## Null
@@ -189,22 +196,24 @@ Kind indicates what type of item to use, either a type (1) or an function (2).
 
 Each one of the blocks is linked to the code function declared with the same index, relative to the other code functions. Code has no kind, and no count as it's implicit by the number of code functions declared.
 
+Appart from the implicit blocks for each code-kind function, there is the static block that's added at the end.
+
 ## Bytecode
 
 If an instruction index is less than 16 it's a builtin instruction, otherwise is an index to an function. Each value that results of an instruction is assigned an index incrementally, the index of an instruction is not the same as the index of its values as some have many results and some none. If a value is used only once after it's created it's a temporary, if it's used more times or is reassigned later it becomes a variable, they must be treated differently by an optimal implementation because using a register for each temporary is too inefficient.
 
 The builtin instructions are:
 
-- `0 nop`: Doesn't do anything.
-- `1 nul`: Creates a null variable that must be assigned before used.
+- `0 end`: Returns, taking all the result values as arguments.
+- `1 var`: Creates a null variable that must be assigned before used.
 - `2 dup (a)`: Copies the value at *a*.
-- `3 set (b a)`: Assigns the value at *a* to the variable at *b*.
+- `3 set (b a)`: Assigns to the variable at *b* the value at *a*.
 - `4 sgt (c)`: Gets the static with index *c*.
-- `5 sst (c a)`: Sets the value at *a* to the static at *c*.
+- `5 sst (c a)`: Sets to the static at *c* the value at *a*.
 - `6 jmp (i)`: Jumps to the instruction with index *i*.
-- `7 jif (i a)`: If the value at *a* is true, jumps to *i*.
-- `8 nif (i a)`: If the value at *a* is false, jumps to *i*.
-- `9 var (i a)`: If the value at *a* is null, jumps to *i*, otherwise unboxes the value.
+- `7 jif (a i)`: If the value at *a* is true, jumps to *i*.
+- `8 nif (a i)`: If the value at *a* is false, jumps to *i*.
+- `9 any (a i)`: If the value at *a* is null, jumps to *i*, otherwise unboxes the value.
 
 # Metadata
 
