@@ -1,7 +1,7 @@
 
 scalaprojects=bin/bindump bin/lua
 
-.PHONY: $(scalaprojects) test monitor-test
+.PHONY: $(scalaprojects) test jstest monitor-test
 
 #$(scalaprojects): bin/%:
 #	cd scala; sbt $*/package $*/start-script
@@ -16,11 +16,18 @@ bin/cu:
 bin/machine: nim/*.nim
 	nim --checks:on -o:$@ c nim/main.nim
 
-bin/nimtest: nim/test.nim nim/parse.nim
+bin/nimtest: nim/*.nim
 	nim --checks:on -o:$@ c nim/test.nim
+
+bin/nimtest.js: nim/*.nim
+	nim js -d:nodejs --checks:on -o:$@ nim/test.nim
 
 test: bin/nimtest
 	bin/nimtest
 
+jstest: bin/nimtest.js
+	node bin/nimtest.js
+
 monitor-test:
 	while inotifywait -q -e close_write nim/; do nim --checks:on -o:bin/nimtest c -r nim/test.nim; done
+

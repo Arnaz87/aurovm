@@ -1,5 +1,7 @@
 
-# Refactorizar: este archivo es muy grande.
+# Refactorizar: este archivo debería ser más pequeño.
+
+## Parse binary data into an in-memory data structure.
 
 #=== Types ===#
 
@@ -37,7 +39,9 @@ type
     boxF = 5
     getF = 6
     setF = 7
-    callF = 8
+    anyunboxF = 8
+    anyboxF = 9
+    callF = 10
   Function* = object
     sig*: Signature # Solo para importF y codeF
     index*: int # No para codeF
@@ -72,7 +76,6 @@ type
     else:
       a*: int
       b*: int
-  #seq[Inst]* = seq[Inst]
 
   Module* = object of RootObj
     imports*: seq[string]
@@ -93,57 +96,12 @@ type
   EndOfFileError* = object of ParseError
   UnknownKindError* = object of ParseError
 
-#=== Equality ===#
-
-# Equality operations for the types, mostly for testing
-
-proc `==`* (a, b: Type): bool =
-  if a.kind == b.kind: return case a.kind
-    of nullT: true
-    of importT:
-      a.mod_index == b.mod_index and a.name == b.name
-    of aliasT, nullableT:
-      a.type_index == b.type_index
-    of productT, sumT:
-      a.field_types == b.field_types
-    of funT:
-      a.sig == b.sig
-  return false
-
-proc `==`* (a, b: Function): bool =
-  if a.kind != b.kind: return false
-  if a.kind == nullF: return true
-  if a.kind != codeF and a.index != b.index: return false
-  return case a.kind
-    of importF: a.sig == b.sig and a.name == b.name
-    of codeF: a.sig == b.sig
-    of getF, setF: a.field_index == b.field_index
-    else: true
-
-proc `==`* (a, b: Static): bool =
-  if a.kind == b.kind: return case a.kind
-    of intS: a.value == b.value
-    of binS: a.bytes == b.bytes
-    of typeS, functionS: a.index == b.index
-    of nullS: a.type_index == b.type_index
-    else: true
-  return false
-
-proc `==`* (a, b: Inst): bool =
-  if a.kind == b.kind: return case a.kind
-    of varI: true
-    of endI: a.arg_indexes == b.arg_indexes
-    of callI: a.function_index == b.function_index and a.arg_indexes == b.arg_indexes
-    of dupI, sgtI, jmpI: a.a == b.a
-    else: a.a == b.a and a.b == b.b
-  return false
-
 #=== Primitives ===#
 
-proc buildSeq[T](n: int, prc: proc(): T): seq[T] =
-  result = newSeq[T](n)
-  for i in 0..result.high:
-    result[i] = prc()
+proc buildSeq[T](sq: var seq[T], n: int, prc: proc(): T) =
+  sq = newSeq[T](n)
+  for i in 0 ..< n:
+    sq[i] = prc()
 
 proc read (p: Parser): uint8 =
   result = p.read_proc(p)
@@ -151,19 +109,19 @@ proc read (p: Parser): uint8 =
 
 proc readInt (parser: Parser): int =
   var n = 0
-  var b = cast[int](parser.read)
+  var b = int(parser.read)
   while (b and 0x80) > 0:
     n = (n shl 7) or (b and 0x7f)
-    b = cast[int](parser.read)
+    b = int(parser.read)
   return (n shl 7) or (b and 0x7f)
 
 proc readStr (parser: Parser): string =
-  var bytes = parser.readInt.buildSeq do -> uint8:
+  var bytes: seq[uint8]
+  bytes.buildSeq(parser.readInt) do -> uint8:
     parser.read
-  result = ""
-  if bytes.len > 0:
-    result = newString(bytes.len)
-    copyMem(addr(result[0]), addr(bytes[0]), bytes.len)
+  result = newString(bytes.len)
+  for i in 0..bytes.high:
+    result[i] = char(bytes[i])
 
 #=== Parsing ===#
 
@@ -174,18 +132,16 @@ proc checkFormat (parser: Parser) =
     if b == 0: break
     bytes.add(b)
 
-  var redd = ""
-  if bytes.len > 0:
-    var str = newString(bytes.len)
-    copyMem(addr(str[0]), addr(bytes[0]), bytes.len)
-    redd = str
+  var redd = newString(bytes.len)
+  for i in 0..bytes.high:
+    redd[i] = char(bytes[i])
 
   if redd != "Cobre ~2":
     raise newException(InvalidModuleError, "Expected signature \"Cobre ~2\"")
 
 proc parseSignature (p: Parser): Signature =
-  result.in_types  = p.readInt.buildSeq do -> int: p.readInt
-  result.out_types = p.readInt.buildSeq do -> int: p.readInt
+  result.in_types.buildSeq(p.readInt) do -> int: p.readInt
+  result.out_types.buildSeq(p.readInt) do -> int: p.readInt
 
 proc parseType (p: Parser): Type =
   result.kind = TypeKind(p.readInt)
@@ -197,9 +153,7 @@ proc parseType (p: Parser): Type =
   of aliasT, nullableT:
     result.type_index = p.readInt
   of productT, sumT:
-    result.field_types =
-      p.readInt.buildSeq do -> int:
-        p.readInt
+    result.field_types.buildSeq(p.readInt) do -> int: p.readInt
   of funT:
     result.sig = p.parseSignature
 
@@ -213,7 +167,7 @@ proc parseFunction (p: Parser): Function =
     result.sig = p.parseSignature
   of codeF:
     result.sig = p.parseSignature
-  of unboxF, boxF, callF:
+  of unboxF, boxF, callF, anyboxF, anyunboxF:
     result.index = p.readInt
   of getF, setF:
     result.index = p.readInt
@@ -227,9 +181,7 @@ proc parseStatic (p: Parser): Static =
     of intS:
       result.value = p.readInt
     of binS:
-      result.bytes =
-        p.readInt.buildSeq do -> uint8:
-          p.read
+      result.bytes.buildSeq(p.readInt) do -> uint8: p.read
     of typeS, functionS: result.index = p.readInt
     of nullS: discard
     else: discard
@@ -248,10 +200,12 @@ proc parseBlocks (p: Parser) =
   # Solo las funciones que necesitan bloque
   var self_sigs = newSeq[Sig]()
 
+  # Recolectar las Figuras de cada funcion
   for f in p.module.functions:
     let sig = case f.kind
       of nullF: Sig(ins: 0, outs: 0)
-      of getF, setF, unboxF: Sig(ins: 1, outs: 1)
+      of getF, setF, unboxF, anyboxF, anyunboxF:
+        Sig(ins: 1, outs: 1)
       of importF, codeF: Sig(
         ins:  f.sig.in_types.len,
         outs: f.sig.out_types.len
@@ -275,53 +229,35 @@ proc parseBlocks (p: Parser) =
   p.module.blocks = newSeq[seq[Inst]](self_sigs.len)
 
   for i, blk in p.module.blocks.mpairs:
-    blk = @[]
     let self_sig = self_sigs[i]
-    let count = p.readInt
-    for i in 0..<count:
-      var inst = Inst()
+    blk.buildSeq(p.readInt) do -> Inst:
       let kind = p.readInt
       if kind < 16:
-        inst.kind = InstKind(kind)
-        case inst.kind
+        result.kind = InstKind(kind)
+        case result.kind
         of endI:
-          inst.arg_indexes =
-            self_sig.outs.buildSeq do -> int:
-              p.readInt
+          result.arg_indexes.buildSeq(self_sig.outs) do -> int: p.readInt
         of callI: discard
         of varI: discard
         of dupI, sgtI, jmpI:
-          inst.a = p.readInt
+          result.a = p.readInt
         else:
-          inst.a = p.readInt
-          inst.b = p.readInt
+          result.a = p.readInt
+          result.b = p.readInt
       else:
-        inst.kind = callI
-        inst.function_index = kind - 16
-        inst.arg_indexes =
-          sigs[inst.function_index].ins.buildSeq do -> int:
-            p.readInt
-      blk.add(inst)
+        result.kind = callI
+        result.function_index = kind - 16
+        let argc = sigs[result.function_index].ins
+        result.arg_indexes.buildSeq(argc) do -> int: p.readInt
 
 proc parseAll (p: Parser) =
   try:
     p.checkFormat
 
-    p.module.imports =
-      p.readInt.buildSeq do -> string:
-        p.readStr
-
-    p.module.types =
-      p.readInt.buildSeq do -> Type:
-        p.parseType
-
-    p.module.functions =
-      p.readInt.buildSeq do -> Function:
-        p.parseFunction
-
-    p.module.statics =
-      p.readInt.buildSeq do -> Static:
-        p.parseStatic
+    p.module.imports.buildSeq(p.readInt) do -> string: p.readStr
+    p.module.types.buildSeq(p.readInt) do -> Type: p.parseType
+    p.module.functions.buildSeq(p.readInt) do -> Function: p.parseFunction
+    p.module.statics.buildSeq(p.readInt) do -> Static: p.parseStatic
 
     p.parseBlocks
   except Exception:

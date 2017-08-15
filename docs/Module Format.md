@@ -20,6 +20,8 @@ Imports don't have kinds, for now. Circular dependencies are not allowed.
 
 # Types
 
+The machine also has special support for some types in *cobre.core*, specifically *any*, a Sum of all possible types.
+
 ## Null
 
 Used when the module can't provide a definition but it's garanteed there is one, for example for platform specific types or documentation modules.
@@ -130,11 +132,25 @@ With product types works like a regular setter, for sum types this creates a new
     <type: type_index>
     <field: index>
 
+## Anyunbox
+
+Extracts the value from an Any to a nullable of the target type.
+
+    kind: 8
+    <type: type_index>
+
+## Anybox
+
+Converts a value to an Any.
+
+    kind: 9
+    <type: type_index>
+
 ## Call
 
 Receives a function value with arguments and calls the function, returning the results.
 
-    kind: 8
+    kind: 10
     <type: type_index>
 
 # Statics
