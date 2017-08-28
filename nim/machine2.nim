@@ -7,18 +7,15 @@ type
     of boolV: b*: bool
     of intV: i*: int
 
-  Statics* = ref object
-    sq: seq[Value]
-
   FunctionKind* = enum procF, codeF
   Function* = ref object
+    module*: Module
     name*: string
     case kind*: FunctionKind
     of procF:
       prc*: proc(ins: seq[Value]): seq[Value]
     of codeF:
       code*: seq[Inst]
-      statics*: Statics
       regcount*: int
 
   InstKind* = enum endI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
@@ -42,31 +39,90 @@ type
     retpos: int
     counter: int
 
+  Type* = ref object
+    name: string
+
+  ItemKind* = enum fItem, tItem
+  Item* = object
+    name: string
+    case kind*: ItemKind
+    of fItem: f: Function
+    of tItem: t: Type
+
+  Module* = ref object
+    name*: string
+    items*: seq[Item]
+    statics*: seq[Value]
+
   RuntimeError* = object of Exception
   StackOverflowError* = object of RuntimeError
   InfiniteLoopError* = object of RuntimeError
 
+var machine_modules* = newSeq[Module]()
+
+proc nilGet (m: Module, k: string): tuple[fail: bool, item: Item] =
+  for item in m.items:
+    if item.name == k:
+      return (false, item)
+  return (true, Item())
+template raiseKeyError (m: Module, k: string, nm: string): untyped =
+  let msg = "Module " & m.name & " doesn't contain the " & nm & " " & k
+  raise newException(KeyError, msg)
+proc `[]=`* (m: var Module, k: string, f: Function) =
+  m.items.add(Item(name: k, kind: fItem, f: f))
+proc `[]=`* (m: var Module, k: string, t: Type) =
+  m.items.add(Item(name: k, kind: tItem, t: t))
+proc `[]`* (m: Module, k: string): Function =
+  let (fail, item) = m.nilGet k
+  if fail or item.kind != fItem:
+    m.raiseKeyError(k, "Function")
+  return item.f
+proc `[]`* (m: Module, k: string): Type =
+  let (fail, item) = m.nilGet k
+  if fail or item.kind != tItem:
+    m.raiseKeyError(k, "Type")
+  return item.t
+proc hasKey* (m: Module, k: string): bool =
+  let (fail, _) = m.nilGet(k)
+  return not fail
+
+proc newModule* (
+  name: string,
+  types: seq[(string, Type)],
+  funcs: seq[(string, Function)],
+  ): Module =
+  result = Module(name: name)
+  for tpl in types:
+    let (nm, tp) = tpl
+    tp.name = name & "." & nm
+    result[nm] = tp
+  for tpl in funcs:
+    let (nm, f) = tpl
+    f.name = name & "." & nm
+    result[nm] = f
+  machine_modules.add(result)
+
+proc findModule* (name: string): Module =
+  for module in machine_modules:
+    if module.name == name:
+      return module
+  return nil
+
 var max_instruction_count = 10_000
 var max_stack_depth = 16
 
-proc `[]`* (st: Statics, i: int): Value = st.sq[i]
-proc `[]=`* (st: Statics, i: int, v: Value) = st.sq[i] = v
-proc newStatics* (sq: varargs[Value]): Statics =
-  new(result)
-  result.sq = @sq
-
 proc newFunction* (
-  name: string, prc: proc(ins: seq[Value]): seq[Value]
+  name: string = "", prc: proc(ins: seq[Value]): seq[Value]
 ): Function = Function(name: name, kind: procF, prc: prc)
 
 proc makeCode* (
   f: Function,
   code: seq[Inst],
-  statics: Statics,
+  module: Module,
   regcount: int) =
   f.kind = codeF
   f.code = code
-  f.statics = statics
+  f.module = module
   f.regcount = regcount
 
 proc run* (fn: Function, ins: seq[Value]): seq[Value] =
@@ -101,8 +157,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
 
       case inst.kind
       of setI: st.regs[inst.dest] = st.regs[inst.src]
-      of sgtI: st.regs[inst.dest] = st.f.statics[inst.src]
-      of sstI: st.f.statics[inst.dest] = st.regs[inst.src]
+      of sgtI: st.regs[inst.dest] = st.f.module.statics[inst.src]
+      of sstI: st.f.module.statics[inst.dest] = st.regs[inst.src]
       of jmpI: st.pc = inst.inst
       of jifI:
         if st.regs[inst.cond].b:

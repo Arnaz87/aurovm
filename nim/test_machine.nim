@@ -24,7 +24,10 @@ suite "Machine":
   let dec = newFunction(name = "dec", prc = decf)
   let gtz = newFunction(name = "gtz", prc = gtzf)
 
-  var emptystatics = newStatics()
+  var emptyModule = Module(
+    name: "test",
+    statics: newSeq[Value](0)
+  )
 
   test "Basics":
     var myfunc = Function(name: "myfunc")
@@ -34,7 +37,7 @@ suite "Machine":
         Inst(kind: callI, f: add, args: @[1, 2], ret: 3),
         Inst(kind: endI, args: @[3]),
       ],
-      statics = emptystatics,
+      module = emptyModule,
       regcount = 4,
     )
 
@@ -70,7 +73,7 @@ suite "Machine":
         # return b;
         Inst(kind: endI, args: @[1])
       ],
-      statics = emptystatics,
+      module = emptyModule,
       regcount = 4,
     )
 
@@ -99,7 +102,7 @@ suite "Machine":
         Inst(kind: jmpI, inst: 0),
         Inst(kind: endI, args: @[])
       ],
-      statics = emptystatics,
+      module = emptyModule,
       regcount = 3,
     )
 
@@ -119,7 +122,7 @@ suite "Machine":
         # return x;
         Inst(kind: endI, args: @[])
       ],
-      statics = emptystatics,
+      module = emptyModule,
       regcount = 2
     )
 
@@ -128,7 +131,10 @@ suite "Machine":
       discard myfunc.run(@[Value(kind: intV, i: 1)])
 
   test "Statics":
-    var statics = newStatics(Value(kind: intV, i: 3))
+    var module = Module(
+      name: "test-statics",
+      statics: @[Value(kind: intV, i: 3)]
+    )
 
     var myfunc = Function(name: "myfunc")
     myfunc.makeCode(
@@ -138,11 +144,11 @@ suite "Machine":
         Inst(kind: sstI, src: 1, dest: 0),
         Inst(kind: endI, args: @[]),
       ],
-      statics = statics,
+      module = module,
       regcount = 2,
     )
     discard myfunc.run(@[])
-    let result = statics[0]
+    let result = module.statics[0]
     check( result == Value(kind: intV, i: 2) )
 
 

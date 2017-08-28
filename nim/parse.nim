@@ -274,6 +274,7 @@ proc parseAll (p: Parser) =
     printAll("functions", functions)
     printAll("statics", statics)
     printAll("blocks", blocks)
+    echo e.getStackTrace()
     raise e
 
 #=== Interface ===#

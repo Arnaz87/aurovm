@@ -220,7 +220,7 @@ let testBinary = bin(
     5, 3, 0,
 )
     
-echo "binary size: ", testBinary.len, " bytes" # 197
+#echo "binary size: ", testBinary.len, " bytes" # 223
 
 let testParsed = Module(
   imports: @["cobre.core", "cobre.prim", "cobre.string"],
@@ -356,17 +356,25 @@ suite "Parser":
     check(parsed == model)
 
   test "FullModule":
+    try:
+      let parsed = parse(testBinary)
+      let model = testParsed
 
-    let parsed = parse(testBinary)
-    let model = testParsed
+      # unittest solo imprime información util si las expresiones son
+      # variables o llamadas, pero no si son accesos o métodos.
+      proc id[T](x: T): T = x
 
-    # unittest solo imprime información util si las expresiones son
-    # variables o llamadas, pero no si son accesos o métodos.
-    proc id[T](x: T): T = x
+      echo "Imports: ", parsed.imports == model.imports
+      echo "Types: ", parsed.types == model.types
+      echo "Functions: ", parsed.functions == model.functions
+      echo "Statics: ", parsed.statics == model.statics
+      echo "Blocks: ", parsed.blocks == model.blocks
 
-    check(parsed.imports == model.imports)
-    check(parsed.types == model.types)
-    check(id(parsed.functions) == id(model.functions))
-    check(id(parsed.statics) == id(model.statics))
-    check(id(parsed.blocks) == id(model.blocks))
+      check(parsed.imports == model.imports)
+      check(parsed.types == model.types)
+      check(id(parsed.functions) == id(model.functions))
+      check(id(parsed.statics) == id(model.statics))
+      check(id(parsed.blocks) == id(model.blocks))
+    except Exception:
+      echo getCurrentExceptionMsg()
   
