@@ -1,5 +1,4 @@
 import unittest
-import machine2
 
 proc `==` (a: Value, b: Value): bool =
   if a.kind != b.kind: return false

@@ -77,11 +77,18 @@ type
       a*: int
       b*: int
 
+  ItemKind* = enum type_item=1, function_item=2
+  Item* = object
+    kind*: ItemKind
+    index*: int
+    name*: string
+
   Module* = object of RootObj
     imports*: seq[string]
     types*: seq[Type]
     functions*: seq[Function]
     statics*: seq[Static]
+    exports*: seq[Item]
     blocks*: seq[seq[Inst]]
 
   Parser = ref object of RootObj
@@ -189,6 +196,11 @@ proc parseStatic (p: Parser): Static =
     result.kind = nullS
     result.type_index = k-16
 
+proc parseExport (p: Parser): Item =
+  result.kind = ItemKind(p.readInt)
+  result.index = p.readInt
+  result.name = p.readStr
+
 proc parseBlocks (p: Parser) =
   type Sig = object
     ins: int
@@ -258,6 +270,7 @@ proc parseAll (p: Parser) =
     p.module.types.buildSeq(p.readInt) do -> Type: p.parseType
     p.module.functions.buildSeq(p.readInt) do -> Function: p.parseFunction
     p.module.statics.buildSeq(p.readInt) do -> Static: p.parseStatic
+    p.module.exports.buildSeq(p.readInt) do -> Item: p.parseExport
 
     p.parseBlocks
   except Exception:
@@ -274,7 +287,7 @@ proc parseAll (p: Parser) =
     printAll("functions", functions)
     printAll("statics", statics)
     printAll("blocks", blocks)
-    echo e.getStackTrace()
+    #echo e.getStackTrace()
     raise e
 
 #=== Interface ===#
@@ -302,3 +315,6 @@ proc parse* (data: seq[uint8]): Module =
   parser.data = data
   parser.parseAll
   result = parser.module
+
+when defined(test):
+  include test_parse

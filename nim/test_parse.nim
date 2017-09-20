@@ -1,8 +1,6 @@
 import unittest
 import macros
 
-import parse
-
 # JS Compatibility
 proc `$` (x: uint8): string = $int(x)
 
@@ -154,6 +152,8 @@ proc `==`* (a, b: Inst): bool =
     }
   }
 
+  export A, B, main;
+
   492 bytes, vs 223 el binario
 ]#
 
@@ -190,13 +190,17 @@ let testBinary = bin(
     10, 4,
     9, 0,
     8, 0,
-  6,
+  6, # Statics
     2, $4,
     2, $5,
     3, $5, "Hola!",
     (16 + 6),
     5, 0,
     (16 + 0),
+  3, # Exports
+    1, 3, $"A",
+    1, 4, $"B",
+    2, 11, $"main",
   17, # Block for #10
     4, 0, #0 a
     4, 1, #1 b
@@ -287,6 +291,11 @@ let testParsed = Module(
     Static(kind: functionS, index: 0),
     Static(kind: nullS, type_index: 0),
   ],
+  exports: @[
+    Item(kind: type_item, index: 3, name: "A"),
+    Item(kind: type_item, index: 4, name: "B"),
+    Item(kind: function_item, index: 11, name: "main"),
+  ],
   blocks: @[
     @[
       Inst(kind: sgtI, a: 0),
@@ -336,21 +345,23 @@ suite "Parser":
       discard parse( bin(" Cobre ~2 \0") )
 
   test "Empty Module":
-    check modbin(0, 0, 0, 0, 0) == Module(
+    check modbin(0, 0, 0, 0, 0, 0) == Module(
       imports: @[],
       types: @[],
       functions: @[],
       statics: @[],
+      exports: @[],
       blocks: @[ newSeq[Inst]() ]
     )
 
   test "Small Module":
-    let parsed = modbin(1, $"cobre.core", 0, 0, 0, 0)
+    let parsed = modbin(1, $"cobre.core", 0, 0, 0, 0, 0)
     let model = Module(
       imports: @["cobre.core"],
       types: @[],
       functions: @[],
       statics: @[],
+      exports: @[],
       blocks: @[ newSeq[Inst]() ]
     )
     check(parsed == model)

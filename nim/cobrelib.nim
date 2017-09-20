@@ -9,13 +9,13 @@ proc mulf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i * ins[1].i
   @[Value(kind: intV, i: r)]
 
-newModule(
+discard newModule(
   name = "cobre.prim", 
-  types = {
+  types = @{
     "int": Type(name: "int"),
   },
-  funcs = {
-    "add": newFunction(addf)
-    "mul": newFunction(mulf)
+  funcs = @{
+    "add": newFunction("add", addf),
+    "mul": newFunction("add", mulf)
   }
 )

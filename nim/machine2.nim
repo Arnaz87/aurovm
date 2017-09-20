@@ -40,14 +40,14 @@ type
     counter: int
 
   Type* = ref object
-    name: string
+    name*: string
 
   ItemKind* = enum fItem, tItem
   Item* = object
-    name: string
+    name*: string
     case kind*: ItemKind
-    of fItem: f: Function
-    of tItem: t: Type
+    of fItem: f*: Function
+    of tItem: t*: Type
 
   Module* = ref object
     name*: string
@@ -59,6 +59,18 @@ type
   InfiniteLoopError* = object of RuntimeError
 
 var machine_modules* = newSeq[Module]()
+
+proc `$`* (i: Item): string =
+  $i.kind & "(" & i.name & ", " & (case i.kind
+    of fItem: $i.f[]
+    of tItem: $i.t[]
+  ) & ")"
+proc `$`* (m: Module): string =
+  if m.isNil: return "nil"
+  else: result = "Module(" & m.name & ", " & $m.items & ", " & $m.statics & ")"
+proc `$`* (t: Type): string =
+  if t.isNil: return "nil"
+  else: result = "Type(name:" & t.name & ")"
 
 proc nilGet (m: Module, k: string): tuple[fail: bool, item: Item] =
   for item in m.items:
@@ -72,12 +84,12 @@ proc `[]=`* (m: var Module, k: string, f: Function) =
   m.items.add(Item(name: k, kind: fItem, f: f))
 proc `[]=`* (m: var Module, k: string, t: Type) =
   m.items.add(Item(name: k, kind: tItem, t: t))
-proc `[]`* (m: Module, k: string): Function =
+proc get_function* (m: Module, k: string): Function =
   let (fail, item) = m.nilGet k
   if fail or item.kind != fItem:
     m.raiseKeyError(k, "Function")
   return item.f
-proc `[]`* (m: Module, k: string): Type =
+proc get_type* (m: Module, k: string): Type =
   let (fail, item) = m.nilGet k
   if fail or item.kind != tItem:
     m.raiseKeyError(k, "Type")
@@ -88,10 +100,10 @@ proc hasKey* (m: Module, k: string): bool =
 
 proc newModule* (
   name: string,
-  types: seq[(string, Type)],
-  funcs: seq[(string, Function)],
+  types: seq[(string, Type)] = @[],
+  funcs: seq[(string, Function)] = @[],
   ): Module =
-  result = Module(name: name)
+  result = Module(name: name, items: @[], statics: @[])
   for tpl in types:
     let (nm, tp) = tpl
     tp.name = name & "." & nm
@@ -211,3 +223,6 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       for i, reg in st.regs.pairs:
         errline("  " & $i & ": " & $reg)
     raise e
+
+when defined(test):
+  include test_machine

@@ -17,10 +17,10 @@ bin/machine: nim/*.nim
 	nim --checks:on -o:$@ c nim/main.nim
 
 bin/nimtest: nim/*.nim
-	nim --checks:on -o:$@ c nim/test.nim
+	nim --checks:on -o:$@ -d:test c nim/test.nim
 
 bin/nimtest.js: nim/*.nim
-	nim js -d:nodejs --checks:on -o:$@ nim/test.nim
+	nim js -d:nodejs -d:test --checks:on -o:$@ nim/test.nim
 
 test: bin/nimtest
 	bin/nimtest
@@ -29,5 +29,5 @@ jstest: bin/nimtest.js
 	node bin/nimtest.js
 
 monitor-test:
-	while inotifywait -q -e close_write nim/; do nim --checks:on -o:bin/nimtest c -r nim/test.nim; done
+	while inotifywait -q -e close_write nim/; do make test; done
 

@@ -1,2 +1,3 @@
-import test_parse
-import test_machine
+import parse
+import machine2
+import compile
