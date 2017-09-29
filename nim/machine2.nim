@@ -8,7 +8,7 @@ type
     of intV: i*: int
 
   FunctionKind* = enum procF, codeF
-  Function* = ref object
+  Function* = ref object of RootObj
     module*: Module
     name*: string
     case kind*: FunctionKind
@@ -18,14 +18,15 @@ type
       code*: seq[Inst]
       regcount*: int
 
-  InstKind* = enum endI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
+  InstKind* = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
   Inst* = object
     case kind*: InstKind
+    of varI: discard
     of endI, callI:
       f*: Function
       args*: seq[int]
       ret*: int
-    of setI, sgtI, sstI:
+    of setI, sgtI, sstI, dupI:
       src*: int
       dest*: int
     of jmpI, jifI, nifI, anyI:
@@ -39,7 +40,7 @@ type
     retpos: int
     counter: int
 
-  Type* = ref object
+  Type* = ref object of RootObj
     name*: string
 
   ItemKind* = enum fItem, tItem
@@ -106,13 +107,16 @@ proc newModule* (
   result = Module(name: name, items: @[], statics: @[])
   for tpl in types:
     let (nm, tp) = tpl
-    tp.name = name & "." & nm
+    tp.name = nm
     result[nm] = tp
   for tpl in funcs:
     let (nm, f) = tpl
-    f.name = name & "." & nm
+    f.name = nm
+    f.module = result
     result[nm] = f
   machine_modules.add(result)
+
+proc fullName* (f: Function): string = f.module.name & "." & f.name
 
 proc findModule* (name: string): Module =
   for module in machine_modules:
@@ -168,7 +172,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       #echo "pc:", st.pc , " inst:", inst
 
       case inst.kind
-      of setI: st.regs[inst.dest] = st.regs[inst.src]
+      of varI: discard "noop"
+      of setI, dupI: st.regs[inst.dest] = st.regs[inst.src]
       of sgtI: st.regs[inst.dest] = st.f.module.statics[inst.src]
       of sstI: st.f.module.statics[inst.dest] = st.regs[inst.src]
       of jmpI: st.pc = inst.inst
