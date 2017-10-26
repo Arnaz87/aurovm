@@ -6,6 +6,7 @@ proc `==` (a: Value, b: Value): bool =
   of nilV: true
   of boolV: a.b == b.b
   of intV: a.i == b.i
+  of productV: a.p == b.p
 
 suite "Machine":
 
@@ -55,7 +56,7 @@ suite "Machine":
       code = @[
         # while (a > 0) {
         Inst(kind: callI, f: gtz, args: @[0], ret: 2),
-        Inst(kind: nifI, cond: 2, inst: 10),
+        Inst(kind: nifI, src: 2, inst: 10),
         #   a = dec(a);
         Inst(kind: callI, f: dec, args: @[0], ret: 3),
         Inst(kind: setI, src: 3, dest: 0),
@@ -64,7 +65,7 @@ suite "Machine":
         Inst(kind: setI, src: 3, dest: 1),
         #   if (!gtz(b)) {
         Inst(kind: callI, f: gtz, args: @[1], ret: 2),
-        Inst(kind: jifI, cond: 2, inst: 9),
+        Inst(kind: jifI, src: 2, inst: 9),
         #      return a;
         Inst(kind: endI, args: @[0]),
         #    } }
@@ -94,7 +95,7 @@ suite "Machine":
       code = @[
         # while (a > 0) {
         Inst(kind: callI, f: gtz, args: @[0], ret: 2),
-        Inst(kind: nifI, cond: 2, inst: 5),
+        Inst(kind: nifI, src: 2, inst: 5),
         Inst(kind: setI, src: 0, dest: 1), # x = a
         Inst(kind: setI, src: 1, dest: 0), # a = x
         # }
@@ -115,7 +116,7 @@ suite "Machine":
       code = @[
         # while (a > 0)
         Inst(kind: callI, f: gtz, args: @[0], ret: 1),
-        Inst(kind: nifI, cond: 1, inst: 3),
+        Inst(kind: nifI, src: 1, inst: 3),
         #   x = myfunc(a);
         Inst(kind: callI, f: myfunc, args: @[0], ret: 0),
         # return x;
@@ -126,7 +127,7 @@ suite "Machine":
     )
 
     check( myfunc.run(@[Value(kind: intV, i: 0)]) == newSeq[Value](0) )
-    expect machine2.StackOverflowError:
+    expect machine.StackOverflowError:
       discard myfunc.run(@[Value(kind: intV, i: 1)])
 
   test "Statics":

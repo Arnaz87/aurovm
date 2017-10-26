@@ -1,4 +1,4 @@
-import machine2
+import machine
 import compile
 
 import unittest
@@ -8,6 +8,9 @@ import cobrelib
 
 # JS Compatibility
 proc `$` (x: uint8): string = $int(x)
+
+# Posible ejemplo para structs:
+# http://rosettacode.org/wiki/Tree_traversal#C
 
 macro bin* (xs: varargs[untyped]): untyped =
   var items = newNimNode(nnkBracket)
@@ -152,3 +155,109 @@ suite "Full Tests":
 
     let result = function.run(@[Value(kind: intV, i: 5)])
     check(result == @[Value(kind: intV, i: 120)])
+
+  test "Int Linked List":
+
+    let data = bin(
+      "Cobre ~2", 0,
+      1, $"cobre.prim", # Imports
+      3, # Types
+        1, 0, $"int",
+        4, 2, 1, 3, # Product(type_0, type_2)
+        3, 2, # Nullable(type_1)
+      5, # Functions
+        2, # Defined Function, second
+          1, 3, # 1 ins: type_2
+          1, 1, # 1 ins: int
+        2, # Defined Function, main
+          0, 1, 1,
+        6, 2, 0, # Get type_1[0]
+        6, 2, 1, # Get type_1[1]
+        5, 2, # Build type_1 (int, type_2)
+      4, # Statics
+        2, $4, # int 4
+        2, $5, # int 5
+        2, $6, # int 6
+        2, $0,
+      1, # Exports
+        2, 2, $"main",
+      7, # Block for #0 (second)
+        #0 = arg_0
+        9, 5, 1, #1 = #0 or goto 5
+        (16 + 3), 2, #2 = get_1(#1)
+        9, 5, 3, #3 = #2 or goto 5
+        (16 + 2), 4, #4 = get_0(#3)
+        0, 5, #return #4
+        4, 4, #5 = const_3 (0)
+        0, 6, #return #5
+      9, # Block for #1 (main)
+        1, #0 = null
+        4, 3, #1 = const_2 (6)
+        (16 + 4), 2, 1, #2 = type_1(#1, #0)
+        4, 2, #3 = const_1 (5)
+        (16 + 4), 4, 3, #4 = type_1(#3, #2)
+        4, 1, #5 = const_0 (4)
+        (16 + 4), 6, 5, #6 = type_1(#5, #4)
+        (16 + 0), 7, #7 = second(#6)
+        0, 8, #return #7
+      0, # Static Block
+    )
+
+    let compiled = compile(data)
+    let function = compiled.get_function("main")
+
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 5)])
+
+
+  test "Function Object":
+
+    let data = bin(
+      "Cobre ~2", 0,
+      1, $"cobre.prim", # Imports
+      2, # Types
+        1, 0, $"int", # import cobre.prim.int
+        6, # function
+          1, 1, # 1 in:  int
+          1, 1, # 1 out: int
+      5, # Functions
+        1, 1, $"add",
+          2, 0, 0, 1, 0,
+        2, # Defined Function 1, add4
+          1, 1, # 1 ins: int
+          1, 1, # 1 out: int
+        2, # Defined Function 2, apply5
+          1, 2, # 1 in:  int(int)
+          1, 1, # 1 out: int
+        10, 2, # Apply type_1 ( int(int) )
+        2, # Defined Function 4, main
+          0, # 0 ins
+          1, 1, # 1 outs: int
+      3, # Statics
+        2, $4, # int 4
+        2, $5, # int 5
+        5, 2, # function_1 (add4)
+      1, # Exports
+        2, 5, $"main",
+      3, # Block for #1 (add4)
+        #0 = arg_0
+        4, 1, #1 = const_0 (4)
+        (16 + 0), 1, 2, #2 c = add(#0, #1)
+        0, 3, #return #2
+      3, # Block for #2 (apply5)
+        #0 = arg_0
+        4, 2, #1 = const_1 (5)
+        (16 + 3), 1, 2, #2 = apply(#0, #1)
+        0, 3,
+      3, # Block for #4 (main)
+        4, 3, #0 = const_2 (add4)
+        (16 + 2), 1, #1 = apply5(#0)
+        0, 2,
+      0, # Static Block
+    )
+
+    let compiled = compile(data)
+    let function = compiled.get_function("main")
+
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 9)])

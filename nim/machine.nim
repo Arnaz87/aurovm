@@ -1,174 +1,333 @@
 
-# # Máquina virtual
-# Toda la definición y el funcionamiento de la máquina virtual está aquí.
-# Para usar este módulo, hay que crear un Module y un Proc de ese Module,
-# luego usar addState() con ese Proc y luego usar run()
-
-#=== Types ===#
-
 type
-  ValueKind* = enum nilType, intType, strType, boolType, binType
+  Signature* = object
+    ins*: seq[Type]
+    outs*: seq[Type]
+
+  Product* = ref object of RootObj
+    tp: Type
+    fields: seq[Value]
+
+  ValueKind* = enum nilV, boolV, intV, productV
   Value* = object
     case kind*: ValueKind
-    of nilType: discard
-    of intType: i*: int
-    of strType: str*: string
-    of boolType: b*: bool
-    of binType: data*: seq[uint8]
+    of nilV: discard
+    of boolV: b*: bool
+    of intV: i*: int
+    of productV: p*: Product
 
-  Type* = ref object of RootObj
+  FunctionKind* = enum procF, codeF
+  Function* = ref object of RootObj
+    module*: Module
     name*: string
+    sig*: Signature
+    case kind*: FunctionKind
+    of procF:
+      prc*: proc(ins: seq[Value]): seq[Value]
+    of codeF:
+      code*: seq[Inst]
+      regcount*: int
 
-  InstKind* = enum iend, icpy, icns, icall, ilbl, ijmp, ijif, inif
+  InstKind* = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
   Inst* = object
     case kind*: InstKind
-    of icall:
-      prc*: Proc
-      outs*: seq[int]
-      ins*: seq[int]
-    else:
-      i*: int
-      a*: int
-      b*: int
-      c*: int
+    of varI: discard
+    of endI, callI:
+      f*: Function
+      args*: seq[int]
+      ret*: int
+    of setI, sgtI, sstI, dupI, jmpI, jifI, nifI, anyI:
+      src*: int
+      dest*: int
+      inst*: int
 
-  ProcKind* = enum codeProc, nativeProc
-  Proc* = ref object of RootObj
-    name*: string
+  State = ref object
+    f: Function
+    pc: int
+    regs: seq[Value]
+    retpos: int
+    counter: int
+
+  TypeKind* = enum nativeT, aliasT, nullableT, productT, sumT, functionT
+  Type* = ref object of RootObj
     module*: Module
-    case kind*: ProcKind
-    of codeProc:
-      inregs*: seq[int]
-      outregs*: seq[int]
-      regs*: seq[Type]
-      code*: seq[Inst]
-      labels*: seq[int]
-    of nativeProc:
-      incount*: int
-      outcount*: int
-      prc*: proc(ins: seq[Value]): seq[Value]
-
-  Module* = ref object of RootObj
     name*: string
-    types*: seq[Type]
-    procs*: seq[Proc]
-    constants*: seq[Value]
+    case kind*: TypeKind
+    of nativeT: discard
+    of aliasT, nullableT:
+      t*: Type
+    of productT, sumT:
+      ts*: seq[Type]
+    of functionT:
+      sig*: Signature
 
-  State* = ref object of RootObj
-    pc*: int
-    regs*: seq[Value]
-    prc*: Proc
-    rets: seq[int]
+  ItemKind* = enum fItem, tItem
+  Item* = object
+    name*: string
+    case kind*: ItemKind
+    of fItem: f*: Function
+    of tItem: t*: Type
 
-#=== Interpreter ===#
+  Module* = ref object
+    name*: string
+    items*: seq[Item]
+    statics*: seq[Value]
 
-import sequtils
+  RuntimeError* = object of Exception
+  StackOverflowError* = object of RuntimeError
+  InfiniteLoopError* = object of RuntimeError
 
-# methods solo usa los tipos, no usa nada de lo que está abajo,
-# por lo tanto es seguro importarlo en este punto
-import methods
+var machine_modules* = newSeq[Module]()
 
-var states: seq[State] = @[]
+proc fullName* (f: Function): string = f.module.name & "." & f.name
+proc fullName* (t: Type): string =
+  t.module.name & "." & ( if t.name.isNil: "<type>" else: t.name )
 
-proc addState*(prc: Proc) =
-  states.add(State(
-    pc: 0,
-    prc: prc,
-    regs: newSeq[Value](prc.regs.len),
-  ))
+proc `$`* (i: Item): string =
+  $i.kind & "(" & i.name & ", " & (case i.kind
+    of fItem: $i.f[]
+    of tItem: $i.t[]
+  ) & ")"
+proc `$`* (m: Module): string =
+  if m.isNil: return "nil"
+  else: result = "Module(" & m.name & ", " & $m.items & ", " & $m.statics & ")"
+proc `$`* (t: Type): string =
+  if t.isNil: return "nil"
+  result = "Type_" & $t.kind & "("
+  case t.kind
+  of nativeT:
+    result &= t.name
+  of aliasT, nullableT:
+    result &= t.t.fullName
+  of productT, sumT:
+    if t.ts.len > 0:
+      result &= t.ts[0].fullName
+      for i in 1 .. t.ts.high:
+        result &= " " & t.ts[i].fullName
+  of functionT:
+    for i in 0 .. t.sig.ins.high:
+      result &= t.sig.ins[i].fullName & " "
+    result &= "->"
+    for i in 0 .. t.sig.outs.high:
+      result &= " " & t.sig.outs[i].fullName
+  result &= ")"
 
-proc popState () =
-  let st = states.pop
-  if states.len > 0:
-    let ost = states[states.high]
-    for pair in zip(st.rets, st.prc.outregs):
-      ost.regs[pair.a] = st.regs[pair.b]
+proc nilGet (m: Module, k: string): tuple[fail: bool, item: Item] =
+  for item in m.items:
+    if item.name == k:
+      return (false, item)
+  return (true, Item())
+template raiseKeyError (m: Module, k: string, nm: string): untyped =
+  let msg = "Module " & m.name & " doesn't contain the " & nm & " " & k
+  raise newException(KeyError, msg)
+proc `[]=`* (m: var Module, k: string, f: Function) =
+  m.items.add(Item(name: k, kind: fItem, f: f))
+proc `[]=`* (m: var Module, k: string, t: Type) =
+  m.items.add(Item(name: k, kind: tItem, t: t))
+proc get_function* (m: Module, k: string): Function =
+  let (fail, item) = m.nilGet k
+  if fail or item.kind != fItem:
+    m.raiseKeyError(k, "Function")
+  return item.f
+proc get_type* (m: Module, k: string): Type =
+  let (fail, item) = m.nilGet k
+  if fail or item.kind != tItem:
+    m.raiseKeyError(k, "Type")
+  return item.t
+proc hasKey* (m: Module, k: string): bool =
+  let (fail, _) = m.nilGet(k)
+  return not fail
 
-proc run* (inst: Inst) =
-  var st = states[states.high]
-  #echo "pc: " & $st.pc
-  case inst.kind
-  of iend: popState()
-  of icpy:
-    st.regs[inst.a] = st.regs[inst.b]
-    st.pc.inc()
-  of icns:
-    let v = st.prc.module.constants[inst.b]
-    st.regs[inst.a] = v
-    st.pc.inc()
-  of ijmp:
-    st.pc = st.prc.labels[inst.i]
-  of ijif: 
-    if st.regs[inst.a].b:
-      st.pc = st.prc.labels[inst.i]
-    else: st.pc.inc()
-  of inif: 
-    if not st.regs[inst.a].b:
-      st.pc = st.prc.labels[inst.i]
-    else: st.pc.inc()
-  of ilbl: st.pc.inc()
-  of icall:
-    case inst.prc.kind
-    of nativeProc:
-      var args = inst.ins.map do (i: int) -> Value: st.regs[i]
-      var rets = inst.prc.prc(args)
-      for pair in zip(inst.outs, rets):
-        st.regs[pair.a] = pair.b
-    of codeProc:
-      addState(inst.prc)
-      let nst = states[states.high]
-      for pair in zip(inst.prc.inregs, inst.ins):
-        nst.regs[pair.a] = st.regs[pair.b]
-      nst.rets = inst.outs
-    st.pc.inc()
+proc newModule* (
+  name: string,
+  types: seq[(string, Type)] = @[],
+  funcs: seq[(string, Function)] = @[],
+  ): Module =
+  result = Module(name: name, items: @[], statics: @[])
+  for tpl in types:
+    let (nm, tp) = tpl
+    if tp.name.isNil:
+      tp.name = nm
+    tp.module = result
+    result[nm] = tp
+  for tpl in funcs:
+    let (nm, f) = tpl
+    if f.name.isNil:
+      f.name = nm
+    f.module = result
+    result[nm] = f
+  machine_modules.add(result)
 
-proc run* () =
+proc findModule* (name: string): Module =
+  for module in machine_modules:
+    if module.name == name:
+      return module
+  return nil
+
+var max_instruction_count = 10_000
+var max_stack_depth = 16
+
+proc newFunction* (
+  name: string = "",
+  sig: Signature = Signature(ins: @[], outs: @[]),
+  prc: proc(ins: seq[Value]): seq[Value]
+): Function = Function(name: name, sig: sig, kind: procF, prc: prc)
+
+proc makeCode* (
+  f: Function,
+  code: seq[Inst],
+  module: Module,
+  regcount: int) =
+  f.kind = codeF
+  f.code = code
+  f.module = module
+  f.regcount = regcount
+
+proc run* (fn: Function, ins: seq[Value]): seq[Value] =
+  if fn.kind == procF: return fn.prc(ins)
+
+  var stack = newSeq[State](0)
+  proc pushState (f: Function, ins: seq[Value]) =
+    if stack.len > max_stack_depth:
+      raise newException(StackOverflowError, "Stack size is greater than " & $max_stack_depth)
+    var nst = State( f: f, regs: newSeq[Value](f.regcount) )
+    for i, v in ins.pairs: nst.regs[i] = v
+    stack.add(nst)
+
+  pushState(fn, ins)
+
   try:
-    while states.len > 0:
-      var st = states[states.high]
-      if st.pc < st.prc.code.len:
-        let inst = st.prc.code[st.pc]
-        inst.run()
-      else: popState()
+    while stack.len > 0:
+      var st = stack[stack.high]
+
+      if st.counter > max_instruction_count:
+        raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
+
+      proc getValues (xs: seq[int]): seq[Value] =
+        result = newSeq[Value](xs.len)
+        for i in 0 .. xs.high:
+          result[i] = st.regs[ xs[i] ]
+
+      let inst = st.f.code[st.pc]
+      let oldpc = st.pc
+
+      #echo "pc:", st.pc , " inst:", inst
+
+      case inst.kind
+      of varI: discard # noop
+      of setI, dupI: st.regs[inst.dest] = st.regs[inst.src]
+      of sgtI: st.regs[inst.dest] = st.f.module.statics[inst.src]
+      of sstI: st.f.module.statics[inst.dest] = st.regs[inst.src]
+      of jmpI: st.pc = inst.inst
+      of jifI:
+        if st.regs[inst.src].b:
+          st.pc = inst.inst
+      of nifI:
+        if not st.regs[inst.src].b:
+          st.pc = inst.inst
+      of anyI:
+        if st.regs[inst.src].kind == nilV:
+          st.pc = inst.inst
+        else:
+          st.regs[inst.dest] = st.regs[inst.src]
+      of callI:
+        let args = getValues(inst.args)
+        case inst.f.kind:
+        of procF:
+          let rets = inst.f.prc(args)
+          for i, r in rets.pairs:
+            st.regs[i + inst.ret] = r
+        of codeF:
+          st.retpos = inst.ret
+          pushState(inst.f, args)
+      of endI:
+        let rets = getValues(inst.args)
+        discard stack.pop
+        if stack.len == 0: result = rets
+        else:
+          var prevst = stack[stack.high]
+          for i, v in rets:
+            prevst.regs[i + prevst.retpos] = v
+
+      if st.pc == oldpc: st.pc.inc()
+      st.counter.inc()
   except Exception:
-    let e = getCurrentException()
+    var e = getCurrentException()
+    e.msg &= "\n"
+    proc errline (str: string) =
+      e.msg &= str & "\n"
+    errline("Machine stack (oldest first):")
+    for i in 0 ..< stack.high:
+      let st = stack[i]
+      # (pc - 1) porque pc se incrementa después del call
+      errline("  " & st.f.name & " (" & $(st.pc - 1) & ")")
 
-    echo "Error de ejecución"
-    echo getCurrentExceptionMsg()
-    echo e.getStackTrace()
+    if stack.len > 0:
+      let st = stack[stack.high]
+      errline("> " & st.f.name & " (" & $st.pc & ")")
+      errline("Code: ")
+      for i, inst in st.f.code.pairs:
+        errline("  " & $i & ": " & $inst)
+      errline("Regs: ")
+      for i, reg in st.regs.pairs:
+        errline("  " & $i & ": " & $reg)
+    raise e
 
-    let st = states[states.high]
+# Builtins
 
-    echo "pc: " & $st.pc
+var builtin_mod = newModule(name = "cobre.builtin")
 
-    echo $$st.prc
+var bi_gets: seq[tuple[t: Type, f: Function]] = @[]
+proc builtin_get* (t: Type, index: int): Function =
+  for x in bi_gets:
+    if x.t == t:
+      return x.f
+  let name = t.name & ".get"
+  proc prc (ins: seq[Value]): seq[Value] =
+    let v = ins[0]
+    case v.kind
+    of productV:
+      let field = v.p.fields[index]
+      return @[field]
+    else:
+      let msg = "Runtime type mismatch, expected product type " & t.fullName
+      raise newException(Exception, msg)
 
-    for r in st.regs: echo "  " & $r
+  let sig = Signature(ins: @[t], outs: @[t.ts[index]])
+  result = newFunction(name, sig, prc)
+  result.module = builtin_mod
+  builtin_mod[name] = result
 
+var bi_builds: seq[tuple[t: Type, f: Function]] = @[]
+proc builtin_build* (t: Type): Function =
+  for x in bi_builds:
+    if x.t == t:
+      return x.f
+  let name = t.name & ".build"
 
-# Invoca una sola función y devuelve el resultado
-proc invoke* (prc: Proc, args: seq[Value]): seq[Value] =
-  case prc.kind
-  of nativeProc:
-    var rets = prc.prc(args)
-    return rets
-  of codeProc:
-    # Guarda el stack de estados que ya estaba
-    var saved_stack = states
+  let types = t.ts
+  proc prc (ins: seq[Value]): seq[Value] =
 
-    states = @[]
-    addState(prc)
-    let st = states[states.high]
+    if ins.len != types.len:
+      let msg = "Expected " & $types.len & " arguments"
+      raise newException(Exception, msg)
 
-    for pair in zip(prc.inregs, args):
-      st.regs[pair.a] = pair.b
+    var vs = newSeq[Value](types.len)
+    for i in 0..<types.len:
+      vs[i] = ins[i]
 
-    # run termina cuando el stack se vacía
-    run()
+    return @[Value(
+      kind: productV,
+      p: Product(
+        tp: t,
+        fields: vs
+      )
+    )]
 
-    result = @[]
-    for reg in prc.outregs: result.add(st.regs[reg])
+  let sig = Signature(ins: t.ts, outs: @[t])
+  result = newFunction(name, sig, prc)
+  result.module = builtin_mod
+  builtin_mod[name] = result
 
-    states = saved_stack
-
-    
+when defined(test):
+  include test_machine

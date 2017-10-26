@@ -1,5 +1,5 @@
 
-import machine2
+import machine
 
 proc addf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i + ins[1].i
@@ -25,24 +25,34 @@ proc decf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i - 1
   @[Value(kind: intV, i: r)]
 
-discard newModule(
-  name = "cobre.prim", 
-  types = @{
-    "int": Type(name: "int"),
-  },
-  funcs = @{
-    "add": newFunction("add", addf),
-    "mul": newFunction("mul", mulf),
-    "gt": newFunction("gt", gtf),
-    "gtz": newFunction("gtz", gtzf),
-    "inc": newFunction("inc", incf),
-    "dec": newFunction("dec", decf),
-  }
+let intT: Type = Type(kind: nativeT, name: "int")
+let boolT: Type = Type(kind: nativeT, name: "bool")
+
+let iitoi = Signature(
+  ins: @[intT, intT],
+  outs: @[intT]
 )
+let iitob = Signature(
+  ins: @[intT, intT],
+  outs: @[boolT]
+)
+let itoi = Signature(ins: @[intT], outs: @[intT])
+let itob = Signature(ins: @[intT], outs: @[boolT])
 
 discard newModule(
   name = "cobre.core",
-  types = @{
-    "bool": Type(name: "bool"),
+  types = @{ "bool": boolT, }
+)
+
+discard newModule(
+  name = "cobre.prim", 
+  types = @{ "int": intT, },
+  funcs = @{
+    "add": newFunction("add", iitoi, addf),
+    "mul": newFunction("mul", iitoi, mulf),
+    "gt": newFunction("gt", iitob, gtf),
+    "gtz": newFunction("gtz", itob, gtzf),
+    "inc": newFunction("inc", itoi, incf),
+    "dec": newFunction("dec", itoi, decf),
   }
 )

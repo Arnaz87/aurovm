@@ -227,9 +227,9 @@ The builtin instructions are:
 - `4 sgt (c)`: Gets the static with index *c*.
 - `5 sst (c a)`: Sets to the static at *c* the value at *a*.
 - `6 jmp (i)`: Jumps to the instruction with index *i*.
-- `7 jif (a i)`: If the value at *a* is true, jumps to *i*.
-- `8 nif (a i)`: If the value at *a* is false, jumps to *i*.
-- `9 any (a i)`: If the value at *a* is null, jumps to *i*, otherwise unboxes the value.
+- `7 jif (i a)`: If the value at *a* is true, jumps to *i*.
+- `8 nif (i a)`: If the value at *a* is false, jumps to *i*.
+- `9 any (i a)`: If the value at *a* is null, jumps to *i*, otherwise unboxes the value.
 
 # Metadata
 
