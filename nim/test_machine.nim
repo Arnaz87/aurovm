@@ -7,6 +7,7 @@ proc `==` (a: Value, b: Value): bool =
   of boolV: a.b == b.b
   of intV: a.i == b.i
   of productV: a.p == b.p
+  of functionV: a.f == b.f
 
 suite "Machine":
 

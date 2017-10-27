@@ -8,13 +8,14 @@ type
     tp: Type
     fields: seq[Value]
 
-  ValueKind* = enum nilV, boolV, intV, productV
+  ValueKind* = enum nilV, boolV, intV, productV, functionV
   Value* = object
     case kind*: ValueKind
     of nilV: discard
     of boolV: b*: bool
     of intV: i*: int
     of productV: p*: Product
+    of functionV: f*: Function
 
   FunctionKind* = enum procF, codeF
   Function* = ref object of RootObj
@@ -326,6 +327,37 @@ proc builtin_build* (t: Type): Function =
 
   let sig = Signature(ins: t.ts, outs: @[t])
   result = newFunction(name, sig, prc)
+  result.module = builtin_mod
+  builtin_mod[name] = result
+
+var bi_calls: seq[tuple[t: Type, f: Function]] = @[]
+proc builtin_call* (t: Type): Function =
+  for x in bi_calls:
+    if x.t == t:
+      return x.f
+  let name = t.name & ".apply"
+
+  let sig = t.sig
+
+  proc prc (ins: seq[Value]): seq[Value] =
+    let inlen = sig.ins.len + 1
+    if ins.len != inlen:
+      let msg = "Expected " & $inlen & " arguments"
+      raise newException(Exception, msg)
+
+    # Remove 1st argument and shift all others to the right
+    var args = newSeq[Value](sig.ins.len)
+    for i in 0 ..< args.len:
+      args[i] = ins[i+1]
+
+    let fun = ins[0].f
+    return run(fun, args)
+
+  var new_ins = @[t]
+  new_ins.add(sig.ins)
+
+  let nsig = Signature(ins: new_ins, outs: sig.outs)
+  result = newFunction(name, nsig, prc)
   result.module = builtin_mod
   builtin_mod[name] = result
 

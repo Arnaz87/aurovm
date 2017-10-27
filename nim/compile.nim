@@ -117,6 +117,16 @@ proc parseType (p: Parser): Type =
     result = Type(kind: kk, module: p.module, name: "<type>")
     p.type_promises.add(TypePromise(t: result, data: data))
     return result
+  of 6:
+    result  = Type(kind: functionT)
+    let sig = p.parseSignature()
+
+    var data = @[sig.in_types.len]
+    data.add(sig.in_types)
+    data.add(sig.out_types)
+
+    p.type_promises.add(TypePromise(t: result, data: data))
+    return result
   else:
     raise newException(UnsupportedError, "Unsupported type kind " & $k)
 
@@ -148,6 +158,19 @@ proc solvePromises (parser: Parser) =
     of aliasT, nullableT:
       t.t = parser.types[p.data[0]]
       str = " " & t.t.full_name
+    of functionT:
+      let inlen = p.data[0]
+
+      t.sig = machine.Signature(
+        ins:  newSeq[Type](0),
+        outs: newSeq[Type](0)
+      )
+
+      for i in 1 .. inlen:
+        t.sig.ins.add(parser.types[p.data[i] - 1])
+      for i in (inlen + 1) ..< p.data.len:
+        t.sig.outs.add(parser.types[p.data[i] - 1])
+
     else: raise newException(Exception, "???")
 
     t.name = "<" & $t.kind & str & ">"
@@ -194,6 +217,15 @@ proc parseFunction (p: Parser): FuncSig =
     let function = builtin_get(t, i)
     let sig = Signature(in_types: @[ti], out_types: @[0]) # !!
     return (function, sig)
+  of 10: # call
+    let ti = p.readInt;
+    let t = p.types[ti-1]
+
+    let function = builtin_call(t)
+    let in_ts = newSeq[int](t.sig.ins.len + 1)
+    let out_ts = newSeq[int](t.sig.outs.len)
+    let sig = Signature(in_types: in_ts, out_types: out_ts) # !!
+    return (function, sig)
   else:
     raise newException(UnsupportedError, "Unsuported function kind " & $k)
   #[
@@ -209,6 +241,10 @@ proc parseStatic (p: Parser): Value =
   case k
   of 2:
     return Value(kind: intV, i: p.readInt)
+  of 5:
+    let index = p.readInt-1
+    let f = p.functions[index].f
+    return Value(kind: functionV, f: f)
   else:
     raise newException(UnsupportedError, "Unsupported static kind " & $k)
   #[if k < 16:

@@ -78,6 +78,12 @@ suite "binary":
 suite "Full Tests":
 
   test "Simple add":
+    #[ Features
+      type/function import
+      function definition
+      function call
+      static ints
+    ]#
     let data = bin(
       "Cobre ~2", 0,
       1, $"cobre.prim", # Imports
@@ -109,6 +115,9 @@ suite "Full Tests":
     check(result == @[Value(kind: intV, i: 9)])
 
   test "Factorial":
+    #[ Features
+      recursive function call
+    ]#
     let data = bin(
       "Cobre ~2", 0,
       2, $"cobre.prim", $"cobre.core", # Imports
@@ -158,6 +167,13 @@ suite "Full Tests":
 
   test "Int Linked List":
 
+    #[ Features
+      Product type
+      Nullable type
+      Product field get function
+      Product value build function
+    ]#
+
     let data = bin(
       "Cobre ~2", 0,
       1, $"cobre.prim", # Imports
@@ -168,7 +184,7 @@ suite "Full Tests":
       5, # Functions
         2, # Defined Function, second
           1, 3, # 1 ins: type_2
-          1, 1, # 1 ins: int
+          1, 1, # 1 outs: int
         2, # Defined Function, main
           0, 1, 1,
         6, 2, 0, # Get type_1[0]
@@ -211,6 +227,11 @@ suite "Full Tests":
 
 
   test "Function Object":
+
+    #[ Features
+      Function objects
+      Function object application function
+    ]#
 
     let data = bin(
       "Cobre ~2", 0,
