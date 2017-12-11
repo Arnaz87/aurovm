@@ -1,0 +1,142 @@
+# Keywords
+
+Lista de posibles palabras claves, y en qué lenguajes importantes aparecen. Los lenguajes listados son C, Java(J), C++(+) y C#(#)
+
+<=: Todos lo usan
+
+asm       +
+abstract  J#
+as        #
+auto      C+
+assert    +
+base      #
+bool      +#
+boolean   J
+break     **** <=
+byte      J#
+case      **** <=
+catch     J+#
+char      **** <=
+checked   #
+class     J+#
+const     C+#
+continue  **** <=
+decimal   #
+default   **** <=
+delegate  #
+delete    +
+do        **** <=
+double    **** <=
+else      **** <=
+enum      **** <=
+event     #
+explicit  +#
+export    +
+extends   J
+extern    C+#
+false     J+#
+final     J
+finally   J#
+fixed     #
+float     **** <=
+for       **** <=
+foreach   #
+friend    +
+goto      C+#
+if        **** <=
+implements J
+implicit  #
+import    J
+in        #
+inline    C+
+int       **** <=
+interface J#
+internal  #
+is        #
+lock      #
+long      **** <=
+mutable   +
+namespace +#
+native    J
+new       J+#
+null      J#
+object    #
+operator  +#
+private   J+#
+package   J
+protected J+#
+public    J+#
+readonly  #
+ref       #
+register  C+
+return    **** <=
+sbyte     #
+sealed    #
+short     **** <=
+signed    C+
+sizeof    C+#
+static    **** <=
+string    #
+struct    C+#
+super     J
+switch    **** <=
+template  +
+this      J+#
+throw     J+#
+throws    J
+true      J+#
+transient J
+try       J+#
+typedef   C+
+typeid    +
+typename  +
+typeof    #
+uint      #
+ulong     #
+unchecked #
+union     C+
+unsafe    #
+unsigned  C+
+ushort    #
+using     +#
+var       #
+virtual   +#
+void      **** <=
+volatile  **** <=
+while     **** <=
+
+Keywords usados por todos:
+
+char
+double
+float
+int
+long
+short
+void
+
+switch
+case
+default
+
+if
+else
+do
+for
+while
+continue
+break
+
+enum
+static
+volatile
+     
+return
+
+# Keywords en Cu
+
+
+
+
+     
+

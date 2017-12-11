@@ -1,0 +1,179 @@
+
+## Java
+
+class Box <T> {
+  private T t;
+
+  public Box (T t) {
+    this.t = t;
+  }
+
+  public T get () {
+    return t;
+  }
+}
+
+## Cu
+
+__TYPE_PARAMS T;
+
+tuple tpl = { T t; }
+alias Box = tpl;
+Box new (T t) {
+  tpl tt = {t: t};
+  return tt as Box;
+}
+T get (Box this) {
+  tpl tt = this as tpl;
+  return tt.t;
+}
+export Box, new as Box_new, get;
+
+## Cu ~3
+
+params T
+
+import cobre.core ()
+type type = cobre.core.type
+
+import cobre.array (type) as type_array_mod
+type type_array = type_array_mod.array
+type_array build_arr (_ARRAY) = type_array_mod.build
+
+_ARRAY tsx = {T}
+type_array ts = build_arr(tsx)
+
+import cobre.product (ts) as p_mod
+type P = p_mod.product
+P builld_p (T) = p_mod.build
+T p_get (P) = p_mod.get_0
+
+import cobre.box (P) as box_mod
+type Box = box_mod.box
+Box buld_box (P) = box_mod.build
+P box_get (Box) = box_mod.get
+
+Box Box_new (T t) {
+  P p = builb_p(t)
+  return build_box(p)
+}
+
+T Box_get (Box b) {
+  P p = box_get(b)
+  return p_get(p)
+}
+
+export Box, Box_new, Box_get
+
+## Cu ~3 (Short)
+
+params T
+
+tuple tpl {T}
+T tpl_get tpl = _TUPLE_GET(tpl, 0)
+
+type Box = alias tpl;
+
+
+
+
+
+## Java
+
+class MaxBox <T implements Ord> {
+  private T t;
+
+  public MaxBox (T t) {
+    this.t = t;
+  }
+  
+  public T get () {
+    return t;
+  }
+
+  public set (T t) {
+    if (t > this.t) {
+      this.t = t;
+    }
+  }
+}
+
+## Cu
+
+__TYPE_PARAMS T;
+
+tuple tpl = { T t; }
+alias Box = tpl;
+Box new (T t) {
+  tpl tt = {t: t};
+  return tt as Box;
+}
+T get (Box this) {
+  tpl tt = this as tpl;
+  return tt.t;
+}
+export Box, new as Box_new, get;
+
+
+
+
+## Cu
+
+import cobre.int {
+  int add (int, int);
+}
+
+void main () {
+  int a = 3, b = 1;
+  int r = add(a, b);
+}
+
+## Cu ~3
+
+_coreM = import "cobre.core" null
+int = usetype _coreM "int"
+type = usetype _coreM "type"
+
+// No se usa
+_TarrayM = import "cobre.core" type
+_Tarray = usetype _TarrayM ""
+
+_int_array = array int int
+_int_int_Tpl = import "cobre.tuple" _int_array
+
+_intM = import "cobre.int"
+add = useop _intM "add" int _int_int_Tpl
+
+
+
+
+
+
+int factorial (int x) {
+  if (x == 0) return 1;
+  return x * factorial(x-1);
+}
+
+  .--.
+ v    \
+fact -´
+
+
+struct Parent {
+  Child child;
+}
+
+struct Child {
+  Parent parent;
+}
+
+    .-------v
+Parent    Child
+   ^-------´
+
+int a = b+1;
+int b = a+1;
+
+   .---v
+  a    b
+  ^---´
