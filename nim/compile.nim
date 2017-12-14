@@ -18,6 +18,15 @@ type
     t: Type
     data: seq[int]
 
+  ModulePromise = ref object of RootObj
+    module: Module
+    items: seq[ItemData]
+
+  ItemData = object of RootObj
+    name: string
+    index: int
+    k: int
+
   Parser = ref object of RootObj
     read_proc: proc(r: Parser): uint8
     pos: int
@@ -27,8 +36,10 @@ type
     functions: seq[FuncSig]
 
     type_promises: seq[TypePromise]
+    module_promises: seq[ModulePromise]
     
     module: Module
+    argument: Module
 
   SeqParser = ref object of Parser
     data: seq[uint8]
@@ -42,6 +53,7 @@ type
   CompileError* = object of Exception
   ItemNotFoundError* = object of CompileError
   UnsupportedError* = object of CompileError
+
 
 #=== Primitives ===#
 
@@ -73,22 +85,64 @@ proc readStr (parser: Parser): string =
 #=== Parsing ===#
 
 proc checkFormat (parser: Parser) =
-  var bytes = newSeq[uint8]()
+  var sig = ""
+  var printable = false
   while true:
     let b = parser.read
     if b == 0: break
-    bytes.add(b)
+    if b >= 0x20u8 and b <= 0x7Eu8:
+      printable = true
+      sig &= char(b)
+    else:
+      printable = false
+      break
 
-  var redd = newString(bytes.len)
-  for i in 0..bytes.high:
-    redd[i] = char(bytes[i])
-
-  if redd != "Cobre ~2":
-    raise newException(InvalidModuleError, "Expected signature \"Cobre ~2\"")
+  if not printable:
+    raise newException(InvalidModuleError, "Expected a printable ASCII signature")
+  elif sig != "Cobre ~4":
+    let msg = "Expected signature \"Cobre ~2\" but found \"" & sig & "\""
+    raise newException(InvalidModuleError, msg)
 
 proc parseSignature (p: Parser): Signature =
   result.in_types.buildSeq(p.readInt) do -> int: p.readInt
   result.out_types.buildSeq(p.readInt) do -> int: p.readInt
+
+proc parseItem (p: Parser): ItemData =
+  result.k = p.readInt
+  result.index = p.readInt-1
+  result.name = p.readStr
+  #[
+  case k
+  of 0: raise newException(UnsupportedError, "Module items are unsupported")
+  of 1:
+    result.kind = tItem
+    result.t = p.types[index]
+  of 2:
+    result.kind = fItem
+    result.f = p.functions[index].f
+    result.f.name = result.name
+  of 3: raise newException(UnsupportedError, "Value items are unsupported")
+  else:
+    raise newException(InvalidKindError, "Invalid item kind " & $k)
+  ]#
+
+proc parseModule (p: Parser): Module =
+  let k = p.readInt
+  case k
+  of 0: # Import
+    let name = p.readStr
+    result = find_module(name)
+    if result.isNil:
+      raise newException(ItemNotFoundError, "module " & name & " not found")
+  of 1, 2, 3:
+    raise newException(UnsupportedError, "Unsupported module kind " & $k)
+  of 4: # Define
+    result = Module(name: "<anonymous>", items: @[], statics: @[])
+    let promise = ModulePromise()
+    p.module_promises.add(promise)
+    promise.items.buildSeq(p.readInt) do -> ItemData: p.parseItem
+  else:
+    raise newException(InvalidKindError, "Invalid module kind " & $k)
 
 proc parseType (p: Parser): Type =
   let k = p.readInt
@@ -193,7 +247,7 @@ proc parseFunction (p: Parser): FuncSig =
   of 0: # null
     raise newException(NullKindError, "Null function")
   of 1: # import
-    let module = p.imports[p.readInt - 1]
+    let module = p.imports[p.readInt]
     let function = module.get_function(p.readStr)
     let sig = p.parseSignature
     return (function, sig)
@@ -261,21 +315,6 @@ proc parseStatic (p: Parser): Value =
     result.kind = nullS
     result.type_index = k-16]#
 
-proc parseExport (p: Parser): Item =
-  let k = p.readInt
-  let index = p.readInt-1
-  result.name = p.readStr
-  case k
-  of 1:
-    result.kind = tItem
-    result.t = p.types[index]
-  of 2:
-    result.kind = fItem
-    result.f = p.functions[index].f
-    result.f.name = result.name
-  else:
-    raise newException(UnsupportedError, "Unknown item kind " & $k)
-
 proc parseBlocks (p: Parser) =
 
   const instKinds = [
@@ -337,6 +376,18 @@ proc parseAll (p: Parser) =
   try:
     p.checkFormat
 
+    let modlen = p.readInt
+    p.imports = newSeq[Module](modlen+1)
+    p.imports[0] = p.argument
+    for i in 1 .. modlen:
+      p.imports[i] = p.parseModule
+
+    #p.imports.buildSeq(p.readInt) do -> Module: p.parseModule
+
+    p.types.buildSeq(p.readInt) do -> Type: p.parseType
+    p.functions.buildSeq(p.readInt) do -> FuncSig: p.parseFunction
+
+    #[
     p.imports.buildSeq(p.readInt) do -> Module:
       let name = p.readStr
       let m = find_module(name)
@@ -361,6 +412,7 @@ proc parseAll (p: Parser) =
     p.module.items.buildSeq(p.readInt) do -> Item: p.parseExport
 
     p.parseBlocks
+    ]#
   finally:
     when defined(test):
 
@@ -412,12 +464,14 @@ proc compile* (data: seq[uint8]): Module =
   parser.read_proc = read_proc
 
   parser.module = Module(name: "<main>", items: @[], statics: @[])
+  parser.argument = Module(name: "<argument>", items: @[], statics: @[])
 
   parser.imports = @[]
   parser.types = @[]
   parser.functions = @[]
 
   parser.type_promises = @[]
+  parser.module_promises = @[]
 
   parser.data = data
   parser.parseAll

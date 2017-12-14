@@ -1,291 +1,286 @@
 
-import machine
-import methods
+# Refactorizar: este archivo debería ser más pequeño.
 
-import modules
+## Parse binary data into an in-memory data structure.
 
-import sequtils
-import strutils
+#=== Types ===#
 
-type Prototype = object
-  ins: seq[int]
-  outs: seq[int]
+type
+  ItemKind = enum mItem, tItem, fItem, vItem
+  Item = object of RootObj
+    kind: ItemKind
+    name: string
+    index: int
 
-type CallPromise = object
-  rutine: Proc
-  inst: int
-  target: int
+  ModuleKind = enum mImport, mDefine, mImportF, mUse, mBuild
+  Module = object of RootObj
+    kind: ModuleKind
+    name: string
+    items: seq[Item]
+    module: int
+    argument: int
 
-type Parser = ref object of RootObj
-  file: File
-  modules: seq[Module]
-  types: seq[Type]
-  procs: seq[Proc]
-  prototypes: seq[Prototype]
+  Type = object of RootObj
+    module: int
+    name: string
 
-  call_promises: seq[CallPromise]
+  InstKind = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
+  Inst = object of RootObj
+    kind: InstKind
+    a: int
+    b: int
+    args: seq[int]
 
-  exports: tuple[
-    types: seq[tuple[i: int, nm: string]],
-    procs: seq[tuple[i: int, nm: string]]
-  ]
+  Function = object of RootObj
+    internal: bool
+    module: int
+    name: string
+    ins:  seq[int]
+    outs: seq[int]
+    code: seq[Inst]
 
-proc hexPosition(parser: Parser): string =
-  parser.file.getFilePos.toHex(4)
+  StaticKind = enum intStatic, binStatic, typeStatic, funStatic, nullStatic
+  Static = object of RootObj
+    kind: StaticKind
+    bytes: seq[uint8]
+    value: int
 
-proc buildSeq[T](n: int, prc: proc(): T): seq[T] =
-  result = newSeq[T](n)
-  for i in 0..result.high:
-    result[i] = prc()
+  Parser = ref object of RootObj
+    read_proc: proc(r: Parser): uint8
+    pos: int
 
-proc loop(n: int, prc: proc()) =
-  for i in 1..n: prc()
+    modules: seq[Module]
+
+    types: seq[Type]
+    functions: seq[Function]
+    statics: seq[Static]
+    static_code: seq[Inst]
+
+  ReadError* = object of Exception
+  InvalidModuleError* = object of ReadError
+  EndOfFileError* = object of ReadError
+  InvalidKindError* = object of ReadError
+  NullKindError* = object of ReadError
+
+  UnsupportedError* = object of Exception
+
 
 #=== Primitives ===#
 
-proc readByte (parser: Parser): uint8 =
-  let L = parser.file.readBuffer(result.addr, 1)
-  if L != 1: raise newException(IOError, "cannot read byte")
+proc buildSeq[T](sq: var seq[T], n: int, prc: proc(): T) =
+  sq = newSeq[T](n)
+  for i in 0 ..< n:
+    sq[i] = prc()
+
+proc read (p: Parser): uint8 =
+  result = p.read_proc(p)
+  p.pos += 1
 
 proc readInt (parser: Parser): int =
   var n = 0
-  var b = cast[int](parser.readByte)
+  var b = int(parser.read)
   while (b and 0x80) > 0:
     n = (n shl 7) or (b and 0x7f)
-    b = cast[int](parser.readByte)
+    b = int(parser.read)
   return (n shl 7) or (b and 0x7f)
 
 proc readStr (parser: Parser): string =
-  # No sé si el string nativo de nim es utf8
-  var length = cast[int](parser.readByte)
-  result = newString(length)
-  let L = parser.file.readBuffer(addr(result[0]), length)
-  if L != length: raise newException(IOError, "cannot read full string")
+  var bytes: seq[uint8]
+  bytes.buildSeq(parser.readInt) do -> uint8:
+    parser.read
+  result = newString(bytes.len)
+  for i in 0..bytes.high:
+    result[i] = char(bytes[i])
 
-proc readBytes (parser: Parser, size: int): seq[uint8] =
-  if size<0: raise newException(Exception, "Negative size")
-  if size==0: return @[]
-  result = newSeq[uint8](size)
-  let L = parser.file.readBuffer(addr(result[0]), size)
-  if L != size: raise newException(IOError, "cannot read full byte data")
+#=== Parsing ===#
 
-
-#=== Parsers ===#
-
-proc parseImports (parser: Parser) =
-  parser.modules = parser.readInt.buildSeq do () -> Module:
-    let modName = parser.readStr
-    let module = modules[modName]
-    if parser.readInt > 0:
-      raise newException(Exception, "Import parameters not implemented")
-    return module
-
-proc parseTypes (parser: Parser): seq[Type] =
-  result = @[]
-
-  let typeCount = parser.readInt
-
-  typeCount.loop do ():
-    let kind = parser.readInt
-    case kind
-    of 0: raise newException(Exception, "Null type kind")
-    of 1: raise newException(Exception, "Internal type kind not implemented")
-    of 2:
-      let modi = parser.readInt
-      let module = parser.modules[modi-1]
-      let name = parser.readStr
-      let tp = module.types[name]
-      parser.types.add(tp)
-    of 3: raise newException(Exception, "Use type kind not implemented")
-    else: raise newException(Exception, "Unknown type kind " & $kind)
-
-
-proc parseCode (parser: Parser, rut: Proc) = 
-  proc readVal (): int = parser.readInt - 1
-
-  let codeLength = parser.readInt
-
-  rut.labels = newSeq[int]()
-
-  # indice necesario para ilbl, en la parte "of 5:"
-  var i = -1
-  rut.code = codeLength.buildSeq do () -> Inst:
-    i.inc()
-    let v = parser.readInt
-    return case v
-      of 0: Inst(kind: iend)
-      of 1: Inst(kind: icpy, a: readVal(), b: readVal())
-      of 2: Inst(kind: icns, a: readVal(), b: readVal())
-      of 5:
-        rut.labels.add(i)
-        Inst(kind: ilbl, i: readVal())
-      of 6: Inst(kind: ijmp, i: readVal())
-      of 7: Inst(kind: ijif, i: readVal(), a: readVal())
-      of 8: Inst(kind: inif, i: readVal(), a: readVal())
-      else:
-        if v<16: raise newException(Exception, "Unknown instruction: " & $v)
-
-        let n = v-16
-        if n > parser.prototypes.high:
-          raise newException(Exception, "Rutine does not exists")
-
-        let proto = parser.prototypes[n]
-        let prc = if n > parser.procs.high: nil else: parser.procs[n]
-
-        let outlen = proto.outs.len
-        let outs = outlen.buildSeq do () -> int: readVal()
-
-        let inlen = proto.ins.len
-        let ins = inlen.buildSeq do () -> int: readVal()
-
-        if n > parser.procs.high:
-          parser.call_promises.add(CallPromise(
-            rutine: rut,
-            inst: i,
-            target: n
-          ))
-
-        Inst(kind: icall, prc: prc, outs: outs, ins: ins)
-
-proc parseRutines (parser: Parser): seq[Proc] =
-  result = @[]
-
-  let count = parser.readInt
-
-  parser.prototypes = count.buildSeq do () -> Prototype:
-    let ins  = parser.readInt.buildSeq do () -> int: parser.readInt-1
-    let outs = parser.readInt.buildSeq do () -> int: parser.readInt-1
-    Prototype(ins: ins, outs: outs)
-
-  for proto in parser.prototypes:
-    let kind = parser.readInt
-    case kind
-    of 0: raise newException(Exception, "Null type kind")
-    of 1:
-      var rutine = Proc()
-
-      rutine.name = parser.readStr
-
-      let regCount = parser.readInt
-
-      let indexes = proto.ins & proto.outs & (
-        regCount.buildSeq do -> int: parser.readInt-1
-      )
-
-      rutine.inregs = toSeq(0 .. proto.ins.high)
-      rutine.outregs = toSeq(proto.ins.len .. proto.ins.len+proto.outs.high)
-      rutine.regs = indexes.map do (x: int) -> Type: parser.types[x]
-
-      parser.parseCode(rutine)
-
-      result.add(rutine)
-      parser.procs.add(rutine)
-    of 2:
-      let modi = parser.readInt
-      let module = parser.modules[modi-1]
-      let name = parser.readStr
-      let rutine = module.procs[name]
-      parser.procs.add(rutine)
-    of 3: raise newException(Exception, "Use rutine kind not implemented")
-    else: raise newException(Exception, "Unknown rutine kind " & $kind)
-
-proc parseConstants (parser: Parser): seq[Value] =
-
-  let IntType = modules["cobre\x1fprim"].types["int"]
-  let StringType = modules["cobre\x1fstring"].types["string"]
-
-  let count = parser.readInt
-
-  result = @[]
-
-  while result.len < count:
-    let kind = parser.readInt
-    case kind
-    of 0:
-      result.add( Value(kind: nilType) )
-    of 1:
-      let size = parser.readInt
-      var data = parser.readBytes(size)
-      result.add( Value(kind: binType, data: data) )
-    else:
-      if kind < 16: raise newException(Exception, "Unknown constant kind " & $kind)
-      else:
-
-        let rutine = parser.procs[kind-16]
-
-        let inCount = case rutine.kind
-          of nativeProc: rutine.inCount
-          of codeProc: rutine.inregs.len
-
-        let outCount = case rutine.kind
-          of nativeProc: rutine.outCount
-          of codeProc: rutine.outregs.len
-
-        let constants = result
-        let args = inCount.buildSeq do -> Value:
-          let index = parser.readInt-1
-          if index > constants.high:
-            if index < count:
-              raise newException(Exception, "Constant lookahead not yet implemented")
-            else:
-              raise newException(Exception, "Constant does not exists")
-          return constants[index]
-
-        #echo "invoking " & $rutine & " with " & $args
-        let eval_result = invoke(rutine, args)
-
-        for result_value in eval_result:
-          result.add(eval_result)
-
-proc readMagic (parser: Parser) =
-  var bytes = newSeq[uint8]()
+proc checkFormat (parser: Parser) =
+  var sig = ""
+  var printable = false
   while true:
-    let b = parser.readByte
+    let b = parser.read
     if b == 0: break
-    bytes.add(b)
+    if b >= 0x20u8 and b <= 0x7Eu8:
+      printable = true
+      sig &= char(b)
+    else:
+      printable = false
+      break
 
-  var redd = ""
-  if bytes.len > 0:
-    var str = newString(bytes.len)
-    copyMem(addr(str[0]), addr(bytes[0]), bytes.len)
-    redd = str
+  if not printable:
+    raise newException(InvalidModuleError, "Expected a printable ASCII signature")
+  elif sig != "Cobre ~4":
+    let msg = "Expected signature \"Cobre ~4\" but found \"" & sig & "\""
+    raise newException(InvalidModuleError, msg)
 
-  if redd != "Cobre ~1":
-    raise newException(Exception, "Invalid magic number: " & redd)
+proc parseItem (p: Parser): Item =
+  result.kind = ItemKind(p.readInt)
+  result.index = p.readInt
+  result.name = p.readStr
+
+proc parseModule (p: Parser): Module =
+  let k = p.readInt
+  result.kind = ModuleKind(k)
+  case result.kind
+  of mImport, mImportF:
+    result.name = p.readStr
+  of mUse:
+    result.module = p.readInt
+    result.name = p.readStr
+  of mBuild:
+    result.module = p.readInt
+    result.argument = p.readInt
+  of mDefine:
+    result.items.buildSeq(p.readInt) do -> Item: p.parseItem
+  else:
+    raise newException(InvalidKindError, "Invalid module kind " & $k)
+
+proc parseType (p: Parser): Type =
+  let k = p.readInt
+  case k
+  of 0: raise newException(NullKindError, "Null type")
+  of 1:
+    result.module = p.readInt
+    result.name = p.readStr
+  else:
+    raise newException(InvalidKindError, "Invalid type kind " & $k)
+
+proc parseFunction (p: Parser): Function =
+  let k = p.readInt
+  case k
+  of 0: raise newException(NullKindError, "Null function")
+  of 1: # import
+    result.internal = false
+    result.module = p.readInt
+    result.name = p.readStr
+  of 2: # code
+    result.internal = true
+  else: raise newException(InvalidKindError, "Invalid function kind " & $k)
+
+  result.ins.buildSeq(p.readInt) do -> int: p.readInt
+  result.outs.buildSeq(p.readInt) do -> int: p.readInt
+
+proc parseStatic (p: Parser): Static =
+  let k = p.readInt
+  case k
+  of 0: raise newException(NullKindError, "Null static")
+  of 1: raise newException(UnsupportedError, "Unsupported import kind")
+  of 2:
+    result.kind = intStatic
+    result.value = p.readInt
+  of 3:
+    result.kind = binStatic
+    result.bytes.buildSeq(p.readInt) do -> uint8: p.read
+  of 4:
+    result.kind = typeStatic
+    result.value = p.readInt
+  of 5:
+    result.kind = funStatic
+    result.value = p.readInt
+  else:
+    if k < 16:
+      raise newException(InvalidKindError, "Invalid static kind " & $k)
+    result.kind = nullStatic
+    result.value = k-16
+
+proc parseCode (p: Parser, sq: var seq[Inst], out_count: int) =
+
+  const instKinds = [
+    endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI
+  ]
+
+  sq.buildSeq(p.readInt) do -> Inst:
+    let k = p.readInt
+    if k < instKinds.len:
+      result.kind = instKinds[k]
+      case result.kind
+      of varI, callI: discard
+      of dupI, sgtI, jmpI:
+        result.a = p.readInt
+      of setI, sstI, jifI, nifI, anyI:
+        result.a = p.readInt
+        result.b = p.readInt
+      of endI:
+        result.args.buildSeq(out_count) do -> int: p.readInt
+    elif k >= 16:
+      result.kind = callI
+      let index = k-16
+      result.a = index
+      let f = p.functions[index]
+      let arg_count = f.ins.len
+      result.args.buildSeq(arg_count) do -> int: p.readInt
+    else:
+      raise newException(InvalidKindError, "Unknown instruction " & $k)
 
 
-proc parseFile* (filename: string): Module =
-
-  var parser = Parser(
-    file: open(filename),
-    types: newSeq[Type](),
-    procs: newSeq[Proc](),
-    call_promises: @[]
-  )
-
-  result = Module(name: filename)
+proc parseAll (p: Parser) =
 
   try:
-    parser.readMagic()
+    p.checkFormat
 
-    parser.parseImports()
-    result.types = parser.parseTypes()
-    result.procs = parser.parseRutines()
+    p.modules.buildSeq(p.readInt) do -> Module: p.parseModule
+    p.types.buildSeq(p.readInt) do -> Type: p.parseType
+    p.functions.buildSeq(p.readInt) do -> Function: p.parseFunction
+    p.statics.buildSeq(p.readInt) do -> Static: p.parseStatic
 
-    for prc in result.procs:
-      prc.module = result
+    for i in 0 .. p.functions.high:
+      var f = p.functions[i]
+      if f.internal:
+        p.parseCode(p.functions[i].code, f.outs.len)
 
-    for promise in parser.call_promises:
-      promise.rutine.code[promise.inst].prc = parser.procs[promise.target]
+    p.static_code = @[]
+    p.parseCode(p.static_code, 0)
 
-    result.constants = parser.parseConstants()
+  finally:
+    when defined(test):
 
-  except Exception:
+      echo "Modules:"
+      for module in p.modules:
+        if module.items.isNil:
+          echo "  ", module
+        else:
+          echo "  ", module.items
 
-    let e = getCurrentException()
+      echo "Types:"
+      for tp in p.types:
+        echo "  ", tp
 
-    echo "Error de lectura, archivo \"" & filename & "\", byte " & parser.hexPosition
-    echo getCurrentExceptionMsg()
-    writeStackTrace()
+      echo "Functions:"
+      for f in p.functions:
+        if f.internal:
+          echo "  Internal"
+        elif not f.name.isNil:
+          echo "  module: " & $f.module & ", name: " & f.name
+        else:
+          echo "  <incomplete>"
+          
+        echo "    ins: ", f.ins
+        echo "    outs: ", f.outs
+        if f.internal:
+          echo "    code: ", f.code.len
+          for inst in f.code:
+            echo "      ", inst
 
-    quit(QuitFailure)
+      echo "Statics:"
+      for st in p.statics:
+        echo "  ", st
+
+      echo "Static Code: "
+      for inst in p.static_code:
+        echo "  ", inst
+
+#=== Interface ===#
+
+proc compile* (data: seq[uint8]): Parser =
+  proc read_proc (p: Parser): uint8 =
+    if p.pos > data.high:
+      raise newException(EndOfFileError, "Unexpected end of file")
+    result = data[p.pos]
+
+  var parser = Parser(
+    pos: 0,
+    read_proc: read_proc,
+  )
+
+  parser.parseAll
+  parser

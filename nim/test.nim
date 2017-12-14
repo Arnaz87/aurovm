@@ -1,5 +1,7 @@
 import machine
-import compile
+#import compile
+
+import read
 
 import unittest
 import macros
@@ -84,67 +86,70 @@ suite "Full Tests":
       function call
       static ints
     ]#
-    let data = bin(
-      "Cobre ~2", 0,
-      1, $"cobre.prim", # Imports
+    let code = bin(
+      "Cobre ~4", 0,
+      2, # Modules
+        # module #0 is the argument
+        1, 1, #1 Define (exports)
+          2, 2, $"myadd",
+        0, $"cobre.prim", #2 Import
       1, # Types
-        1, 0, $"int",
+        1, 2, $"int", #0 import "int" from module 2
       2, # Functions
-        1, 1, $"add",
+        1, 2, $"add", #0 import "add" from module 2
           2, 0, 0, 1, 0,
-        2, # Defined Function
+        2, #1 Defined Function (myadd)
           0, # 0 ins
-          1, 1, # 1 ins: int
+          1, 0, # 1 outs: int
       2, # Statics
-        2, $4, # int 4
-        2, $5,
-      1, # Exports
-        2, 2, $"myadd",
-      4, # Block for #2
-        4, 1, #0 = const_0 (4)
-        4, 2, #1 = const_1 (5)
+        2, $4, #0 int 4
+        2, $5, #1 int 5
+      4, # Block for #1 (myadd)
+        4, 0, #0 = const_0 (4)
+        4, 1, #1 = const_1 (5)
         (16 + 0), 1, 2, #2 c = add(#1, #2)
         0, 3, #return #2
       0, # Static Block
     )
 
-    let compiled = compile(data)
-    let function = compiled.get_function("myadd")
+    let redd = compile(code)
+    #let function = compiled.get_function("myadd")
 
-    let result = function.run(@[])
-    check(result == @[Value(kind: intV, i: 9)])
+    #let result = function.run(@[])
+    #check(result == @[Value(kind: intV, i: 9)])
 
   test "Factorial":
     #[ Features
       recursive function call
     ]#
     let data = bin(
-      "Cobre ~2", 0,
-      2, $"cobre.prim", $"cobre.core", # Imports
+      "Cobre ~4", 0,
+      3,
+        #0 is the argument module
+        1, 1, #1 Define (exports)
+          2, 2, $"factorial",
+        0, $"cobre.prim", #2 Import cobre.prim
+        0, $"cobre.core", #3 import cobre.core
       2, # Types
         1, 0, $"int",
         1, 1, $"bool",
       5, # Functions
-        # import module[0].add
-        1, 1, $"add",
+        1, 1, $"add", #0 import module[0].add
           2, 0, 0, # 2 ins: int int
           1, 0, # 1 outs: int
-        2, # Defined Function
-          1, 1, # 1 ins: int
-          1, 1, # 1 outs: int
-        1, 1, $"gt",
+        2, #1 Defined Function (factorial)
+          1, 0, # 1 ins: int
+          1, 0, # 1 outs: int
+        1, 1, $"gt", #2
           2, 0, 0, # 2 ins: int int
           1, 1, # 1 outs: bool
-        1, 1, $"dec",
+        1, 1, $"dec", #3
           1, 0, 1, 0,
-        1, 1, $"mul",
+        1, 1, $"mul", #4
           2, 0, 0, 1, 0,
       2, # Statics
         2, $0, # int 0
         2, $1, # int 1
-      1, # Exports
-        # function 2 as factorial
-        2, 2, $"factorial",
       9, # Block for #2
         #0 = ins[0]
         4, 1, #1 = const_0 (0)
@@ -160,10 +165,10 @@ suite "Full Tests":
     )
 
     let compiled = compile(data)
-    let function = compiled.get_function("factorial")
+    #let function = compiled.get_function("factorial")
 
-    let result = function.run(@[Value(kind: intV, i: 5)])
-    check(result == @[Value(kind: intV, i: 120)])
+    #let result = function.run(@[Value(kind: intV, i: 5)])
+    #check(result == @[Value(kind: intV, i: 120)])
 
   test "Int Linked List":
 
@@ -175,28 +180,48 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre ~2", 0,
-      1, $"cobre.prim", # Imports
+      "Cobre ~4", 0,
+      8,
+        #0 is the argument module
+        1, 1, #1 Define (exports)
+          2, 2, $"main",
+        0, $"cobre.prim", #2 Import
+
+        1, 2, #3 Define (arguments for cobre.tuple)
+          1, 0, $"0", # type_0 (int)
+          1, 2, $"1", # type_2 (nullable tuple)
+        2, $"cobre.tuple", #4 Import functor
+        4, 4, 3, #5 Build cobre.tuple
+
+        1, 1, #6 Define(arguments for cobre.null)
+          1, 2, $"0", # type_1 (tuple)
+        2, $"cobre.null", #7 Import functor
+        4, 7, 6, #8 Build cobre.null
       3, # Types
-        1, 0, $"int",
-        4, 2, 1, 3, # Product(type_0, type_2)
-        3, 2, # Nullable(type_1)
+        1, 0, $"int", #0
+        1, 5, $"", #1 tuple(int, #2)
+        1, 8, $"", #2 nullable(#1)
       5, # Functions
         2, # Defined Function, second
-          1, 3, # 1 ins: type_2
-          1, 1, # 1 outs: int
+          1, 2, # 1 ins: type_2
+          1, 0, # 1 outs: int
         2, # Defined Function, main
-          0, 1, 1,
-        6, 2, 0, # Get type_1[0]
-        6, 2, 1, # Get type_1[1]
-        5, 2, # Build type_1 (int, type_2)
+          0,
+          1, 1,
+        1, 5, $"get0",
+          1, 1,
+          1, 0,
+        1, 5, $"get1",
+          1, 1,
+          1, 2,
+        1, 5, $"new",
+          2, 0, 2,
+          1, 1,
       4, # Statics
         2, $4, # int 4
         2, $5, # int 5
         2, $6, # int 6
         2, $0,
-      1, # Exports
-        2, 2, $"main",
       7, # Block for #0 (second)
         #0 = arg_0
         9, 5, 1, #1 = #0 or goto 5
@@ -220,10 +245,10 @@ suite "Full Tests":
     )
 
     let compiled = compile(data)
-    let function = compiled.get_function("main")
+    #let function = compiled.get_function("main")
 
-    let result = function.run(@[])
-    check(result == @[Value(kind: intV, i: 5)])
+    #let result = function.run(@[])
+    #check(result == @[Value(kind: intV, i: 5)])
 
 
   test "Function Object":
@@ -234,23 +259,33 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre ~2", 0,
-      1, $"cobre.prim", # Imports
+      "Cobre ~4", 0,
+      5,
+        #0 is the argument module
+        1, 1, #1 Define (exports)
+          2, 5, $"main",
+        0, $"cobre.prim", #2
+
+        2, $"cobre.function", #3 Import functor
+        1, 2, #4 Define (argument)
+          1, 0, $"in0",
+          1, 0, $"out0",
+        4, 3, 4, #5 Build cobre.function with #4 (int -> int)
       2, # Types
-        1, 0, $"int", # import cobre.prim.int
-        6, # function
-          1, 1, # 1 in:  int
-          1, 1, # 1 out: int
+        1, 0, $"int", #0 import cobre.prim.int
+        1, 5, $"", #1 type of function(int -> int)
       5, # Functions
         1, 1, $"add",
           2, 0, 0, 1, 0,
         2, # Defined Function 1, add4
-          1, 1, # 1 ins: int
-          1, 1, # 1 out: int
+          1, 0, # 1 ins: int
+          1, 0, # 1 out: int
         2, # Defined Function 2, apply5
-          1, 2, # 1 in:  int(int)
-          1, 1, # 1 out: int
-        10, 2, # Apply type_1 ( int(int) )
+          1, 1, # 1 in:  (int -> int)
+          1, 0, # 1 out: int
+        1, 5, $"apply", # Apply to ( int -> int )
+          2, 1, 0, # 2 ins: (int->int) int
+          1, 0, # 1 out: int
         2, # Defined Function 4, main
           0, # 0 ins
           1, 1, # 1 outs: int
@@ -258,8 +293,6 @@ suite "Full Tests":
         2, $4, # int 4
         2, $5, # int 5
         5, 2, # function_1 (add4)
-      1, # Exports
-        2, 5, $"main",
       3, # Block for #1 (add4)
         #0 = arg_0
         4, 1, #1 = const_0 (4)
@@ -278,7 +311,7 @@ suite "Full Tests":
     )
 
     let compiled = compile(data)
-    let function = compiled.get_function("main")
+    #let function = compiled.get_function("main")
 
-    let result = function.run(@[])
-    check(result == @[Value(kind: intV, i: 9)])
+    #let result = function.run(@[])
+    #check(result == @[Value(kind: intV, i: 9)])
