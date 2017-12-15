@@ -274,92 +274,14 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         errline("  " & $i & ": " & $reg)
     raise e
 
-# Builtins
-
-var builtin_mod = newModule(name = "cobre.builtin")
-
-var bi_gets: seq[tuple[t: Type, f: Function]] = @[]
-proc builtin_get* (t: Type, index: int): Function =
-  for x in bi_gets:
-    if x.t == t:
-      return x.f
-  let name = t.name & ".get"
-  proc prc (ins: seq[Value]): seq[Value] =
-    let v = ins[0]
-    case v.kind
-    of productV:
-      let field = v.p.fields[index]
-      return @[field]
-    else:
-      let msg = "Runtime type mismatch, expected product type " & t.fullName
-      raise newException(Exception, msg)
-
-  let sig = Signature(ins: @[t], outs: @[t.ts[index]])
-  result = newFunction(name, sig, prc)
-  result.module = builtin_mod
-  builtin_mod[name] = result
-
-var bi_builds: seq[tuple[t: Type, f: Function]] = @[]
-proc builtin_build* (t: Type): Function =
-  for x in bi_builds:
-    if x.t == t:
-      return x.f
-  let name = t.name & ".build"
-
-  let types = t.ts
-  proc prc (ins: seq[Value]): seq[Value] =
-
-    if ins.len != types.len:
-      let msg = "Expected " & $types.len & " arguments"
-      raise newException(Exception, msg)
-
-    var vs = newSeq[Value](types.len)
-    for i in 0..<types.len:
-      vs[i] = ins[i]
-
-    return @[Value(
-      kind: productV,
-      p: Product(
-        tp: t,
-        fields: vs
-      )
-    )]
-
-  let sig = Signature(ins: t.ts, outs: @[t])
-  result = newFunction(name, sig, prc)
-  result.module = builtin_mod
-  builtin_mod[name] = result
-
-var bi_calls: seq[tuple[t: Type, f: Function]] = @[]
-proc builtin_call* (t: Type): Function =
-  for x in bi_calls:
-    if x.t == t:
-      return x.f
-  let name = t.name & ".apply"
-
-  let sig = t.sig
-
-  proc prc (ins: seq[Value]): seq[Value] =
-    let inlen = sig.ins.len + 1
-    if ins.len != inlen:
-      let msg = "Expected " & $inlen & " arguments"
-      raise newException(Exception, msg)
-
-    # Remove 1st argument and shift all others to the right
-    var args = newSeq[Value](sig.ins.len)
-    for i in 0 ..< args.len:
-      args[i] = ins[i+1]
-
-    let fun = ins[0].f
-    return run(fun, args)
-
-  var new_ins = @[t]
-  new_ins.add(sig.ins)
-
-  let nsig = Signature(ins: new_ins, outs: sig.outs)
-  result = newFunction(name, nsig, prc)
-  result.module = builtin_mod
-  builtin_mod[name] = result
+proc `==`* (a: Value, b: Value): bool =
+  if a.kind != b.kind: return false
+  return case a.kind
+  of nilV: true
+  of boolV: a.b == b.b
+  of intV: a.i == b.i
+  of productV: a.p == b.p
+  of functionV: a.f == b.f
 
 when defined(test):
   include test_machine

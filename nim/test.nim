@@ -1,7 +1,7 @@
 import machine
-#import compile
 
-import read
+import parse
+import compile
 
 import unittest
 import macros
@@ -91,7 +91,7 @@ suite "Full Tests":
       2, # Modules
         # module #0 is the argument
         1, 1, #1 Define (exports)
-          2, 2, $"myadd",
+          2, 1, $"myadd",
         0, $"cobre.prim", #2 Import
       1, # Types
         1, 2, $"int", #0 import "int" from module 2
@@ -107,16 +107,17 @@ suite "Full Tests":
       4, # Block for #1 (myadd)
         4, 0, #0 = const_0 (4)
         4, 1, #1 = const_1 (5)
-        (16 + 0), 1, 2, #2 c = add(#1, #2)
-        0, 3, #return #2
+        (16 + 0), 0, 1, #2 c = add(#0, #1)
+        0, 2, #return #2
       0, # Static Block
     )
 
-    let redd = compile(code)
-    #let function = compiled.get_function("myadd")
+    let parsed = parseData(code)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("myadd")
 
-    #let result = function.run(@[])
-    #check(result == @[Value(kind: intV, i: 9)])
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 9)])
 
   test "Factorial":
     #[ Features
@@ -127,48 +128,48 @@ suite "Full Tests":
       3,
         #0 is the argument module
         1, 1, #1 Define (exports)
-          2, 2, $"factorial",
+          2, 1, $"factorial",
         0, $"cobre.prim", #2 Import cobre.prim
         0, $"cobre.core", #3 import cobre.core
       2, # Types
-        1, 0, $"int",
-        1, 1, $"bool",
+        1, 2, $"int",
+        1, 3, $"bool",
       5, # Functions
-        1, 1, $"add", #0 import module[0].add
+        1, 2, $"add", #0 import module[0].add
           2, 0, 0, # 2 ins: int int
           1, 0, # 1 outs: int
         2, #1 Defined Function (factorial)
           1, 0, # 1 ins: int
           1, 0, # 1 outs: int
-        1, 1, $"gt", #2
+        1, 2, $"gt", #2
           2, 0, 0, # 2 ins: int int
           1, 1, # 1 outs: bool
-        1, 1, $"dec", #3
+        1, 2, $"dec", #3
           1, 0, 1, 0,
-        1, 1, $"mul", #4
+        1, 2, $"mul", #4
           2, 0, 0, 1, 0,
       2, # Statics
         2, $0, # int 0
         2, $1, # int 1
       9, # Block for #2
         #0 = ins[0]
-        4, 1, #1 = const_0 (0)
-        4, 2, #2 = const_1 (1)
-        (16 + 2), 1, 2, #3 = gt(#0, #1)
-        7, 5, 4, # goto 5 if #3
-        0, 3, # return #2 (1)
-        (16 + 3), 1, #4 = dec(#0)
-        (16 + 1), 5, #5 = factorial(#4)
-        (16 + 4), 1, 6, #6 = #0 * #5
-        0, 7, # return #6
+        4, 0, #1 = const_0 (0)
+        4, 1, #2 = const_1 (1)
+        (16 + 2), 0, 1, #3 = gt(#0, #1)
+        7, 5, 3, # goto 5 if #3
+        0, 2, # return #2 (1)
+        (16 + 3), 0, #4 = dec(#0)
+        (16 + 1), 4, #5 = factorial(#4)
+        (16 + 4), 0, 5, #6 = #0 * #5
+        0, 6, # return #6
       0, # Static Block
     )
 
-    let compiled = compile(data)
-    #let function = compiled.get_function("factorial")
-
-    #let result = function.run(@[Value(kind: intV, i: 5)])
-    #check(result == @[Value(kind: intV, i: 120)])
+    let parsed = parseData(data)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("factorial")
+    let result = function.run(@[Value(kind: intV, i: 5)])
+    check(result == @[Value(kind: intV, i: 120)])
 
   test "Int Linked List":
 
@@ -184,7 +185,7 @@ suite "Full Tests":
       8,
         #0 is the argument module
         1, 1, #1 Define (exports)
-          2, 2, $"main",
+          2, 1, $"main",
         0, $"cobre.prim", #2 Import
 
         1, 2, #3 Define (arguments for cobre.tuple)
@@ -198,14 +199,14 @@ suite "Full Tests":
         2, $"cobre.null", #7 Import functor
         4, 7, 6, #8 Build cobre.null
       3, # Types
-        1, 0, $"int", #0
+        1, 2, $"int", #0
         1, 5, $"", #1 tuple(int, #2)
         1, 8, $"", #2 nullable(#1)
       5, # Functions
-        2, # Defined Function, second
+        2, #0 Defined Function (second)
           1, 2, # 1 ins: type_2
           1, 0, # 1 outs: int
-        2, # Defined Function, main
+        2, #1 Defined Function (main)
           0,
           1, 1,
         1, 5, $"get0",
@@ -244,11 +245,12 @@ suite "Full Tests":
       0, # Static Block
     )
 
-    let compiled = compile(data)
-    #let function = compiled.get_function("main")
+    let parsed = parseData(data)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("main")
 
-    #let result = function.run(@[])
-    #check(result == @[Value(kind: intV, i: 5)])
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 5)])
 
 
   test "Function Object":
@@ -310,7 +312,8 @@ suite "Full Tests":
       0, # Static Block
     )
 
-    let compiled = compile(data)
+    let parsed = parseData(data)
+    #let compiled = compile(parsed)
     #let function = compiled.get_function("main")
 
     #let result = function.run(@[])

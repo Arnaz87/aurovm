@@ -1,14 +1,5 @@
 import unittest
 
-proc `==` (a: Value, b: Value): bool =
-  if a.kind != b.kind: return false
-  return case a.kind
-  of nilV: true
-  of boolV: a.b == b.b
-  of intV: a.i == b.i
-  of productV: a.p == b.p
-  of functionV: a.f == b.f
-
 suite "Machine":
 
   proc addf (ins: seq[Value]): seq[Value] =

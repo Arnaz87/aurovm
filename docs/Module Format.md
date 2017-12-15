@@ -176,6 +176,12 @@ The metadata is structured like s-expressions with a custom binary encoding. Eac
 
 # Core modules
 
-Module `cobre.type` has operations to build types. Built types are aliases to other types but expanded with certain characteristics, like interfaces, which are functions bound to the types, and casts, which allow to convert types to other types at runtime.
+Module `cobre.type` has operations to build types. Built types are aliases to another types but expanded with certain characteristics, like interfaces, which are functions bound to the types, and casts, which allow to convert types to other types at runtime.
 
 Module `cobre.module` has tools to create and manipulate modules at runtime, which allow module files to compute modules at load time by setting their module #1 to a constructed module.
+
+# Type shells
+
+To build a functor, the implementation needs all the items in the argument that will be used defined, so a type (java syntax) `B<A>` cannot be created until `A` is completed, and recursive types like `B<B>` cannot be created, in most cases it doesn't make sense. Shell types however can be recursed, as a shell type internally is defined in a module that takes type arguments, but the type exported by the module doesn't depend on any of it's arguments and it's always different, only the functions on the shell type depend on the arguments.
+
+Type shells are constructed in the module `cobre.type`. 

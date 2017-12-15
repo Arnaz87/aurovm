@@ -1,60 +1,62 @@
 
-# Refactorizar: este archivo debería ser más pequeño.
-
 ## Parse binary data into an in-memory data structure.
+
+from machine import InstKind
+
+## Wether to print the resulting module after parsing
+const print_parsed = false
 
 #=== Types ===#
 
 type
-  ItemKind = enum mItem, tItem, fItem, vItem
-  Item = object of RootObj
-    kind: ItemKind
-    name: string
-    index: int
+  ItemKind* = enum mItem, tItem, fItem, vItem
+  Item* = object of RootObj
+    kind*: ItemKind
+    name*: string
+    index*: int
 
-  ModuleKind = enum mImport, mDefine, mImportF, mUse, mBuild
-  Module = object of RootObj
-    kind: ModuleKind
-    name: string
-    items: seq[Item]
-    module: int
-    argument: int
+  ModuleKind* = enum mImport, mDefine, mImportF, mUse, mBuild
+  Module* = object of RootObj
+    kind*: ModuleKind
+    name*: string
+    items*: seq[Item]
+    module*: int
+    argument*: int
 
-  Type = object of RootObj
-    module: int
-    name: string
+  Type* = object of RootObj
+    module*: int
+    name*: string
 
-  InstKind = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
-  Inst = object of RootObj
-    kind: InstKind
-    a: int
-    b: int
-    args: seq[int]
+  #InstKind* = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
+  Inst* = object of RootObj
+    kind*: InstKind
+    a*: int
+    b*: int
+    args*: seq[int]
 
-  Function = object of RootObj
-    internal: bool
-    module: int
-    name: string
-    ins:  seq[int]
-    outs: seq[int]
-    code: seq[Inst]
+  Function* = object of RootObj
+    internal*: bool
+    module*: int
+    name*: string
+    ins*:  seq[int]
+    outs*: seq[int]
+    code*: seq[Inst]
 
-  StaticKind = enum intStatic, binStatic, typeStatic, funStatic, nullStatic
-  Static = object of RootObj
-    kind: StaticKind
-    bytes: seq[uint8]
-    value: int
+  StaticKind* = enum intStatic, binStatic, typeStatic, funStatic, nullStatic
+  Static* = object of RootObj
+    kind*: StaticKind
+    bytes*: seq[uint8]
+    value*: int
 
-  Parser = ref object of RootObj
-    read_proc: proc(r: Parser): uint8
+  Parser* = ref object of RootObj
+    read_proc: proc(): uint8
     pos: int
 
-    modules: seq[Module]
-
-    types: seq[Type]
-    functions: seq[Function]
-    statics: seq[Static]
-    static_code: seq[Inst]
+    modules*: seq[Module]
+    types*: seq[Type]
+    functions*: seq[Function]
+    statics*: seq[Static]
+    static_code*: seq[Inst]
 
   ReadError* = object of Exception
   InvalidModuleError* = object of ReadError
@@ -73,7 +75,7 @@ proc buildSeq[T](sq: var seq[T], n: int, prc: proc(): T) =
     sq[i] = prc()
 
 proc read (p: Parser): uint8 =
-  result = p.read_proc(p)
+  result = p.read_proc()
   p.pos += 1
 
 proc readInt (parser: Parser): int =
@@ -164,7 +166,7 @@ proc parseStatic (p: Parser): Static =
   let k = p.readInt
   case k
   of 0: raise newException(NullKindError, "Null static")
-  of 1: raise newException(UnsupportedError, "Unsupported import kind")
+  of 1: raise newException(UnsupportedError, "Unsupported import static kind")
   of 2:
     result.kind = intStatic
     result.value = p.readInt
@@ -213,7 +215,13 @@ proc parseCode (p: Parser, sq: var seq[Inst], out_count: int) =
       raise newException(InvalidKindError, "Unknown instruction " & $k)
 
 
-proc parseAll (p: Parser) =
+proc parse* (read_proc: proc(): uint8): Parser =
+
+  var p = Parser(
+    pos: 0,
+    read_proc: read_proc,
+  )
+  result = p
 
   try:
     p.checkFormat
@@ -232,7 +240,7 @@ proc parseAll (p: Parser) =
     p.parseCode(p.static_code, 0)
 
   finally:
-    when defined(test):
+    when defined(test) and print_parsed:
 
       echo "Modules:"
       for module in p.modules:
@@ -253,7 +261,7 @@ proc parseAll (p: Parser) =
           echo "  module: " & $f.module & ", name: " & f.name
         else:
           echo "  <incomplete>"
-          
+
         echo "    ins: ", f.ins
         echo "    outs: ", f.outs
         if f.internal:
@@ -271,16 +279,12 @@ proc parseAll (p: Parser) =
 
 #=== Interface ===#
 
-proc compile* (data: seq[uint8]): Parser =
-  proc read_proc (p: Parser): uint8 =
-    if p.pos > data.high:
+proc parseData* (data: seq[uint8]): Parser =
+  var pos: int = 0
+  proc read_proc (): uint8 =
+    if pos > data.high:
       raise newException(EndOfFileError, "Unexpected end of file")
-    result = data[p.pos]
+    result = data[pos]
+    pos = pos+1
 
-  var parser = Parser(
-    pos: 0,
-    read_proc: read_proc,
-  )
-
-  parser.parseAll
-  parser
+  parse(read_proc)
