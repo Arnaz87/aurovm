@@ -5,8 +5,8 @@ type
     outs*: seq[Type]
 
   Product* = ref object of RootObj
-    tp: Type
-    fields: seq[Value]
+    tp*: Type
+    fields*: seq[Value]
 
   ValueKind* = enum nilV, boolV, intV, productV, functionV
   Value* = object
@@ -19,7 +19,6 @@ type
 
   FunctionKind* = enum procF, codeF
   Function* = ref object of RootObj
-    module*: Module
     name*: string
     sig*: Signature
     case kind*: FunctionKind
@@ -28,6 +27,7 @@ type
     of codeF:
       code*: seq[Inst]
       regcount*: int
+      statics*: seq[Value]
 
   InstKind* = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
   Inst* = object
@@ -62,17 +62,22 @@ type
     of functionT:
       sig*: Signature
 
-  ItemKind* = enum fItem, tItem
+  ItemKind* = enum noItem, fItem, tItem
   Item* = object
     name*: string
     case kind*: ItemKind
     of fItem: f*: Function
     of tItem: t*: Type
+    of noItem: discard
 
+  ModuleKind* = enum functorM, simpleM
   Module* = ref object
     name*: string
-    items*: seq[Item]
-    statics*: seq[Value]
+    case kind*: ModuleKind
+    of simpleM:
+      items*: seq[Item]
+    of functorM:
+      fn*: proc(arg: Module): Module
 
   RuntimeError* = object of Exception
   StackOverflowError* = object of RuntimeError
@@ -80,18 +85,16 @@ type
 
 var machine_modules* = newSeq[Module]()
 
-proc fullName* (f: Function): string = f.module.name & "." & f.name
-proc fullName* (t: Type): string =
-  t.module.name & "." & ( if t.name.isNil: "<type>" else: t.name )
-
 proc `$`* (i: Item): string =
+  if i.kind == noItem: return "NoItem"
   $i.kind & "(" & i.name & ", " & (case i.kind
     of fItem: $i.f[]
     of tItem: $i.t[]
+    else: ""
   ) & ")"
 proc `$`* (m: Module): string =
   if m.isNil: return "nil"
-  else: result = "Module(" & m.name & ", " & $m.items & ", " & $m.statics & ")"
+  else: result = "Module(" & m.name & ", " & $m.items & ")"
 proc `$`* (t: Type): string =
   if t.isNil: return "nil"
   result = "Type_" & $t.kind & "("
@@ -99,21 +102,23 @@ proc `$`* (t: Type): string =
   of nativeT:
     result &= t.name
   of aliasT, nullableT:
-    result &= t.t.fullName
+    result &= t.t.name
   of productT, sumT:
     if t.ts.len > 0:
-      result &= t.ts[0].fullName
+      result &= t.ts[0].name
       for i in 1 .. t.ts.high:
-        result &= " " & t.ts[i].fullName
+        result &= " " & t.ts[i].name
   of functionT:
     for i in 0 .. t.sig.ins.high:
-      result &= t.sig.ins[i].fullName & " "
+      result &= t.sig.ins[i].name & " "
     result &= "->"
     for i in 0 .. t.sig.outs.high:
-      result &= " " & t.sig.outs[i].fullName
+      result &= " " & t.sig.outs[i].name
   result &= ")"
 
 proc nilGet (m: Module, k: string): tuple[fail: bool, item: Item] =
+  if m.kind != simpleM:
+    return (true, Item())
   for item in m.items:
     if item.name == k:
       return (false, item)
@@ -138,24 +143,26 @@ proc get_type* (m: Module, k: string): Type =
 proc hasKey* (m: Module, k: string): bool =
   let (fail, _) = m.nilGet(k)
   return not fail
+proc `[]`* (m: Module, k: string): Item =
+  let (fail, item) = m.nilGet k
+  if fail: return Item(kind: noItem)
+  else:    return item
 
 proc newModule* (
   name: string,
   types: seq[(string, Type)] = @[],
   funcs: seq[(string, Function)] = @[],
   ): Module =
-  result = Module(name: name, items: @[], statics: @[])
+  result = Module(kind: simpleM, name: name, items: @[])
   for tpl in types:
     let (nm, tp) = tpl
     if tp.name.isNil:
       tp.name = nm
-    tp.module = result
     result[nm] = tp
   for tpl in funcs:
     let (nm, f) = tpl
     if f.name.isNil:
       f.name = nm
-    f.module = result
     result[nm] = f
   machine_modules.add(result)
 
@@ -177,11 +184,12 @@ proc newFunction* (
 proc makeCode* (
   f: Function,
   code: seq[Inst],
-  module: Module,
+  statics: seq[Value],
   regcount: int) =
   f.kind = codeF
   f.code = code
-  f.module = module
+  f.statics = statics
+  shallow(f.statics) # So that functions can change it
   f.regcount = regcount
 
 proc run* (fn: Function, ins: seq[Value]): seq[Value] =
@@ -217,8 +225,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       case inst.kind
       of varI: discard # noop
       of setI, dupI: st.regs[inst.dest] = st.regs[inst.src]
-      of sgtI: st.regs[inst.dest] = st.f.module.statics[inst.src]
-      of sstI: st.f.module.statics[inst.dest] = st.regs[inst.src]
+      of sgtI: st.regs[inst.dest] = st.f.statics[inst.src]
+      of sstI: st.f.statics[inst.dest] = st.regs[inst.src]
       of jmpI: st.pc = inst.inst
       of jifI:
         if st.regs[inst.src].b:

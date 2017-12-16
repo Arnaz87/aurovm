@@ -16,10 +16,11 @@ suite "Machine":
   let dec = newFunction(name = "dec", prc = decf)
   let gtz = newFunction(name = "gtz", prc = gtzf)
 
-  var emptyModule = Module(
-    name: "test",
-    statics: newSeq[Value](0)
-  )
+  var emptyModule = Module( name: "test" )
+
+  var emptyStatics = newSeq[Value](0)
+  # This makes nim not deep copy this sequence on assignment or argument passing
+  shallow(emptyStatics)
 
   test "Basics":
     var myfunc = Function(name: "myfunc")
@@ -29,7 +30,7 @@ suite "Machine":
         Inst(kind: callI, f: add, args: @[1, 2], ret: 3),
         Inst(kind: endI, args: @[3]),
       ],
-      module = emptyModule,
+      statics = emptyStatics,
       regcount = 4,
     )
 
@@ -65,7 +66,7 @@ suite "Machine":
         # return b;
         Inst(kind: endI, args: @[1])
       ],
-      module = emptyModule,
+      statics = emptyStatics,
       regcount = 4,
     )
 
@@ -94,7 +95,7 @@ suite "Machine":
         Inst(kind: jmpI, inst: 0),
         Inst(kind: endI, args: @[])
       ],
-      module = emptyModule,
+      statics = emptyStatics,
       regcount = 3,
     )
 
@@ -114,7 +115,7 @@ suite "Machine":
         # return x;
         Inst(kind: endI, args: @[])
       ],
-      module = emptyModule,
+      statics = emptyStatics,
       regcount = 2
     )
 
@@ -125,8 +126,9 @@ suite "Machine":
   test "Statics":
     var module = Module(
       name: "test-statics",
-      statics: @[Value(kind: intV, i: 3)]
     )
+    var statics = @[Value(kind: intV, i: 3)]
+    shallow(statics)
 
     var myfunc = Function(name: "myfunc")
     myfunc.makeCode(
@@ -136,11 +138,11 @@ suite "Machine":
         Inst(kind: sstI, src: 1, dest: 0),
         Inst(kind: endI, args: @[]),
       ],
-      module = module,
+      statics = statics,
       regcount = 2,
     )
     discard myfunc.run(@[])
-    let result = module.statics[0]
+    let result = statics[0]
     check( result == Value(kind: intV, i: 2) )
 
 

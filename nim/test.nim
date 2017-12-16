@@ -171,13 +171,64 @@ suite "Full Tests":
     let result = function.run(@[Value(kind: intV, i: 5)])
     check(result == @[Value(kind: intV, i: 120)])
 
+  test "Simple Pair":
+
+    #[ Features
+      Product type and operations
+    ]#
+
+    let data = bin(
+      "Cobre ~4", 0,
+      5,
+        #0 is the argument module
+        1, 1, #1 Define (exports)
+          2, 0, $"main",
+        0, $"cobre.prim", #2 Import
+
+        1, 2, #3 Define (arguments for cobre.tuple)
+          1, 0, $"0", # type_0 (int)
+          1, 0, $"1", # type_2 (int)
+        2, $"cobre.tuple", #4 Import functor
+        4, 4, 3, #5 Build cobre.tuple
+      2, # Types
+        1, 2, $"int", #0
+        1, 5, $"", #1 tuple(int, #2)
+      3, # Functions
+        2, #0 Defined Function (main)
+          0,
+          1, 1,
+        1, 5, $"get1", #1 cobre.tuple.get1
+          1, 1,
+          1, 2,
+        1, 5, $"new",  #2 cobre.tuple.new
+          2, 0, 2,
+          1, 1,
+      2, # Statics
+        2, $4, #0 int 4
+        2, $5, #1 int 5
+      5, # Block for #1 (main)
+        4, 0, #0 = const_0 (4)
+        4, 1, #1 = const_1 (5)
+        (16 + 2), 2, 1, #2 = tuple.new(#0, #1)
+        (16 + 1), 2, #3 = tuple.get1(#2)
+        0, 3, #return #3
+      0, # Static Block
+    )
+
+    let parsed = parseData(data)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("main")
+
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 5)])
+
   test "Int Linked List":
 
     #[ Features
-      Product type
+      Product type and operations
       Nullable type
-      Product field get function
-      Product value build function
+      Shell type
+      Recursive types
     ]#
 
     let data = bin(

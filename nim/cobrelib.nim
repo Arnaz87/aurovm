@@ -56,3 +56,81 @@ discard newModule(
     "dec": newFunction("dec", itoi, decf),
   }
 )
+
+proc tplFn (argument: Module): Module =
+  var types: seq[Type] = @[]
+  var n = 0
+  var nitem = argument[$n]
+  while nitem.kind == tItem:
+    types.add(nitem.t)
+    n += 1
+    nitem = argument[$n]
+
+  let basename = "tuple" & $n
+
+  var tp = Type(name: basename, kind: productT, ts: types)
+  var items = @[ Item(name: "", kind: tItem, t: tp) ]
+
+  proc create_getter (index: int): Function =
+    proc prc (ins: seq[Value]): seq[Value] =
+      let v = ins[0]
+      case v.kind
+      of productV:
+        let field = v.p.fields[index]
+        return @[field]
+      else:
+        let msg = "Runtime type mismatch, expected " & tp.name
+        raise newException(Exception, msg)
+    let sig = Signature(ins: @[tp], outs: @[types[index]])
+    return Function(
+      name: basename & ".get" & $index,
+      sig: sig,
+      kind: procF,
+      prc: prc
+    )
+
+  for i in 0..<n:
+    items.add(Item(
+      name: "get" & $i,
+      kind: fItem,
+      f: create_getter(i)
+    ))
+
+  proc newProc (ins: seq[Value]): seq[Value] =
+
+    if ins.len != types.len:
+      let msg = "Expected " & $types.len & " arguments"
+      raise newException(Exception, msg)
+
+    var vs = newSeq[Value](types.len)
+    for i in 0..<types.len:
+      vs[i] = ins[i]
+
+    return @[Value(
+      kind: productV,
+      p: Product(
+        tp: tp,
+        fields: vs
+      )
+    )]
+
+  let sig = Signature(ins: types, outs: @[tp])
+  items.add(Item(
+    name: "new",
+    kind: fItem,
+    f: Function(
+      name: basename & ".new",
+      sig: sig,
+      kind: procF,
+      prc: newProc
+    )
+  ))
+
+  return Module(
+    name: basename & "_module",
+    kind: simpleM,
+    items: items,
+  )
+
+machine_modules.add(Module(name: "cobre.tuple", kind: functorM, fn: tplFn))
+

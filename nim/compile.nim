@@ -8,13 +8,10 @@ type
   Function = machine.Function
 
 type
-  ModProm = object
-    data: P.Module
-    m: Module
 
   State = ref object of RootObj
     parser: P.Parser
-    modules: seq[ModProm]
+    modules: seq[Module]
     types: seq[Type]
     funcs: seq[Function]
     statics: seq[Value]
@@ -26,12 +23,11 @@ proc getModule (self: State, index: int): Module =
   if index > self.modules.high:
     raise newException(CompileError, "Module index out of bounds")
 
-  var promise = self.modules[index]
-  if not promise.m.isNil: return promise.m
+  if not self.modules[index].isNil: return self.modules[index]
 
-  let data = promise.data
+  let data = self.parser.modules[index-1]
   case data.kind
-  of P.mImport:
+  of P.mImport, P.mImportF:
     result = findModule(data.name)
     if result.isNil:
       raise newException(CompileError, "Module " & data.name & " not found")
@@ -42,9 +38,27 @@ proc getModule (self: State, index: int): Module =
       of P.tItem: result[item.name] = self.types[item.index]
       of P.fItem: result[item.name] = self.funcs[item.index]
       else: raise newException(UnsupportedError, "Non function/type items not supported")
+  of P.mBuild:
+    var base = self.getModule(data.module)
+    if base.kind != functorM:
+      raise newException(CompileError, "Module " & base.name & " is not a functor")
+    var argument = self.getModule(data.argument)
+    result = base.fn(argument)
   else:
     raise newException(UnsupportedError, "Module kind " & $data.kind & " not yet supported")
 
+  self.modules[index] = result
+
+
+proc getType (self: State, i: int): Type =
+  if not self.types[i].isNil: return self.types[i]
+
+  let data = self.parser.types[i]
+  let module = self.getModule(data.module)
+  result = module.get_type(data.name)
+
+  if result.isNil: raise newException(CompileError, "Type " & data.name & " not found in " & module.name)
+  self.types[i] = result
 
 proc compileCode (self: State, fn: Function, fdata: P.Function) =
   var reg_count = fdata.ins.len
@@ -93,9 +107,9 @@ proc compile* (parser: P.Parser): Module =
   let p = self.parser
 
   # modules[0] is the argument. For now it doesn't exist
-  self.modules = newSeq[ModProm](p.modules.len+1)
-  for i in 0 .. p.modules.high:
-    self.modules[i+1] = ModProm(data: p.modules[i], m: nil)
+  self.modules = newSeq[Module](p.modules.len+1)
+  #for i in 0 .. p.modules.high:
+  #self.modules[i+1] = ModProm(data: p.modules[i], m: nil)
 
 
   self.types = newSeq[Type](p.types.len)
@@ -107,6 +121,9 @@ proc compile* (parser: P.Parser): Module =
     if tp.isNil: raise newException(CompileError, "Type " & data.name & " not found in " & module.name)
     else: self.types[i] = tp
 
+  # First create the statics so that functions can use them
+  self.statics = newSeq[Value](p.statics.len)
+  shallow(self.statics) # Makes the seq pass by reference instead of by value
 
   # First iteration to have all the functions available
   self.funcs = newSeq[Function](p.functions.len)
@@ -114,7 +131,7 @@ proc compile* (parser: P.Parser): Module =
     let data = p.functions[i]
 
     if data.internal:
-      self.funcs[i] = Function(name: "<anonymous>", kind: codeF)
+      self.funcs[i] = Function(name: "<anonymous>", kind: codeF, statics: self.statics)
     else:
       let module = self.getModule(data.module)
       let fn = module.get_function(data.name)
@@ -128,7 +145,7 @@ proc compile* (parser: P.Parser): Module =
     self.compileCode(self.funcs[i], p.functions[i])
 
 
-  self.statics = newSeq[Value](p.statics.len)
+  # Now create all the statics
   for i in 0 .. p.statics.high:
     let data = p.statics[i]
     case data.kind
@@ -139,10 +156,6 @@ proc compile* (parser: P.Parser): Module =
 
   # Main Module
   result = self.getModule(1)
-  result.statics = self.statics
-
-  # One last iteration to set the modules
-  for fn in self.funcs: fn.module = result
 
 
 
