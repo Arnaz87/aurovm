@@ -134,3 +134,70 @@ proc tplFn (argument: Module): Module =
 
 machine_modules.add(Module(name: "cobre.tuple", kind: functorM, fn: tplFn))
 
+proc nullFn (argument: Module): Module =
+  var argitem = argument["0"]
+  if argitem.kind != tItem:
+    raise newException(Exception, "argument 0 for cobre.null is not a type")
+  var base = argitem.t
+  #let basename = "null(" & base.name & ")"
+  let basename = "nullable"
+  var tp = Type(name: basename, kind: nullableT, t: base)
+
+  var items = @[ Item(kind: tItem, name: "", t: tp) ]
+
+  return Module(
+    name: basename & "_module",
+    kind: simpleM,
+    items: items,
+  )
+
+machine_modules.add(Module(name: "cobre.null", kind: functorM, fn: nullFn))
+
+
+proc functionFn (argument: Module): Module =
+  var ins:  seq[Type] = @[]
+  var outs: seq[Type] = @[]
+  var n = 0
+  var nitem = argument["in" & $n]
+  while nitem.kind == tItem:
+    ins.add(nitem.t)
+    n += 1
+    nitem = argument["in" & $n]
+  n = 0
+  nitem = argument["out" & $n]
+  while nitem.kind == tItem:
+    outs.add(nitem.t)
+    n += 1
+    nitem = argument["out" & $n]
+
+  let basename = "function(" & $ins.len & " " & $outs.len & ")"
+
+  var sig = Signature(ins: ins, outs: outs)
+  var tp = Type(name: basename, kind: functionT, sig: sig)
+  var items = @[ Item(name: "", kind: tItem, t: tp) ]
+
+  var applyIns = @[tp]
+  applyIns.add(ins)
+
+  let applySig = Signature(ins: applyIns, outs: outs)
+
+  # apply Functions get treated specially by the machine,
+  # to keep the stack organized
+
+  items.add(Item(
+    name: "apply",
+    kind: fItem,
+    f: Function(
+      name: basename & ".apply",
+      sig: applySig,
+      kind: applyF,
+    )
+  ))
+
+  return Module(
+    name: basename & "_module",
+    kind: simpleM,
+    items: items,
+  )
+
+machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))

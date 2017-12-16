@@ -51,6 +51,8 @@ proc getModule (self: State, index: int): Module =
 
 
 proc getType (self: State, i: int): Type =
+  if i > self.types.high:
+    raise newException(CompileError, "Type index out of bounds")
   if not self.types[i].isNil: return self.types[i]
 
   let data = self.parser.types[i]
@@ -89,6 +91,8 @@ proc compileCode (self: State, fn: Function, fdata: P.Function) =
     of endI:
       inst.args = data.args
     of callI:
+      if data.a > self.funcs.high:
+        raise newException(CompileError, "Function index out of bounds")
       let fd = self.parser.functions[data.a]
       let result_count = fd.outs.len
 
@@ -131,7 +135,8 @@ proc compile* (parser: P.Parser): Module =
     let data = p.functions[i]
 
     if data.internal:
-      self.funcs[i] = Function(name: "<anonymous>", kind: codeF, statics: self.statics)
+      let name = "<function#" & $i & ">"
+      self.funcs[i] = Function(name: name, kind: codeF, statics: self.statics)
     else:
       let module = self.getModule(data.module)
       let fn = module.get_function(data.name)
@@ -151,6 +156,8 @@ proc compile* (parser: P.Parser): Module =
     case data.kind
     of intStatic:
       self.statics[i] = Value(kind: intV, i: data.value)
+    of funStatic:
+      self.statics[i] = Value(kind: functionV, f: self.funcs[data.value])
     else:
       raise newException(UnsupportedError, "Unsupported static kind " & $data.kind)
 

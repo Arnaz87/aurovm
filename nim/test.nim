@@ -276,23 +276,23 @@ suite "Full Tests":
         2, $0,
       7, # Block for #0 (second)
         #0 = arg_0
-        9, 5, 1, #1 = #0 or goto 5
-        (16 + 3), 2, #2 = get_1(#1)
-        9, 5, 3, #3 = #2 or goto 5
-        (16 + 2), 4, #4 = get_0(#3)
-        0, 5, #return #4
-        4, 4, #5 = const_3 (0)
-        0, 6, #return #5
+        9, 5, 0, #1 = #0 or goto 5
+        (16 + 3), 1, #2 = get_1(#1)
+        9, 5, 2, #3 = #2 or goto 5
+        (16 + 2), 3, #4 = get_0(#3)
+        0, 4, #return #4
+        4, 3, #5 = const_3 (0)
+        0, 5, #return #5
       9, # Block for #1 (main)
         1, #0 = null
-        4, 3, #1 = const_2 (6)
-        (16 + 4), 2, 1, #2 = type_1(#1, #0)
-        4, 2, #3 = const_1 (5)
-        (16 + 4), 4, 3, #4 = type_1(#3, #2)
-        4, 1, #5 = const_0 (4)
-        (16 + 4), 6, 5, #6 = type_1(#5, #4)
-        (16 + 0), 7, #7 = second(#6)
-        0, 8, #return #7
+        4, 2, #1 = const_2 (6)
+        (16 + 4), 1, 0, #2 = type_1(#1, #0)
+        4, 1, #3 = const_1 (5)
+        (16 + 4), 3, 2, #4 = type_1(#3, #2)
+        4, 0, #5 = const_0 (4)
+        (16 + 4), 5, 4, #6 = type_1(#5, #4)
+        (16 + 0), 6, #7 = second(#6)
+        0, 7, #return #7
       0, # Static Block
     )
 
@@ -316,7 +316,7 @@ suite "Full Tests":
       5,
         #0 is the argument module
         1, 1, #1 Define (exports)
-          2, 5, $"main",
+          2, 4, $"main",
         0, $"cobre.prim", #2
 
         2, $"cobre.function", #3 Import functor
@@ -325,47 +325,47 @@ suite "Full Tests":
           1, 0, $"out0",
         4, 3, 4, #5 Build cobre.function with #4 (int -> int)
       2, # Types
-        1, 0, $"int", #0 import cobre.prim.int
+        1, 2, $"int", #0 import cobre.prim.int
         1, 5, $"", #1 type of function(int -> int)
       5, # Functions
-        1, 1, $"add",
+        1, 2, $"add", #0
           2, 0, 0, 1, 0,
-        2, # Defined Function 1, add4
+        2, #1 Defined add4
           1, 0, # 1 ins: int
           1, 0, # 1 out: int
-        2, # Defined Function 2, apply5
+        2, #2 Defined apply5
           1, 1, # 1 in:  (int -> int)
           1, 0, # 1 out: int
-        1, 5, $"apply", # Apply to ( int -> int )
+        1, 5, $"apply", #3 Apply to ( int -> int )
           2, 1, 0, # 2 ins: (int->int) int
           1, 0, # 1 out: int
-        2, # Defined Function 4, main
+        2, #4 Defined main
           0, # 0 ins
           1, 1, # 1 outs: int
       3, # Statics
         2, $4, # int 4
         2, $5, # int 5
-        5, 2, # function_1 (add4)
+        5, 1, # function_1 (add4)
       3, # Block for #1 (add4)
         #0 = arg_0
-        4, 1, #1 = const_0 (4)
-        (16 + 0), 1, 2, #2 c = add(#0, #1)
-        0, 3, #return #2
+        4, 0, #1 = const_0 (4)
+        (16 + 0), 0, 1, #2 c = add(#0, #1)
+        0, 2, #return #2
       3, # Block for #2 (apply5)
         #0 = arg_0
-        4, 2, #1 = const_1 (5)
-        (16 + 3), 1, 2, #2 = apply(#0, #1)
-        0, 3,
-      3, # Block for #4 (main)
-        4, 3, #0 = const_2 (add4)
-        (16 + 2), 1, #1 = apply5(#0)
+        4, 1, #1 = const_1 (5)
+        (16 + 3), 0, 1, #2 = apply(#0, #1)
         0, 2,
+      3, # Block for #4 (main)
+        4, 2, #0 = const_2 (add4)
+        (16 + 2), 0, #1 = apply5(#0)
+        0, 1,
       0, # Static Block
     )
 
     let parsed = parseData(data)
-    #let compiled = compile(parsed)
-    #let function = compiled.get_function("main")
+    let compiled = compile(parsed)
+    let function = compiled.get_function("main")
 
-    #let result = function.run(@[])
-    #check(result == @[Value(kind: intV, i: 9)])
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 9)])

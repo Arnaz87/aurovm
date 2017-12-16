@@ -17,7 +17,7 @@ type
     of productV: p*: Product
     of functionV: f*: Function
 
-  FunctionKind* = enum procF, codeF
+  FunctionKind* = enum procF, codeF, applyF
   Function* = ref object of RootObj
     name*: string
     sig*: Signature
@@ -28,6 +28,7 @@ type
       code*: seq[Inst]
       regcount*: int
       statics*: seq[Value]
+    of applyF: discard
 
   InstKind* = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
   Inst* = object
@@ -85,6 +86,7 @@ type
 
 var machine_modules* = newSeq[Module]()
 
+proc `$`* (f: Function): string = f.name
 proc `$`* (i: Item): string =
   if i.kind == noItem: return "NoItem"
   $i.kind & "(" & i.name & ", " & (case i.kind
@@ -220,12 +222,16 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       let inst = st.f.code[st.pc]
       let oldpc = st.pc
 
-      #echo "pc:", st.pc , " inst:", inst
+      #echo st.f.name, ":", st.pc , " inst:", inst
 
       case inst.kind
       of varI: discard # noop
-      of setI, dupI: st.regs[inst.dest] = st.regs[inst.src]
-      of sgtI: st.regs[inst.dest] = st.f.statics[inst.src]
+      of setI, dupI:
+        st.regs[inst.dest] = st.regs[inst.src]
+        #echo "  [", inst.dest, "]:", st.regs[inst.dest]
+      of sgtI:
+        st.regs[inst.dest] = st.f.statics[inst.src]
+        #echo "  [", inst.dest, "]:", st.regs[inst.dest]
       of sstI: st.f.statics[inst.dest] = st.regs[inst.src]
       of jmpI: st.pc = inst.inst
       of jifI:
@@ -249,6 +255,12 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         of codeF:
           st.retpos = inst.ret
           pushState(inst.f, args)
+        of applyF:
+          st.retpos = inst.ret
+          var fargs = newSeq[Value](args.len - 1)
+          for i in 0 ..< fargs.len:
+            fargs[i] = args[i+1]
+          pushState(args[0].f, fargs)
       of endI:
         let rets = getValues(inst.args)
         discard stack.pop
@@ -256,7 +268,9 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         else:
           var prevst = stack[stack.high]
           for i, v in rets:
-            prevst.regs[i + prevst.retpos] = v
+            let ni = i + prevst.retpos
+            prevst.regs[ni] = v
+            #echo "  [", ni, "]:", prevst.regs[ni]
 
       if st.pc == oldpc: st.pc.inc()
       st.counter.inc()
