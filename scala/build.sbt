@@ -1,15 +1,12 @@
 
-import com.typesafe.sbt.SbtStartScript
-
 lazy val commonSettings = Seq(
-  scalaVersion := "2.12.2"
+  scalaVersion := "2.12.4"
 )
 
 
 // JVM Only
 lazy val bindump = (project in file("bindump")).
-  settings(commonSettings: _*).
-  settings(SbtStartScript.startScriptForClassesSettings: _*)
+  settings(commonSettings: _*)
   
 
 
@@ -27,12 +24,11 @@ lazy val cu = (crossProject in file("cu")).
   settings(commonSettings: _*).
   settings(
     scalaSource in Compile := baseDirectory.value / "../shared/",
-    libraryDependencies ++= Seq("com.lihaoyi" %%% "fastparse" % "0.4.2")
+    libraryDependencies ++= Seq("com.lihaoyi" %%% "fastparse" % "1.0.0")
   ).
   dependsOn(format)
 lazy val cuJS = cu.js
-lazy val cuJVM = cu.jvm.
-  settings(SbtStartScript.startScriptForClassesSettings: _*)
+lazy val cuJVM = cu.jvm
 
 
 
@@ -46,13 +42,13 @@ lazy val jsJS = js.js
 lazy val jsJVM = js.jvm.dependsOn(cuJVM)
 
 
-
+/*
 lazy val lua = (project in file("lua")).
   settings(commonSettings: _*).
   settings(
-    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "0.4.2")
+    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "1.0.0")
   ).
-  dependsOn(formatJVM)
+  dependsOn(formatJVM)*/
 
 
 // JS Only
