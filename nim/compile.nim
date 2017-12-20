@@ -2,22 +2,31 @@
 import parse as P
 import machine
 
+import options
+
 type
   Module = machine.Module
   Type = machine.Type
   Function = machine.Function
 
 type
+  Data[T] = object
+    value: Option[T]
+    srcpos: SrcPos
+    pending: bool
 
   State = ref object of RootObj
     parser: P.Parser
     modules: seq[Module]
-    types: seq[Type]
+    types: seq[Data[Type]]
+    #types: seq[Type]
     funcs: seq[Function]
     statics: seq[Value]
 
-  CompileError* = object of Exception
+  CompileError* = object of CobreError
   UnsupportedError* = object of CompileError
+
+proc getType(self: State, i: int): Type
 
 proc getModule (self: State, index: int): Module =
   if index > self.modules.high:
@@ -35,7 +44,7 @@ proc getModule (self: State, index: int): Module =
     result = newModule("<anonymous>")
     for item in data.items:
       case item.kind
-      of P.tItem: result[item.name] = self.types[item.index]
+      of P.tItem: result[item.name] = self.getType(item.index) #self.types[item.index]
       of P.fItem: result[item.name] = self.funcs[item.index]
       else: raise newException(UnsupportedError, "Non function/type items not supported")
   of P.mBuild:
@@ -53,14 +62,23 @@ proc getModule (self: State, index: int): Module =
 proc getType (self: State, i: int): Type =
   if i > self.types.high:
     raise newException(CompileError, "Type index out of bounds")
-  if not self.types[i].isNil: return self.types[i]
+  if self.types[i].pending:
+    cobreRaise[CompileError]("Recursive type", self.types[i].srcpos)
 
+  if self.types[i].value.isSome:
+    return self.types[i].value.get
+
+  self.types[i].pending = true
   let data = self.parser.types[i]
   let module = self.getModule(data.module)
-  result = module.get_type(data.name)
+  let item = module[data.name]
 
-  if result.isNil: raise newException(CompileError, "Type " & data.name & " not found in " & module.name)
-  self.types[i] = result
+  if item.kind != machine.tItem:
+    let msg = "Type " & data.name & " not found in " & module.name
+    cobreRaise[CompileError](msg, self.types[i].srcpos)
+  self.types[i].value = some(item.t)
+  self.types[i].pending = false
+  return item.t
 
 proc compileCode (self: State, fn: Function, fdata: P.Function) =
   var reg_count = fdata.ins.len
@@ -113,21 +131,28 @@ proc compile* (parser: P.Parser): Module =
   # modules[0] is the argument. For now it doesn't exist
   self.modules = newSeq[Module](p.modules.len+1)
   #for i in 0 .. p.modules.high:
-  #self.modules[i+1] = ModProm(data: p.modules[i], m: nil)
+  #  self.modules[i+1] = ModProm(data: p.modules[i], m: nil)
 
+  self.types = newSeq[Data[Type]](p.types.len)
 
-  self.types = newSeq[Type](p.types.len)
-  for i in 0 .. self.types.high:
-    let data = p.types[i]
-    let module = self.getModule(data.module)
-    let tp = module.get_type(data.name)
+  # Source mapping
+  if self.parser.metadata.children.len > 0:
+    for topnode in self.parser.metadata.children:
+      if topnode.isNamed("source map"):
+        let components = topnode["components"]
+        if components.isSome:
+          for component in components.get.tail:
+            if component.isNamed("type"):
+              let index = component[1].get.n
+              if component[2].isSome:
+                self.types[index].srcpos.line = some(component[2].get.n)
+              if component[3].isSome:
+                self.types[index].srcpos.column = some(component[3].get.n)
 
-    if tp.isNil: raise newException(CompileError, "Type " & data.name & " not found in " & module.name)
-    else: self.types[i] = tp
 
   # First create the statics so that functions can use them
   self.statics = newSeq[Value](p.statics.len)
-  shallow(self.statics) # Makes the seq pass by reference instead of by value
+  shallow(self.statics) # Makes the seq be passed by reference instead of by value
 
   # First iteration to have all the functions available
   self.funcs = newSeq[Function](p.functions.len)
@@ -139,9 +164,9 @@ proc compile* (parser: P.Parser): Module =
       self.funcs[i] = Function(name: name, kind: codeF, statics: self.statics)
     else:
       let module = self.getModule(data.module)
-      let fn = module.get_function(data.name)
-      if fn.isNil: raise newException(CompileError, "Type " & data.name & " not found in " & module.name)
-      else: self.funcs[i] = fn
+      let item = module[data.name]
+      if item.kind != machine.fItem: raise newException(CompileError, "Function " & data.name & " not found in " & module.name)
+      else: self.funcs[i] = item.f
 
   # Second iteration to create the code, having all the functions
   for i in 0 .. self.funcs.high:
@@ -160,6 +185,10 @@ proc compile* (parser: P.Parser): Module =
       self.statics[i] = Value(kind: functionV, f: self.funcs[data.value])
     else:
       raise newException(UnsupportedError, "Unsupported static kind " & $data.kind)
+
+  # Force all types to trigger full module validation
+  for i in 0 .. self.types.high:
+    discard self.getType(i)
 
   # Main Module
   result = self.getModule(1)

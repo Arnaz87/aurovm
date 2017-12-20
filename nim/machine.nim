@@ -1,5 +1,12 @@
 
+import options
+
 type
+  SrcPos* = object of RootObj
+    file*: Option[string]
+    line*: Option[int]
+    column*: Option[int]
+
   Signature* = object
     ins*: seq[Type]
     outs*: seq[Type]
@@ -63,13 +70,13 @@ type
     of functionT:
       sig*: Signature
 
-  ItemKind* = enum noItem, fItem, tItem
+  ItemKind* = enum nilItem, fItem, tItem
   Item* = object
     name*: string
     case kind*: ItemKind
     of fItem: f*: Function
     of tItem: t*: Type
-    of noItem: discard
+    of nilItem: discard
 
   ModuleKind* = enum functorM, simpleM
   Module* = ref object
@@ -80,15 +87,23 @@ type
     of functorM:
       fn*: proc(arg: Module): Module
 
-  RuntimeError* = object of Exception
+  CobreError* = object of Exception
+    srcpos*: SrcPos
+
+  RuntimeError* = object of CobreError
   StackOverflowError* = object of RuntimeError
   InfiniteLoopError* = object of RuntimeError
+
+proc cobreRaise*[T](msg: string, srcpos: Srcpos = SrcPos()) =
+  var e = newException(T, msg)
+  e.srcpos = srcpos
+  raise e
 
 var machine_modules* = newSeq[Module]()
 
 proc `$`* (f: Function): string = f.name
 proc `$`* (i: Item): string =
-  if i.kind == noItem: return "NoItem"
+  if i.kind == nilItem: return "NoItem"
   $i.kind & "(" & i.name & ", " & (case i.kind
     of fItem: $i.f[]
     of tItem: $i.t[]
@@ -118,37 +133,17 @@ proc `$`* (t: Type): string =
       result &= " " & t.sig.outs[i].name
   result &= ")"
 
-proc nilGet (m: Module, k: string): tuple[fail: bool, item: Item] =
-  if m.kind != simpleM:
-    return (true, Item())
-  for item in m.items:
-    if item.name == k:
-      return (false, item)
-  return (true, Item())
-template raiseKeyError (m: Module, k: string, nm: string): untyped =
-  let msg = "Module " & m.name & " doesn't contain the " & nm & " " & k
-  raise newException(KeyError, msg)
 proc `[]=`* (m: var Module, k: string, f: Function) =
   m.items.add(Item(name: k, kind: fItem, f: f))
 proc `[]=`* (m: var Module, k: string, t: Type) =
   m.items.add(Item(name: k, kind: tItem, t: t))
-proc get_function* (m: Module, k: string): Function =
-  let (fail, item) = m.nilGet k
-  if fail or item.kind != fItem:
-    m.raiseKeyError(k, "Function")
-  return item.f
-proc get_type* (m: Module, k: string): Type =
-  let (fail, item) = m.nilGet k
-  if fail or item.kind != tItem:
-    m.raiseKeyError(k, "Type")
-  return item.t
-proc hasKey* (m: Module, k: string): bool =
-  let (fail, _) = m.nilGet(k)
-  return not fail
 proc `[]`* (m: Module, k: string): Item =
-  let (fail, item) = m.nilGet k
-  if fail: return Item(kind: noItem)
-  else:    return item
+  if m.kind != simpleM:
+    return Item(kind: nilItem)
+  for item in m.items:
+    if item.name == k:
+      return item
+  return Item(kind: nilItem)
 
 proc newModule* (
   name: string,

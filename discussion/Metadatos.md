@@ -2,30 +2,33 @@
 
 ## source map
 
+Cada nodo source map es un archivo fuente. Diferentes archivos fuentes deben estar definidos en diferentes nodos.
+
 - Archivo Fuente
 - Componentes: Una sola lista de átomos, cada cuatro átomos describen un componente
-  - Tipo de componente (Import, Tipo, Rutina, Constante)
+  - Tipo de componente (Modulo, Tipo, Rutina, Valor)
   - Índice del componente
   - Línea en la fuente
   - Columna en la fuente
-- Rutinas
-  - Índice de la rutina
+- Code
+  - Índice del bloque
   - Registros: Cada tres átomos describen un registro
     - índice, línea, columna
   - Instrucciones: Cada tres átomos describen una instrucción
     - índice, línea, columna
 
 ~~~
-("file" source_file)
-(components (type index line column name?)* )
-("rutines"
-  ( index
+("file" filename)
+(components (kind file index line column name?)* )
+("code"
+  (block_index
+    ("file" index)
     ("name" name)
     ("line" line)
     ("column" column)
 
-    ("regs" (index name line column)*)
-    ("inst" (index line column)*)
+    ("regs" (index name line column?)*)
+    ("inst" (index line column?)*)
   )*
 )
 ~~~

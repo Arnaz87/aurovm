@@ -172,7 +172,9 @@ The builtin instructions are:
 
 # Metadata
 
-The metadata is structured like s-expressions with a custom binary encoding. Each element starts with a varint, the first bit indicates if the item is a list (0) or a string (1), and the rest of the bits indicate the number of subelements for lists or the number of characters for strings. The list bit is 0 so that the byte 0 represents an empty list, the closest value to nil.
+The metadata is structured like s-expressions with a custom binary encoding. Each element starts with a varint, the first bit indicates if the item is an int (1) or other (0). For an int, the value is in the remaining bits shifted one bit to the right. Otherwise, the second bit indicates a list (0) or a string (1), and the remaining bits indicate the number of subelements for lists or the number of characters for strings.
+
+With this scheme, for example, the byte 0 represents an empty list, a byte 1 is the number 0, 2 encodes an empty string, and 3 means the number 1.
 
 # Core modules
 

@@ -2,6 +2,7 @@
 ## Parse binary data into an in-memory data structure.
 
 from machine import InstKind
+import options
 
 ## Wether to print the resulting module after parsing
 const print_parsed = false
@@ -58,6 +59,8 @@ type
     statics*: seq[Static]
     static_code*: seq[Inst]
 
+    metadata*: Node
+
   ReadError* = object of Exception
   InvalidModuleError* = object of ReadError
   EndOfFileError* = object of ReadError
@@ -66,6 +69,49 @@ type
 
   UnsupportedError* = object of Exception
 
+  NodeKind* = enum listNode, strNode, intNode
+  Node* = object of RootObj
+    case kind*: NodeKind
+    of listNode: children*: seq[Node]
+    of strNode: s*: string
+    of intNode: n*: int
+
+proc `$`*(nd: Node): string =
+  case nd.kind
+  of strNode: return '"' & nd.s & '"'
+  of intNode: return $nd.n
+  of listNode:
+    result = "("
+    var first = true
+    for x in nd.children:
+      if first: first = false
+      else: result &= " "
+      result &= $x
+    result &= ")"
+
+proc tail*(node: Node): seq[Node] =
+  result = newSeq[Node](node.children.len - 1)
+  for i in 1 .. node.children.high:
+    result[i-1] = node.children[i]
+
+proc `[]`*(nd: Node, index: int): Option[Node] =
+  if (nd.kind == listNode) and (index < nd.children.len):
+    return some(nd.children[index])
+  else: return none(Node)
+
+proc isNamed*(node: Node, name: string): bool =
+  if node[0].isSome:
+    let head = node[0].get
+    if head.kind == strNode and head.s == name:
+      return true
+  return false
+
+proc `[]`*(nd: Node, key: string): Option[Node] =
+  if nd.kind == listNode:
+    for child in nd.children:
+      if child.isNamed(key):
+        return some(child)
+  else: return none(Node)
 
 #=== Primitives ===#
 
@@ -214,6 +260,21 @@ proc parseCode (p: Parser, sq: var seq[Inst], out_count: int) =
     else:
       raise newException(InvalidKindError, "Unknown instruction " & $k)
 
+proc parseNode (p: Parser): Node =
+  let n = p.readInt
+  if (n and 1) == 1:
+    return Node(kind: intNode, n: n shr 1)
+  elif (n and 2) == 2:
+    var bytes: seq[uint8]
+    bytes.buildSeq(n shr 2) do -> uint8: p.read
+    var str = newString(bytes.len)
+    for i in 0..bytes.high: str[i] = char(bytes[i])
+    return Node(kind: strNode, s: str)
+  else:
+    var nodes: seq[Node]
+    nodes.buildSeq(n shr 2) do -> Node: p.parseNode
+    return Node(kind: listNode, children: nodes)
+
 
 proc parse* (read_proc: proc(): uint8): Parser =
 
@@ -238,6 +299,7 @@ proc parse* (read_proc: proc(): uint8): Parser =
 
     p.static_code = @[]
     p.parseCode(p.static_code, 0)
+    p.metadata = p.parseNode
 
   finally:
     when defined(test) and print_parsed:
