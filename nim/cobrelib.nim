@@ -26,7 +26,9 @@ proc decf (ins: seq[Value]): seq[Value] =
   @[Value(kind: intV, i: r)]
 
 let intT: Type = Type(kind: nativeT, name: "int")
+let binT: Type = Type(kind: nativeT, name: "bin")
 let boolT: Type = Type(kind: nativeT, name: "bool")
+let strT: Type = Type(kind: nativeT, name: "string")
 
 let iitoi = Signature(
   ins: @[intT, intT],
@@ -41,7 +43,7 @@ let itob = Signature(ins: @[intT], outs: @[boolT])
 
 discard newModule(
   name = "cobre.core",
-  types = @{ "bool": boolT, }
+  types = @{ "bool": boolT, "bin": binT }
 )
 
 discard newModule(
@@ -54,6 +56,32 @@ discard newModule(
     "gtz": newFunction("gtz", itob, gtzf),
     "inc": newFunction("inc", itoi, incf),
     "dec": newFunction("dec", itoi, decf),
+  }
+)
+
+proc printf (ins: seq[Value]): seq[Value] =
+  echo ins[0].s
+  @[]
+
+proc newstrf (ins: seq[Value]): seq[Value] =
+  let bytes = ins[0].bytes
+  var str = newString(bytes.len)
+  for i in 0..bytes.high:
+    str[i] = char(bytes[i])
+  @[Value(kind: strV, s: str)]
+
+discard newModule(
+  name = "cobre.string",
+  types = @{ "string": strT },
+  funcs = @{
+    "new": newFunction("new", Signature(ins: @[binT], outs: @[strT]), newstrf)
+  }
+)
+
+discard newModule(
+  name = "cobre.system",
+  funcs = @{
+    "print": newFunction("print", Signature(ins: @[], outs: @[]), printf)
   }
 )
 

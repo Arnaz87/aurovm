@@ -1,11 +1,9 @@
 import os
 
 import machine
-import methods
-
-import modules
-
-import read
+import parse
+import compile
+import cobrelib
 
 if paramCount() != 1:
   # getAppFilename() me da el nombre completo,
@@ -14,16 +12,15 @@ if paramCount() != 1:
   quit()
 
 let filename = paramStr(1)
-let module = parseFile(filename)
 
-#[
-for prc in module.procs:
-  echo $$prc
+var file = open(filename)
+proc read_byte (): uint8 =
+  let L = file.readBuffer(result.addr, 1)
+  if L != 1: raise newException(IOError, "cannot read byte")
+let parsed = parse(read_byte)
 
-for cns in module.constants:
-  echo $cns
-]#
+let compiled = compile(parsed)
 
-addState(module.procs["main"])
-run()
-
+let item = compiled["main"]
+if item.kind == machine.fItem: discard item.f.run(@[])
+else: raise newException(Exception, "main function not found")

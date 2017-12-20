@@ -181,6 +181,8 @@ proc compile* (parser: P.Parser): Module =
     case data.kind
     of intStatic:
       self.statics[i] = Value(kind: intV, i: data.value)
+    of binStatic:
+      self.statics[i] = Value(kind: binV, bytes: data.bytes)
     of funStatic:
       self.statics[i] = Value(kind: functionV, f: self.funcs[data.value])
     else:
