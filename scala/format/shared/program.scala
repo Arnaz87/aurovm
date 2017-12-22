@@ -5,136 +5,144 @@ class Program {
 
   val modules: Buffer[Module] = new ArrayBuffer[Module]()
   val types: Buffer[Type] = new ArrayBuffer[Type]()
-  val rutines: Buffer[Rutine] = new ArrayBuffer[Rutine]()
-  val constants = new ArrayBuffer[Constant]()
+  val functions: Buffer[Function] = new ArrayBuffer[Function]()
+  val statics = new ArrayBuffer[Static]()
 
-  val metadata = new ArrayBuffer[meta.Item]()
+  val metadata = new ArrayBuffer[meta.Node]()
 
-  sealed abstract class Constant {
-    constants += this
-    def index = constants indexOf this
+  sealed abstract class Item { def index: Int }
+
+  sealed abstract class Static extends Item {
+    statics += this
+    def index = statics indexOf this
   }
-  sealed abstract class Type {
+
+  sealed abstract class Type extends Item {
     types += this
     def index = types indexOf this
   }
-  sealed abstract class Rutine {
-    def ins: Seq[Type]
-    def outs: Seq[Type]
-    rutines += this
-    def index = rutines indexOf this
+
+  sealed abstract class Function(val ins: Seq[Type], val outs: Seq[Type]) extends Item {
+    //def ins: Seq[Type]
+    //def outs: Seq[Type]
+
+    functions += this
+    def index = functions indexOf this
     def signature = s"${ins mkString " "} -> ${outs mkString " "}"
   }
 
-  case class Module (nm: String, _params: Seq[Constant] = Nil) {
+  sealed abstract class Module extends Item {
     modules += this
-
-    val params = _params.toBuffer
     def index = modules indexOf this
 
-    case class Rutine (
+    case class Function (
       name: String,
-      ins: Seq[Program.this.Type],
-      outs: Seq[Program.this.Type])
-      extends Program.this.Rutine {
+      _ins: Seq[Program.this.Type],
+      _outs: Seq[Program.this.Type])
+      extends Program.this.Function(_ins, _outs) {
       val module = Module.this
-      override def toString () = s"Rutine(${module.nm}.$name, $signature)"
+      override def toString () = s"Function(${module}.$name, $signature)"
     }
 
     case class Type (nm: String)
       extends Program.this.Type {
       val module = Module.this
-      override def toString () = s"Type(${module.nm}.$nm)"
+      override def toString () = s"Type(${module}.$nm)"
     }
   }
 
-  class RutineDef(_name: String)
-    extends Rutine {
-    def ins = inregs map {reg: Reg => reg.t}
-    def outs = outregs map {reg: Reg => reg.t}
+  // No puede ser object porque son lazy
+  val Argument = new Module {}
+  case class Import (name: String, functor: Boolean = false) extends Module
+  case class ModuleBuild (base: Module, argument: Module) extends Module
+  case class ModuleDef (var items: Map[String, Item]) extends Module
+  val Exports = ModuleDef(Map())
+  def export(name: String, item: Item) {
+    Exports.items = Exports.items + (name -> item)
+  }
 
-    def name = _name
+  sealed trait Code {
+    def outcount: Int
 
-    val inregs = new ArrayBuffer[Reg]()
-    val outregs = new ArrayBuffer[Reg]()
     val regs = new ArrayBuffer[Reg]()
     val code = new ArrayBuffer[Inst]()
 
-    val lbls = new ArrayBuffer[Lbl]()
-
-    abstract class Reg (val t: Type) { def index: Int }
-
-    class InReg (_t: Type) extends Reg(_t) {
-      inregs += this
-      def index = (inregs indexOf this)+1
-    }
-
-    class OutReg (_t: Type) extends Reg(_t) {
-      outregs += this
-      def index = inregs.size + (outregs indexOf this) + 1
-    }
-
-    class RegDef (_t: Type) extends Reg(_t) {
+    class Reg () {
       regs += this
-      def index =
-        inregs.size + outregs.size +
-        (regs indexOf this) + 1
+      def index = regs indexOf this
     }
 
-    def InReg (t: Type) = new InReg(t)
-    def OutReg (t: Type) = new OutReg(t)
-    def Reg (t: Type) = new RegDef(t)
+    case class Lbl () {
+      var _index: Int = -1
 
-    class Lbl () {
-      lbls += this
-      def index = lbls indexOf this
+      def index = {
+        if (_index == -1)
+          throw new Exception("Label not used")
+        _index
+      }
+
+      def create () = {
+        if (_index != -1)
+          throw new Exception("Label already used")
+        _index = code.size
+      }
     }
-
-    def Lbl = new Lbl()
 
     sealed abstract class Inst() {
       code += this
-      def index = code indexOf this
-      final override def equals (o: Any) = o match {
+      final override def equals (o: scala.Any) = o match {
         case o: Inst => this eq o
         case _ => false
       }
     }
 
-    case class Cpy(a: Reg, b: Reg) extends Inst
-    case class Cns(a: Reg, b: Constant) extends Inst
+    sealed abstract class RegInst extends Inst { val reg = new Reg() }
 
-    case class Ilbl(l: Lbl) extends Inst
+    case class End(args: Seq[Reg]) extends Inst {
+      if (args.size != outcount) throw new Exception("result count mismatch")
+    }
+    case class Var() extends RegInst
+
+    case class Dup(a: Reg) extends RegInst
+    case class Set(b: Reg, a: Reg) extends Inst
+
+    case class Sgt(c: Static) extends RegInst
+    case class Sst(c: Static, a: Reg) extends Inst
+
     case class Jmp(l: Lbl) extends Inst
-    case class Ifj(l: Lbl, a: Reg) extends Inst
-    case class Ifn(l: Lbl, a: Reg) extends Inst
+    case class Jif(l: Lbl, a: Reg) extends Inst
+    case class Nif(l: Lbl, a: Reg) extends Inst
+    case class Any(l: Lbl, a: Reg) extends RegInst
 
-    case class Call(f: Rutine, outs: Seq[Reg], ins: Seq[Reg]) extends Inst
+    case class Call(f: Function, args: Seq[Reg]) extends Inst {
+      val regs = args map (_ => new Reg())
+    }
 
-    case class End() extends Inst
-
-    override def toString () = s"Rutine($name, $signature)"
   }
 
-  def Rutine(name: String): RutineDef = new RutineDef(name)
+  case class FunctionDef(_ins: Seq[Type], _outs: Seq[Type])
+    extends Function(_ins, _outs) with Code {
 
-  case class BinConstant (bytes: Array[Int]) extends Constant {
+    val inregs = _ins.map(_ => new Reg())
+
+    override def outcount = _outs.size
+    override def toString () = s"CodeFunction($signature)"
+  }
+
+  object StaticCode extends Code {
+    override def outcount = 0
+    override def toString () = "Static"
+  }
+
+  case class IntStatic (int: Int) extends Static
+  case class BinStatic (bytes: Array[Int]) extends Static {
     override def toString() = {
       val hexSeq = bytes map {b: Int => f"$b%02x"}
-      s"BinConstant(${hexSeq mkString " "})"
+      s"BinStatic(${hexSeq mkString " "})"
     }
   }
+  case class TypeStatic (tp: Type) extends Static
+  case class FunctionStatic (tp: Function) extends Static
 
-  case class ArrayConstant (xs: Array[Constant]) extends Constant {
-    override def toString() = {
-      s"ArrayConstant(${xs mkString " "})"
-    }
-  }
-
-  case class CallConstant (rut: Rutine, args: Seq[Constant]) extends Constant {
-    override def toString() = s"CallConstant($rut, ${args mkString ", "})"
-  }
-
-  case class TypeConstant (tp: Type) extends Constant
-  case class RutineConstant (tp: Rutine) extends Constant
+  case class NullStatic (tp: Type) extends Static
 }

@@ -3,6 +3,7 @@
 
 from machine import InstKind
 import options
+from strutils import toHex
 
 ## Wether to print the resulting module after parsing
 const print_parsed = false
@@ -62,6 +63,7 @@ type
     metadata*: Node
 
   ReadError* = object of Exception
+    pos: int
   InvalidModuleError* = object of ReadError
   EndOfFileError* = object of ReadError
   InvalidKindError* = object of ReadError
@@ -75,6 +77,12 @@ type
     of listNode: children*: seq[Node]
     of strNode: s*: string
     of intNode: n*: int
+
+proc parseRaise*[T](p: Parser, xmsg: string) =
+  let msg = xmsg & ", at byte " & p.pos.toHex(4)
+  var e = newException(T, msg)
+  e.pos = p.pos
+  raise e
 
 proc `$`*(nd: Node): string =
   case nd.kind
@@ -181,7 +189,7 @@ proc parseModule (p: Parser): Module =
   of mDefine:
     result.items.buildSeq(p.readInt) do -> Item: p.parseItem
   else:
-    raise newException(InvalidKindError, "Invalid module kind " & $k)
+    parseRaise[InvalidKindError](p, "Invalid module kind " & $k)
 
 proc parseType (p: Parser): Type =
   let k = p.readInt
@@ -191,7 +199,7 @@ proc parseType (p: Parser): Type =
     result.module = p.readInt
     result.name = p.readStr
   else:
-    raise newException(InvalidKindError, "Invalid type kind " & $k)
+    parseRaise[InvalidKindError](p, "Invalid type kind " & $k)
 
 proc parseFunction (p: Parser): Function =
   let k = p.readInt
@@ -203,7 +211,7 @@ proc parseFunction (p: Parser): Function =
     result.name = p.readStr
   of 2: # code
     result.internal = true
-  else: raise newException(InvalidKindError, "Invalid function kind " & $k)
+  else: parseRaise[InvalidKindError](p, "Invalid function kind " & $k)
 
   result.ins.buildSeq(p.readInt) do -> int: p.readInt
   result.outs.buildSeq(p.readInt) do -> int: p.readInt
@@ -227,7 +235,7 @@ proc parseStatic (p: Parser): Static =
     result.value = p.readInt
   else:
     if k < 16:
-      raise newException(InvalidKindError, "Invalid static kind " & $k)
+      parseRaise[InvalidKindError](p, "Invalid static kind " & $k)
     result.kind = nullStatic
     result.value = k-16
 
@@ -258,7 +266,7 @@ proc parseCode (p: Parser, sq: var seq[Inst], out_count: int) =
       let arg_count = f.ins.len
       result.args.buildSeq(arg_count) do -> int: p.readInt
     else:
-      raise newException(InvalidKindError, "Unknown instruction " & $k)
+      parseRaise[InvalidKindError](p, "Unknown instruction " & $k)
 
 proc parseNode (p: Parser): Node =
   let n = p.readInt

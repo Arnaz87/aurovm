@@ -22,6 +22,7 @@ type
     #types: seq[Type]
     funcs: seq[Function]
     statics: seq[Value]
+    static_function: Function
 
   CompileError* = object of CobreError
   UnsupportedError* = object of CompileError
@@ -80,12 +81,12 @@ proc getType (self: State, i: int): Type =
   self.types[i].pending = false
   return item.t
 
-proc compileCode (self: State, fn: Function, fdata: P.Function) =
-  var reg_count = fdata.ins.len
+proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
+  var reg_count = ins
 
-  fn.code = newSeq[machine.Inst](fdata.code.len)
+  fn.code = newSeq[machine.Inst](code.len)
   for i in 0 .. fn.code.high:
-    let data = fdata.code[i]
+    let data = code[i]
 
     var inst = machine.Inst(kind: data.kind)
     case inst.kind
@@ -168,11 +169,14 @@ proc compile* (parser: P.Parser): Module =
       if item.kind != machine.fItem: raise newException(CompileError, "Function " & data.name & " not found in " & module.name)
       else: self.funcs[i] = item.f
 
+  self.static_function = Function(name: "<static>", kind: codeF, statics: self.statics)
+
   # Second iteration to create the code, having all the functions
   for i in 0 .. self.funcs.high:
     let data = p.functions[i]
     if not data.internal: continue
-    self.compileCode(self.funcs[i], p.functions[i])
+    self.compileCode(self.funcs[i], data.ins.len, data.code)
+  self.compileCode(self.static_function, 0, p.static_code)
 
 
   # Now create all the statics
@@ -185,12 +189,17 @@ proc compile* (parser: P.Parser): Module =
       self.statics[i] = Value(kind: binV, bytes: data.bytes)
     of funStatic:
       self.statics[i] = Value(kind: functionV, f: self.funcs[data.value])
+    of nullStatic:
+      self.statics[i] = Value(kind: nilV)
     else:
       raise newException(UnsupportedError, "Unsupported static kind " & $data.kind)
 
-  # Force all types to trigger full module validation
+  # Force all unused types, to trigger full module validation
   for i in 0 .. self.types.high:
     discard self.getType(i)
+
+  # Run static code
+  discard self.static_function.run(@[])
 
   # Main Module
   result = self.getModule(1)

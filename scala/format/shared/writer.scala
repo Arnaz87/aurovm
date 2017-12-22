@@ -24,101 +24,124 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
     putBytes(bytes map (_.asInstanceOf[Int]))
   }
 
+  def %%(item: Program#Item) { %%(item.index) }
+  def %%(reg: Program#Code#Reg) { %%(reg.index) }
+  def %%(lbl: Program#Code#Lbl) { %%(lbl.index) }
+
   def write (prg: Program) {
-    ("Cobre ~1\0").getBytes("UTF-8").foreach {
+    ("Cobre ~4\0").getBytes("UTF-8").foreach {
       b: Byte => putByte(b.asInstanceOf[Int])
     }
 
     import prg._
 
-    %%( modules.size)
-    for (module <- prg.modules) {
-      %%(module.nm)
-      %%(module.params.size)
-      for (cns <- module.params)
-        %%(cns.index + 1)
+    %%(modules.size - 1) // -1 to not count Argument
+    modules foreach {
+      case `Argument` => // Skip this one, is implicit
+      case Import(name, functor) =>
+        %%(if (functor) 2 else 0)
+        %%(name)
+      case ModuleBuild(base, argument) =>
+        %%(4)
+        %%(base.index)
+        %%(argument.index)
+      case ModuleDef(items) =>
+        %%(1)
+        %%(items.size)
+        for ((name, item) <- items) {
+          %%(item match {
+            case _: Module => 0
+            case _: Type => 1
+            case _: Function => 2
+            case _: Static => 3
+          })
+          %%(item.index)
+          %%(name)
+        }
     }
 
-    %%( types.size)
+    %%(types.size)
      types foreach {
       case tp: Module#Type =>
-        %%(2) // Import Kind
-        %%(tp.module.index + 1)
+        %%(1) // Import Kind
+        %%(tp.module.index)
         %%(tp.nm)
     }
 
-    %%( rutines.size)
-    for (rutine <- prg.rutines) {
-      %%(rutine.ins.size)
-      for (tp <- rutine.ins) %%(tp.index + 1)
+    %%(functions.size)
+    for (function <- prg.functions) {
+      function match {
+        case function: Module#Function =>
+          %%(1) // Import Kind
+          %%(function.module.index)
+          %%(function.name)
+        case _: FunctionDef =>
+          %%(2)
+      }
 
-      %%(rutine.outs.size)
-      for (tp <- rutine.outs) %%(tp.index + 1)
+      %%(function.ins.size)
+      for (tp <- function.ins) %%(tp.index)
+      %%(function.outs.size)
+      for (tp <- function.outs) %%(tp.index)
     }
-    rutines foreach {
-      case rutine: Module#Rutine =>
-        %%(2) // Import Kind
-        %%(rutine.module.index + 1)
-        %%(rutine.name)
-      case rutine: RutineDef =>
-        import rutine._
-        %%(1) // Internal Kind
-        %%(name)
 
-        %%(regs.size)
-        for (reg <- regs) %%(reg.t.index + 1)
-
-        %%(code.size)
-        code foreach {
-          case End() => %%(0)
-          case Cpy(a, b) =>
-            %%(1); %%(a.index); %%(b.index)
-          case Cns(a, c) =>
-            %%(2); %%(a.index); %%(c.index + 1)
-          case Ilbl(l) =>
-            %%(5); %%(l.index+1)
-          case Jmp(l) =>
-            %%(6); %%(l.index+1)
-          case Ifj(l, a) =>
-            %%(7); %%(l.index+1); %%(a.index)
-          case Ifn(l, a) =>
-            %%(8); %%(l.index+1); %%(a.index)
-          case Call(f, os, is) =>
-            %%(f.index + 16)
-            for (r <- os) %%(r.index)
-            for (r <- is) %%(r.index)
-        }
-    }
-    %%(prg.constants.size)
-    prg.constants foreach {
-      case BinConstant(bytes) =>
-        %%(1) // Binary Kind
+    %%(statics.size)
+    statics foreach {
+      case IntStatic(i) =>
+        %%(2)
+        %%(i)
+      case BinStatic(bytes) =>
+        %%(3)
         %%(bytes.size)
         bytes foreach putByte
-      case ArrayConstant(xs) =>
-        %%(2) // Array Kind
-        %%(xs.size)
-        for (c <- xs) %%(c.index + 1)
-      case TypeConstant(tp) =>
-        %%(3) // Type Kind
-        %%(tp.index + 1)
-      case RutineConstant(rut) =>
-        %%(4) // Rutine Kind
-        %%(rut.index + 1)
-      case CallConstant(rut, args) =>
-        %%(rut.index + 16)
-        for (arg <- args) %%(arg.index + 1)
+      case TypeStatic(tp) =>
+        %%(4)
+        %%(tp.index)
+      case FunctionStatic(fun) =>
+        %%(5)
+        %%(fun.index)
+      case NullStatic(tp) =>
+        %%(15 + tp.index)
     }
-    
-    def writeItem (item: meta.Item) { item match {
-      case meta.SeqItem(seq) =>
-        %%(seq.size << 1)
-        for (itm <- seq) writeItem(itm)
-      case meta.StrItem(str) =>
+
+    def writeCode (base: Code) {
+      import base._
+
+      %%(code.size)
+      code foreach {
+        case End(args) => %%(0); args foreach %%
+        case Var()     => %%(1);
+        case Dup(a)    => %%(2); %%(a)
+        case Set(b, a) => %%(3); %%(b); %%(a)
+        case Sgt(c)    => %%(4); %%(c)
+        case Sst(c, a) => %%(5); %%(c); %%(a)
+        case Jmp(l)    => %%(6); %%(l)
+        case Jif(l, a) => %%(7); %%(l); %%(a)
+        case Nif(l, a) => %%(8); %%(l); %%(a)
+        case Any(l, a) => %%(9); %%(l); %%(a)
+        case Call(f, args) =>
+          %%(f.index + 16)
+          args foreach %%
+      }
+    }
+
+    functions foreach {
+      case code: Code => writeCode(code)
+      case _ => // Skip
+    }
+    writeCode(StaticCode)
+
+    def writeNode (node: meta.Node) { node match {
+      case meta.IntNode(n) =>
+        %%((n << 1) | 1)
+      case meta.SeqNode(seq) =>
+        %%(seq.size << 2)
+        for (itm <- seq) writeNode(itm)
+      case meta.StrNode(str) =>
         val bytes = str.getBytes("UTF-8")
-        %%((bytes.size << 1) | 1)
+        %%((bytes.size << 2) | 2)
         putBytes(bytes map (_.asInstanceOf[Int]))
     } }
-    writeItem(new meta.SeqItem(metadata))
+    writeNode(new meta.SeqNode(metadata))
   }
 }

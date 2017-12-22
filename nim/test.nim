@@ -126,7 +126,7 @@ suite "Full Tests":
         4, 1, #1 = const_1 (5)
         (16 + 0), 0, 1, #2 c = add(#0, #1)
         0, 2, #return #2
-      0, # Static Block
+      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -180,7 +180,7 @@ suite "Full Tests":
         (16 + 1), 4, #5 = factorial(#4)
         (16 + 4), 0, 5, #6 = #0 * #5
         0, 6, # return #6
-      0, # Static Block
+      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -231,7 +231,7 @@ suite "Full Tests":
         (16 + 2), 2, 1, #2 = tuple.new(#0, #1)
         (16 + 1), 2, #3 = tuple.get1(#2)
         0, 3, #return #3
-      0, # Static Block
+      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -317,7 +317,7 @@ suite "Full Tests":
         (16 + 4), 5, 4, #6 = type_1(#5, #4)
         (16 + 0), 6, #7 = second(#6)
         0, 7, #return #7
-      0, # Static Block
+      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -385,7 +385,7 @@ suite "Full Tests":
         4, 2, #0 = const_2 (add4)
         (16 + 2), 0, #1 = apply5(#0)
         0, 1,
-      0, # Static Block
+      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -415,7 +415,7 @@ suite "Full Tests":
         1, 2, $"string", #0 import "string" from cobre.core, should fail
       0, # Functions
       0, # Statics
-      0, # Static Block
+      1, 0, # Static Block
       (1 shl 2), # Metadata, 1 toplevel node
         (3 shl 2), # 2 nodes (+ header)
           (10 shl 2 or 2), "source map",

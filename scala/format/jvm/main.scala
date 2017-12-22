@@ -4,41 +4,71 @@ object Main {
   def main (args: Array[String]) {
     val program = new Program()
 
-    val prelude = program.Module("Prelude", Nil)
+    val core = program.Import("cobre.core")
+    val strmod = program.Import("cobre.string")
+    val sysmod = program.Import("cobre.system")
 
-    val binType = prelude.Type("Binary")
-    val strType = prelude.Type("String")
-    val print = prelude.Rutine("print", Nil, Array(strType))
-    val mkstr = prelude.Rutine("mkstr", Array(binType), Array(strType))
+    val binType = core.Type("bin")
+    val strType = strmod.Type("string")
+    val sysprint = sysmod.Function("print", Array(strType), Nil)
+    val newstr = strmod.Function("new", Array(binType), Array(strType))
 
-    val plint = program.Rutine("plint")
-    val in_0 = plint.InReg(strType)
-    plint.Call(print, Array(in_0), Nil)
-
-    val main = program.Rutine("main")
     val bindata = {
       val str = "Hola Mundo!"
       val bytes = str.getBytes("UTF-8")
-      program.BinConstant(
+      program.BinStatic(
         bytes map (_.asInstanceOf[Int])
       )
     }
+    val const_0 = program.NullStatic(strType)
+    val binreg = program.StaticCode.Sgt(bindata).reg
+    val strval = program.StaticCode.Call(newstr, Array(binreg)).regs(0)
+    program.StaticCode.Sst(const_0, strval)
+    program.StaticCode.End(Nil)
 
-    val const_0 = program.CallConstant(mkstr, Array(bindata))
-    val reg_0 = main.Reg(strType)
-    main.Cns(reg_0, const_0)
-    main.Call(plint, Array(reg_0), Nil)
-    main.End()
+    val myprint = program.FunctionDef(Array(strType), Nil)
+    val in_0 = myprint.inregs(0)
+    myprint.Call(sysprint, Array(in_0))
+    myprint.End(Nil)
 
-    program.metadata += meta.StrItem("Hola Mundo!")
+    val mainf = program.FunctionDef(Nil, Nil)
+    val reg_0 = mainf.Sgt(const_0).reg
+    mainf.Call(sysprint, Array(reg_0))
+    mainf.End(Nil)
+
+    program.export("main", mainf)
+
+    program.metadata += meta.SeqNode(
+      meta.StrNode("some data"),
+      meta.IntNode(42)
+    )
 
     val buffer = new scala.collection.mutable.ArrayBuffer[Int]()
     val writer = new Writer(buffer)
     writer.write(program)
-    printBinary(buffer)
-  }
 
-  def printBinary(bindata: Traversable[Int]) {
-    new arnaud.myvm.bindump.Reader(bindata.toIterator).readAll
+    val lines = buffer.iterator.grouped(16)
+    for (line <- lines) {
+      print("  ")
+      for (b <- line) {
+        if (b >= 0x20 && b <= 0x7e) {
+          // Print gray in the terminal
+          print(f"\u001b[1;30m$b%c\u001b[0;39m  ")
+        } else {
+          print(f"$b%-3d")
+        }
+      }
+      println()
+    }
+
+    {
+      import java.io._
+      val file = new File("out")
+      val stream = new FileOutputStream(file, false)
+      buffer foreach { byte: Int => stream.write(byte) }
+      stream.close
+      println(s"Binary data written to ${file.getCanonicalPath}")
+    }
+
   }
 }

@@ -18,7 +18,7 @@ object Main {
   }
 
   def manual (): Nothing = {
-    println("Usage: (-i <code> | -f <filename>) [-o <output filename>] [--pipe] [--print] [--print-(ast|binary)]")
+    println("Usage: (-i <code> | -f <filename>) [-o <output filename>] [--pipe] [--print-ast]")
     System.exit(0)
     return ???
   }
