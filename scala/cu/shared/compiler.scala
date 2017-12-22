@@ -49,27 +49,31 @@ package object compiler {
       val strType = strmod.types("string")
 
       prims.rutines ++= Map(
-        "iadd" -> Proto( Array(intType, intType), Array(intType) ),
-        "isub" -> Proto( Array(intType, intType), Array(intType) ),
-        "ieq"  -> Proto( Array(intType, intType), Array(boolType) ),
-        "igt"  -> Proto( Array(intType, intType), Array(boolType) ),
-        "igte" -> Proto( Array(intType, intType), Array(boolType) )
+        "add" -> Proto( Array(intType, intType), Array(intType) ),
+        "sub" -> Proto( Array(intType, intType), Array(intType) ),
+        "mul" -> Proto( Array(intType, intType), Array(intType) ),
+        "div" -> Proto( Array(intType, intType), Array(intType) ),
+        "eq"  -> Proto( Array(intType, intType), Array(boolType) ),
+        "gt"  -> Proto( Array(intType, intType), Array(boolType) ),
+        "gte" -> Proto( Array(intType, intType), Array(boolType) )
       )
 
-      def iadd = prims.rutines("iadd").get
-      def isub = prims.rutines("isub").get
-      def ieq  = prims.rutines("ieq").get
-      def igt  = prims.rutines("igt").get
-      def igte = prims.rutines("igte").get
+      def iadd = prims.rutines("add").get
+      def isub = prims.rutines("sub").get
+      def imul = prims.rutines("mul").get
+      def idiv = prims.rutines("div").get
+      def ieq  = prims.rutines("eq").get
+      def igt  = prims.rutines("gt").get
+      def igte = prims.rutines("gte").get
 
       strmod.rutines ++= Map(
         "new" -> Proto( Array(binaryType), Array(strType) ),
-        //"concat" -> Proto( Array(strType, strType), Array(strType) ),
-        //"itos" -> Proto( Array(intType), Array(strType) )
+        "concat" -> Proto( Array(strType, strType), Array(strType) ),
+        "itos" -> Proto( Array(intType), Array(strType) )
       )
 
       def makestr = strmod.rutines("new").get
-      //def concat = strmod.rutines("concat").get
+      def concat = strmod.rutines("concat").get
 
       sysmod.rutines ++= Map(
         "print" -> Proto( Array(strType), Nil )
@@ -243,10 +247,8 @@ package object compiler {
     )
 
     program.program.export(name, rdef)
-    
-    import rdef.Reg
 
-    val outs = mutable.Buffer[Reg]()
+    import rdef.Reg
 
     case class RegItem(reg: Reg) extends Item
 
@@ -334,6 +336,8 @@ package object compiler {
                 case (`strType`, `strType`) => (concat, strType)
               }*/
             case Ast.Sub => (isub, intType)
+            case Ast.Mul => (imul, intType)
+            case Ast.Div => (idiv, intType)
             case Ast.Gt  => (igt, boolType)
             case Ast.Gte => (igte, boolType)
             case Ast.Eq  => (ieq, boolType)
@@ -376,7 +380,8 @@ package object compiler {
           }
         case Ast.Call(rutexpr, args) =>
           val rutine = getRutine(rutexpr, args.size)
-          var call = rdef.Call(rutine, args map (%%!(_)))
+          val regargs = args map (%%!(_))
+          var call = rdef.Call(rutine, regargs)
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Assign(nm, expr) =>
           val reg = get(nm) match {
@@ -431,9 +436,9 @@ package object compiler {
           }
           $end.create()
         case Ast.Return(exprs) =>
-          val outs = Rutine.this.outs
-          if (exprs.size != outs.size) node.error(
-            s"Expected ${outs.size} return values, found ${exprs.size}"
+          val retcount = Rutine.this.node.returns.size
+          if (exprs.size != retcount) node.error(
+            s"Expected ${retcount} return values, found ${exprs.size}"
           )
           val args = for (expr <- exprs) yield %%!(expr)
           rdef.End(args)
@@ -442,17 +447,20 @@ package object compiler {
 
     val topScope = new Scope
 
-    /*for ((tp, name) <- node.params ) {
-      val reg = rdef.InReg( program.getType(tp) )
-      topScope(name) = reg
-    }
-
-    for (tp <- node.returns)
-      outs += rdef.OutReg( program.getType(tp) )*/
+    for (i <- 0 until node.params.size)
+      topScope(node.params(i)._2) = rdef.inregs(i)
 
     def compile () {
       node.body.stmts map (topScope %% _)
       srcinfo.compile()
+
+      // Implicit return for void functions
+      if (node.returns.size == 0)
+        rdef.End(Nil)
+
+      println(rdef.regs mkString " ")
+      for (inst <- rdef.code)
+        println(inst)
     }
   }
 

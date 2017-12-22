@@ -10,30 +10,32 @@ class Program {
 
   val metadata = new ArrayBuffer[meta.Node]()
 
+  private def findIn[T <: AnyRef](x: T, sq: Seq[T]): Int = sq indexWhere (_ eq x)
+
   sealed abstract class Item { def index: Int }
 
   sealed abstract class Static extends Item {
+    val index = statics.size
     statics += this
-    def index = statics indexOf this
   }
 
   sealed abstract class Type extends Item {
+    val index = types.size
     types += this
-    def index = types indexOf this
   }
 
   sealed abstract class Function(val ins: Seq[Type], val outs: Seq[Type]) extends Item {
     //def ins: Seq[Type]
     //def outs: Seq[Type]
 
+    val index = functions.size
     functions += this
-    def index = functions indexOf this
     def signature = s"${ins mkString " "} -> ${outs mkString " "}"
   }
 
   sealed abstract class Module extends Item {
+    val index = modules.size
     modules += this
-    def index = modules indexOf this
 
     case class Function (
       name: String,
@@ -68,8 +70,9 @@ class Program {
     val code = new ArrayBuffer[Inst]()
 
     class Reg () {
+      val index = regs.size
       regs += this
-      def index = regs indexOf this
+      override def toString() = s"Reg($index)"
     }
 
     case class Lbl () {
@@ -89,12 +92,8 @@ class Program {
     }
 
     sealed abstract class Inst() {
+      val index = code.size
       code += this
-      def index = code indexOf this
-      final override def equals (o: scala.Any) = o match {
-        case o: Inst => this eq o
-        case _ => false
-      }
     }
 
     sealed abstract class RegInst extends Inst { val reg = new Reg() }
@@ -116,7 +115,7 @@ class Program {
     case class Any(l: Lbl, a: Reg) extends RegInst
 
     case class Call(f: Function, args: Seq[Reg]) extends Inst {
-      val regs = args map (_ => new Reg())
+      val regs = f.outs map (_ => new Reg())
     }
 
   }

@@ -5,12 +5,28 @@ proc addf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i + ins[1].i
   @[Value(kind: intV, i: r)]
 
+proc subf (ins: seq[Value]): seq[Value] =
+  let r = ins[0].i - ins[1].i
+  @[Value(kind: intV, i: r)]
+
 proc mulf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i * ins[1].i
   @[Value(kind: intV, i: r)]
 
+proc divf (ins: seq[Value]): seq[Value] =
+  let r: int = (int) (ins[0].i / ins[1].i)
+  @[Value(kind: intV, i: r)]
+
+proc eqf (ins: seq[Value]): seq[Value] =
+  let r = ins[0].i == ins[1].i
+  @[Value(kind: boolV, b: r)]
+
 proc gtf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i > ins[1].i
+  @[Value(kind: boolV, b: r)]
+
+proc gtef (ins: seq[Value]): seq[Value] =
+  let r = ins[0].i >= ins[1].i
   @[Value(kind: boolV, b: r)]
 
 proc gtzf (ins: seq[Value]): seq[Value] =
@@ -51,8 +67,12 @@ discard newModule(
   types = @{ "int": intT, },
   funcs = @{
     "add": newFunction("add", iitoi, addf),
+    "sub": newFunction("sub", iitoi, subf),
     "mul": newFunction("mul", iitoi, mulf),
-    "gt": newFunction("gt", iitob, gtf),
+    "div": newFunction("div", iitoi, divf),
+    "eq" : newFunction("eq" , iitob, eqf),
+    "gt" : newFunction("gt" , iitob, gtf),
+    "gte": newFunction("gte", iitob, gtef),
     "gtz": newFunction("gtz", itob, gtzf),
     "inc": newFunction("inc", itoi, incf),
     "dec": newFunction("dec", itoi, decf),
@@ -63,6 +83,13 @@ proc printf (ins: seq[Value]): seq[Value] =
   echo ins[0].s
   @[]
 
+discard newModule(
+  name = "cobre.system",
+  funcs = @{
+    "print": newFunction("print", Signature(ins: @[], outs: @[]), printf)
+  }
+)
+
 proc newstrf (ins: seq[Value]): seq[Value] =
   let bytes = ins[0].bytes
   var str = newString(bytes.len)
@@ -70,18 +97,21 @@ proc newstrf (ins: seq[Value]): seq[Value] =
     str[i] = char(bytes[i])
   @[Value(kind: strV, s: str)]
 
+proc itosf (ins: seq[Value]): seq[Value] =
+  let i = ins[0].i
+  @[Value(kind: strV, s: $i)]
+
+proc concatf (ins: seq[Value]): seq[Value] =
+  let r = ins[0].s & ins[1].s
+  @[Value(kind: strV, s: r)]
+
 discard newModule(
   name = "cobre.string",
   types = @{ "string": strT },
   funcs = @{
-    "new": newFunction("new", Signature(ins: @[binT], outs: @[strT]), newstrf)
-  }
-)
-
-discard newModule(
-  name = "cobre.system",
-  funcs = @{
-    "print": newFunction("print", Signature(ins: @[], outs: @[]), printf)
+    "new": newFunction("new", Signature(ins: @[binT], outs: @[strT]), newstrf),
+    "itos": newFunction("itos", Signature(ins: @[intT], outs: @[strT]), itosf),
+    "concat": newFunction("concat", Signature(ins: @[strT, strT], outs: @[strT]), concatf),
   }
 )
 
