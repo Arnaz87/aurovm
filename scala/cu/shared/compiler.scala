@@ -26,8 +26,8 @@ package object compiler {
     val constants = mutable.Map[String, ConstItem]()
 
     case class TypeItem (tp: program.Type) extends Item
-    case class RutItem (rut: program.Rutine) extends Item
-    case class ConstItem (cns: program.Constant, tp: program.Type) extends Item
+    case class RutItem (rut: program.Function) extends Item
+    case class ConstItem (cns: program.Static, tp: program.Type) extends Item
 
     case class Proto(ins: Seq[program.Type], outs: Seq[program.Type])
 
@@ -38,18 +38,17 @@ package object compiler {
 
     // `object default` es Lazy, pero necesito que los módulos se evalúen
     val default = new Object {
-      val prims = Module("cobre\u001fprim", Nil)
-      val core = Module("cobre\u001fcore", Nil)
-      val strmod = Module("cobre\u001fstring", Nil)
-      val sysmod = Module("cobre\u001fsystem", Nil)
+      val prims = Module("cobre.prim", Nil)
+      val core = Module("cobre.core", Nil)
+      val strmod = Module("cobre.string", Nil)
+      val sysmod = Module("cobre.system", Nil)
 
-      val binaryType = core.types("binary")
+      val binaryType = core.types("bin")
       val boolType = core.types("bool")
       val intType = prims.types("int")
       val strType = strmod.types("string")
 
       prims.rutines ++= Map(
-        "bintoi" -> Proto( Array(binaryType), Array(intType) ),
         "iadd" -> Proto( Array(intType, intType), Array(intType) ),
         "isub" -> Proto( Array(intType, intType), Array(intType) ),
         "ieq"  -> Proto( Array(intType, intType), Array(boolType) ),
@@ -57,7 +56,6 @@ package object compiler {
         "igte" -> Proto( Array(intType, intType), Array(boolType) )
       )
 
-      def makeint = prims.rutines("bintoi").get
       def iadd = prims.rutines("iadd").get
       def isub = prims.rutines("isub").get
       def ieq  = prims.rutines("ieq").get
@@ -65,13 +63,13 @@ package object compiler {
       def igte = prims.rutines("igte").get
 
       strmod.rutines ++= Map(
-        "bintos" -> Proto( Array(binaryType), Array(strType) ),
-        "concat" -> Proto( Array(strType, strType), Array(strType) ),
-        "itos" -> Proto( Array(intType), Array(strType) )
+        "new" -> Proto( Array(binaryType), Array(strType) ),
+        //"concat" -> Proto( Array(strType, strType), Array(strType) ),
+        //"itos" -> Proto( Array(intType), Array(strType) )
       )
 
-      def makestr = strmod.rutines("bintos").get
-      def concat = strmod.rutines("concat").get
+      def makestr = strmod.rutines("new").get
+      //def concat = strmod.rutines("concat").get
 
       sysmod.rutines ++= Map(
         "print" -> Proto( Array(strType), Nil )
@@ -91,17 +89,17 @@ package object compiler {
       import format.{meta => Meta}
       import Meta.implicits._
 
-      val srcpos = new ArrayBuffer[Meta.Item]()
-      val srcnames = new ArrayBuffer[Meta.Item]()
+      val srcpos = new ArrayBuffer[Meta.Node]()
+      val srcnames = new ArrayBuffer[Meta.Node]()
 
-      program.metadata += new Meta.SeqItem(srcpos)
-      program.metadata += new Meta.SeqItem(srcnames)
+      program.metadata += new Meta.SeqNode(srcpos)
+      program.metadata += new Meta.SeqNode(srcnames)
 
-      val srcmap = new ArrayBuffer[Meta.Item]()
+      val srcmap = new ArrayBuffer[Meta.Node]()
       srcmap += "source map"
-      val rutmap = new ArrayBuffer[Meta.Item]()
+      val rutmap = new ArrayBuffer[Meta.Node]()
       rutmap += "rutines"
-      srcmap += new Meta.SeqItem(rutmap)
+      srcmap += new Meta.SeqNode(rutmap)
     }
 
     def get (name: String): Option[Item] = {
@@ -127,21 +125,20 @@ package object compiler {
 
     def %% (node: Ast.Expr): Item = node match {
       case Ast.Num(dbl) =>
-        val n = dbl.asInstanceOf[Int]
-        val bytes = new Array[Int](4)
-        bytes(0) = (n >> 24) & 0xFF
-        bytes(1) = (n >> 16) & 0xFF
-        bytes(2) = (n >> 8 ) & 0xFF
-        bytes(3) = (n >> 0 ) & 0xFF
-        val bin = program.BinConstant(bytes)
-        val const = program.CallConstant(default.makeint, Array(bin))
+        val int = dbl.asInstanceOf[Int]
+        val const = program.IntStatic(int)
         ConstItem(const, default.intType)
       case Ast.Str(str) =>
         val bytes = str.getBytes("UTF-8")
-        val bin = program.BinConstant(
+        val bin = program.BinStatic(
           bytes map (_.asInstanceOf[Int])
         )
-        val const = program.CallConstant(default.makestr, Array(bin))
+        val const = program.NullStatic(default.strType)
+
+        val reg = program.StaticCode.Sgt(bin).reg
+        val call = program.StaticCode.Call(default.makestr, Array(reg))
+        program.StaticCode.Sst(const, call.regs(0))
+
         ConstItem(const, default.strType)
       case Ast.Var(name) =>
         get(name) getOrElse node.error(s"$name is undefined")
@@ -154,10 +151,10 @@ package object compiler {
         }
     }
 
-    def %%! (node: Ast.Expr): program.Constant = {
+    def %%! (node: Ast.Expr): program.Static = {
       %%(node) match {
         case ConstItem(const, _) => const
-        case TypeItem(tp) => program.TypeConstant(tp)
+        case TypeItem(tp) => program.TypeStatic(tp)
       }
     }
 
@@ -175,7 +172,7 @@ package object compiler {
         val ruts  = mutable.Buffer[(Module, Ast.ImportRut)]()
 
         for (stmt@Ast.Import(names, params, alias, defs) <- stmts) {
-          val modname = names mkString "\u001f"
+          val modname = names mkString "."//"\u001f"
           val hname = names mkString "."
           val module = modules find { module: Module =>
             (module.name == modname) && (module.params == params)
@@ -225,19 +222,28 @@ package object compiler {
         constants(name) = ConstItem(%%!(expr), tp)
       }
 
-      modules foreach (_.computeParams)
+      //modules foreach (_.computeParams)
 
       // Solo compilar las rutinas después de haber creado todos los
       // items de alto nivel
       rutines foreach (_.compile)
 
-      program.metadata += new format.meta.SeqItem(meta.srcmap)
+      program.StaticCode.End(Nil)
+
+      program.metadata += new format.meta.SeqNode(meta.srcmap)
     }
   }
 
   class Rutine [P <: Program] (val program: P, val node: Ast.Proc) {
     val name = node.name
-    val rdef = program.program.Rutine(name)
+
+    val rdef = program.program.FunctionDef(
+      for ((tp, _) <- node.params) yield program.getType(tp),
+      for (tp <- node.returns) yield program.getType(tp)
+    )
+
+    program.program.export(name, rdef)
+    
     import rdef.Reg
 
     val outs = mutable.Buffer[Reg]()
@@ -247,10 +253,10 @@ package object compiler {
     object srcinfo {
       import mutable.ArrayBuffer
       import format.{meta => Meta}
-      import Meta.SeqItem
+      import Meta.SeqNode
       import Meta.implicits._
 
-      val buffer = new ArrayBuffer[Meta.Item]
+      val buffer = new ArrayBuffer[Meta.Node]
 
       // Instruction Index => (Line, Column)
       val insts = mutable.Map[rdef.Inst, (Int, Int)]()
@@ -260,19 +266,19 @@ package object compiler {
 
       def compile () {
         buffer += rdef.index
-        buffer += SeqItem("name", name)
-        buffer += SeqItem("line", node.line)
-        buffer += SeqItem("column", node.column)
+        buffer += SeqNode("name", name)
+        buffer += SeqNode("line", node.line)
+        buffer += SeqNode("column", node.column)
 
-        buffer += new SeqItem(("regs": Meta.Item) +: vars.map{
+        buffer += new SeqNode(("regs": Meta.Node) +: vars.map{
           case (reg, (line, column, name)) =>
-            SeqItem(reg.index, name, line, column)
+            SeqNode(reg.index, name, line, column)
         }.toSeq)
-        buffer += new SeqItem(("insts": Meta.Item) +: insts.map{
+        buffer += new SeqNode(("insts": Meta.Node) +: insts.map{
           case (inst, (line, column)) =>
-            SeqItem(inst.index, line, column)
+            SeqNode(inst.index, line, column)
         }.toSeq)
-        program.meta.rutmap += new SeqItem(buffer)
+        program.meta.rutmap += new SeqNode(buffer)
       }
     }
 
@@ -291,7 +297,7 @@ package object compiler {
 
       def SubScope = new SubScope(this)
 
-      def getRutine (node: Ast.Expr, nargs: Int = -1): program.program.Rutine =
+      def getRutine (node: Ast.Expr, nargs: Int = -1): program.program.Function =
         %%(node) match {
           case program.RutItem(rut) =>
             if (nargs >= 0 && nargs != rut.ins.size)
@@ -313,8 +319,8 @@ package object compiler {
         case Ast.Call(rutexpr, args) =>
           val rutine = getRutine(rutexpr)
           if (rutine.outs.size < 0) node.error("Expresions cannot be void")
-          val reg = rdef.Reg(rutine.outs(0))
-          val call = rdef.Call(rutine, Array(reg), args map (%%!(_)))
+          val call = rdef.Call(rutine, args map (%%!(_)))
+          val reg = call.regs(0)
           srcinfo.insts(call) = (node.line, node.column)
           RegItem(reg)
         case Ast.Binop(op, _a, _b) =>
@@ -322,21 +328,22 @@ package object compiler {
           val a = %%!(_a)
           val b = %%!(_b)
           val (rutine, rtp) = op match {
-            case Ast.Add => 
-              (a.t, b.t) match {
+            case Ast.Add => (iadd, intType)
+              /*(a.t, b.t) match {
                 case (`intType`, `intType`) => (iadd, intType)
                 case (`strType`, `strType`) => (concat, strType)
-              }
+              }*/
             case Ast.Sub => (isub, intType)
             case Ast.Gt  => (igt, boolType)
             case Ast.Gte => (igte, boolType)
             case Ast.Eq  => (ieq, boolType)
             case _ => node.error(
-              s"Unknown overload for $op with ${a.t} and ${b.t}"
+              s"Unknown overload for $op" //"with ${a.t} and ${b.t}"
             )
           }
-          val reg = rdef.Reg(rtp)
-          val call = rdef.Call(rutine, Array(reg), Array(a, b))
+          //val reg = rdef.Reg(rtp)
+          val call = rdef.Call(rutine, Array(a, b))
+          val reg = call.regs(0)
           srcinfo.insts(call) = (node.line, node.column)
           RegItem(reg)
       }
@@ -345,9 +352,8 @@ package object compiler {
         %%(node) match {
           case RegItem(reg) => reg
           case program.ConstItem(const, tp) =>
-            val reg = Reg(tp)
-            rdef.Cns(reg, const)
-            reg
+            val sgt = rdef.Sgt(const)
+            sgt.reg
           case _ => node.error("Unusable expression")
         }
 
@@ -358,19 +364,19 @@ package object compiler {
             case _ => node.error("Not a type")
           }
           for (decl@ Ast.DeclPart(nm, vl) <- parts) {
-            val reg = Reg(tp)
+            val reg = rdef.Var().reg
             this(nm) = reg
             vl match {
               case Some(expr) =>
                 val result = %%!(expr)
-                rdef.Cpy(reg, result)
+                rdef.Set(reg, result)
               case None =>
             }
             srcinfo.vars(reg) = (node.line, node.column, nm)
           }
         case Ast.Call(rutexpr, args) =>
           val rutine = getRutine(rutexpr, args.size)
-          var call = rdef.Call(rutine, Nil, args map (%%!(_)))
+          var call = rdef.Call(rutine, args map (%%!(_)))
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Assign(nm, expr) =>
           val reg = get(nm) match {
@@ -378,7 +384,7 @@ package object compiler {
             case _ => node.error(s"$nm is not a variable")
           }
           val result = %%!(expr)
-          val inst = rdef.Cpy(reg, result)
+          val inst = rdef.Set(reg, result)
           srcinfo.insts(inst) = (node.line, node.column)
         case Ast.Multi(_ls, Ast.Call(rutexpr, args)) =>
           val rutine = getRutine(rutexpr, args.size)
@@ -387,7 +393,9 @@ package object compiler {
             case _ => node.error(s"$nm is not a variable")
           } }
           val rs = args map (%%!(_))
-          var call = rdef.Call(rutine, ls, rs)
+          var call = rdef.Call(rutine, rs)
+          for (i <- 0 until args.size)
+            rdef.Set(ls(i), call.regs(i))
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Multi(_, _) =>
           node.error("Multiple assignment only works with function calls")
@@ -395,55 +403,52 @@ package object compiler {
           val scope = SubScope
           stmts foreach (scope %% _)
         case Ast.While(cond, body) =>
-          val $start = rdef.Lbl
-          val $end = rdef.Lbl
+          val $start = rdef.Lbl()
+          val $end = rdef.Lbl()
 
-          rdef.Ilbl($start)
+          $start.create()
           val $cond = %%!(cond)
-          rdef.Ifn($end, $cond)
+          rdef.Nif($end, $cond)
 
           %%(body)
 
           rdef.Jmp($start)
-          rdef.Ilbl($end)
+          $end.create()
         case Ast.If(cond, body, orelse) =>
-          val $else = rdef.Lbl
-          val $end  = rdef.Lbl
+          val $else = rdef.Lbl()
+          val $end  = rdef.Lbl()
 
           val $cond = %%!(cond)
-          rdef.Ifn($else, $cond)
+          rdef.Nif($else, $cond)
 
           %%(body)
 
           rdef.Jmp($end)
-          rdef.Ilbl($else)
+          $else.create()
           orelse match {
             case Some(body) => %%(body)
             case None =>
           }
-          rdef.Ilbl($end)
+          $end.create()
         case Ast.Return(exprs) =>
           val outs = Rutine.this.outs
           if (exprs.size != outs.size) node.error(
             s"Expected ${outs.size} return values, found ${exprs.size}"
           )
-          for ( (reg, expr) <- outs zip exprs ) {
-            val result = %%!(expr)
-            rdef.Cpy(reg, result)
-          }
-          rdef.End()
+          val args = for (expr <- exprs) yield %%!(expr)
+          rdef.End(args)
       }
     }
 
     val topScope = new Scope
 
-    for ((tp, name) <- node.params ) {
+    /*for ((tp, name) <- node.params ) {
       val reg = rdef.InReg( program.getType(tp) )
       topScope(name) = reg
     }
 
     for (tp <- node.returns)
-      outs += rdef.OutReg( program.getType(tp) )
+      outs += rdef.OutReg( program.getType(tp) )*/
 
     def compile () {
       node.body.stmts map (topScope %% _)
@@ -462,21 +467,21 @@ package object compiler {
     var alias = ""
     var inScope = false
 
-    lazy val module = prg.Module(name, Nil)
+    lazy val module = prg.Import(name, params.size > 0)
 
     // Scala no me deja!
-    //import prg.{Rutine, Type}
+    //import prg.{Function, Type}
 
     object rutines {
       val protos = mutable.Map[String, Proto]()
-      val map = mutable.Map[String, prg.Rutine]()
+      val map = mutable.Map[String, prg.Function]()
 
-      def apply (name: String): Option[prg.Rutine] =
+      def apply (name: String): Option[prg.Function] =
         map get name match {
           case Some(rut) => Some(rut)
           case None => protos get name match {
             case Some(Proto(ins, outs)) =>
-              val rut = module.Rutine(name, ins, outs)
+              val rut = module.Function(name, ins, outs)
               map(name) = rut
               Some(rut)
             case None => None
@@ -504,9 +509,9 @@ package object compiler {
       rutines(k).map(program.RutItem) orElse
       types.get(k).map(program.TypeItem)
 
-    def computeParams () {
+    /*def computeParams () {
       for (p <- params) module.params += program %%! p
-    }
+    }*/
   }
 
   def compile (prg: Ast.Program): format.Program = {

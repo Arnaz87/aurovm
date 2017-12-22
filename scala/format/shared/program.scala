@@ -90,6 +90,7 @@ class Program {
 
     sealed abstract class Inst() {
       code += this
+      def index = code indexOf this
       final override def equals (o: scala.Any) = o match {
         case o: Inst => this eq o
         case _ => false

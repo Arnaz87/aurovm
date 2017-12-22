@@ -47,28 +47,11 @@ object Main {
     val writer = new Writer(buffer)
     writer.write(program)
 
-    val lines = buffer.iterator.grouped(16)
-    for (line <- lines) {
-      print("  ")
-      for (b <- line) {
-        if (b >= 0x20 && b <= 0x7e) {
-          // Print gray in the terminal
-          print(f"\u001b[1;30m$b%c\u001b[0;39m  ")
-        } else {
-          print(f"$b%-3d")
-        }
-      }
-      println()
-    }
+    writer.print()
 
-    {
-      import java.io._
-      val file = new File("out")
-      val stream = new FileOutputStream(file, false)
-      buffer foreach { byte: Int => stream.write(byte) }
-      stream.close
-      println(s"Binary data written to ${file.getCanonicalPath}")
-    }
+    val file = new java.io.File("out")
+    writer.writeToFile(file)
+    println(s"Binary data written to ${file.getCanonicalPath}")
 
   }
 }

@@ -144,4 +144,27 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
     } }
     writeNode(new meta.SeqNode(metadata))
   }
+
+  def print () {
+    val lines = buffer.iterator.grouped(16)
+    for (line <- lines) {
+      scala.Predef.print("  ")
+      for (b <- line) {
+        if (b >= 0x20 && b <= 0x7e) {
+          // Print gray in the terminal
+          scala.Predef.print(f"\u001b[1;30m$b%c\u001b[0;39m  ")
+        } else {
+          scala.Predef.print(f"$b%-3d")
+        }
+      }
+      println()
+    }
+  }
+
+  import java.io._
+  def writeToFile (file: File) {
+    val stream = new FileOutputStream(file, false)
+    buffer foreach { byte: Int => stream.write(byte) }
+    stream.close
+  }
 }

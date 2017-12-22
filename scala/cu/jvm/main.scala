@@ -72,40 +72,32 @@ object Main {
       println()
     }
     maybeExit()
-
-    //val compiler = Compiler(parsed)
-    //val binary = compiler.binary
     
     val program = compiler.compile(parsed)
-    val binary = {
-      val buffer = new collection.mutable.ArrayBuffer[Int]()
-      val writer = new arnaud.cobre.format.Writer(buffer)
-      writer.write(program)
-      buffer
-    }
+
+    val buffer = new collection.mutable.ArrayBuffer[Int]()
+    val writer = new arnaud.cobre.format.Writer(buffer)
+    writer.write(program)
 
     if (args print "binary") {
       args.print -= "binary"
       println("=== Compiled Binary ===")
-      arnaud.cobre.format.Main.printBinary(binary)
+      writer.print()
     }
     maybeExit()
 
     if (args.pipe) {
       val stream = java.lang.System.out
-      val bytes = new Array[Byte](binary.size)
-      for ( (byte, i) <- binary.zipWithIndex ) {
+      val bytes = new Array[Byte](buffer.size)
+      for ( (byte, i) <- buffer.zipWithIndex ) {
         bytes(i) = byte.asInstanceOf[Byte]
       }
       stream.write(bytes, 0, bytes.size)
     }
 
     if (!args.output.isEmpty) {
-      import java.io._
       val filename = args.output.get
-      val stream = new FileOutputStream(new File(filename), false)
-      binary foreach { byte: Int => stream.write(byte) }
-      stream.close
+      writer.writeToFile(new java.io.File(filename))
       println(s"Binary data written to file $filename")
     }
   }
