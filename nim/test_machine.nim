@@ -128,7 +128,6 @@ suite "Machine":
       name: "test-statics",
     )
     var statics = @[Value(kind: intV, i: 3)]
-    shallow(statics)
 
     var myfunc = Function(name: "myfunc")
     myfunc.makeCode(
@@ -141,6 +140,7 @@ suite "Machine":
       statics = statics,
       regcount = 2,
     )
+    myfunc.statics.shallowCopy(statics)
     discard myfunc.run(@[])
     let result = statics[0]
     check( result == Value(kind: intV, i: 2) )

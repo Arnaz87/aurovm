@@ -22,11 +22,6 @@ Cada nodo source map es un archivo fuente. Diferentes archivos fuentes deben est
 (components (kind file index line column name?)* )
 ("code"
   (block_index
-    ("file" index)
-    ("name" name)
-    ("line" line)
-    ("column" column)
-
     ("regs" (index name line column?)*)
     ("inst" (index line column?)*)
   )*

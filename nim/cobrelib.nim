@@ -1,6 +1,25 @@
 
 import machine
 
+import hashes
+import tables
+
+#=== cobre.core ===#
+
+let intT: Type = Type(kind: nativeT, name: "int")
+let binT: Type = Type(kind: nativeT, name: "bin")
+let boolT: Type = Type(kind: nativeT, name: "bool")
+let strT: Type = Type(kind: nativeT, name: "string")
+
+discard newModule(
+  name = "cobre.core",
+  types = @{ "bool": boolT, "bin": binT }
+)
+
+
+
+#=== cobre.prim ===#
+
 proc addf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i + ins[1].i
   @[Value(kind: intV, i: r)]
@@ -41,11 +60,6 @@ proc decf (ins: seq[Value]): seq[Value] =
   let r = ins[0].i - 1
   @[Value(kind: intV, i: r)]
 
-let intT: Type = Type(kind: nativeT, name: "int")
-let binT: Type = Type(kind: nativeT, name: "bin")
-let boolT: Type = Type(kind: nativeT, name: "bool")
-let strT: Type = Type(kind: nativeT, name: "string")
-
 let iitoi = Signature(
   ins: @[intT, intT],
   outs: @[intT]
@@ -56,11 +70,6 @@ let iitob = Signature(
 )
 let itoi = Signature(ins: @[intT], outs: @[intT])
 let itob = Signature(ins: @[intT], outs: @[boolT])
-
-discard newModule(
-  name = "cobre.core",
-  types = @{ "bool": boolT, "bin": binT }
-)
 
 discard newModule(
   name = "cobre.prim", 
@@ -79,16 +88,9 @@ discard newModule(
   }
 )
 
-proc printf (ins: seq[Value]): seq[Value] =
-  echo ins[0].s
-  @[]
 
-discard newModule(
-  name = "cobre.system",
-  funcs = @{
-    "print": newFunction("print", Signature(ins: @[], outs: @[]), printf)
-  }
-)
+
+#=== cobre.string ===#
 
 proc newstrf (ins: seq[Value]): seq[Value] =
   let bytes = ins[0].bytes
@@ -114,6 +116,24 @@ discard newModule(
     "concat": newFunction("concat", Signature(ins: @[strT, strT], outs: @[strT]), concatf),
   }
 )
+
+
+#=== cobre.system ===#
+
+proc printf (ins: seq[Value]): seq[Value] =
+  echo ins[0].s
+  @[]
+
+discard newModule(
+  name = "cobre.system",
+  funcs = @{
+    "print": newFunction("print", Signature(ins: @[strT], outs: @[]), printf)
+  }
+)
+
+
+
+#=== cobre.tuple ===#
 
 proc tplFn (argument: Module): Module =
   var types: seq[Type] = @[]
@@ -192,6 +212,10 @@ proc tplFn (argument: Module): Module =
 
 machine_modules.add(Module(name: "cobre.tuple", kind: functorM, fn: tplFn))
 
+
+
+#=== cobre.null ===#
+
 proc nullFn (argument: Module): Module =
   var argitem = argument["0"]
   if argitem.kind != tItem:
@@ -208,9 +232,31 @@ proc nullFn (argument: Module): Module =
     kind: simpleM,
     items: items,
   )
-
 machine_modules.add(Module(name: "cobre.null", kind: functorM, fn: nullFn))
 
+
+
+#=== cobre.function ===#
+
+#proc hash(t: Type): Hash = t.unsafeAddr.hash
+#proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
+
+# Error: cannot instantiate: 'A'
+#var function_modules: Table[Signature,  Module] = initTable()
+
+type FunTable = seq[tuple[sig: Signature, m: Module]]
+var function_modules: FunTable = @[]
+proc hasKey(table: FunTable, sig: Signature): bool =
+  for item in table:
+    if item.sig == sig:
+      return true
+  return false
+proc `[]`(table: FunTable, sig: Signature): Module =
+  for item in table:
+    if item.sig == sig:
+      return item.m
+proc `[]=`(table: var FunTable, sig: Signature, m: Module) =
+  table.add((sig, m))
 
 proc functionFn (argument: Module): Module =
   var ins:  seq[Type] = @[]
@@ -228,9 +274,12 @@ proc functionFn (argument: Module): Module =
     n += 1
     nitem = argument["out" & $n]
 
-  let basename = "function(" & $ins.len & " " & $outs.len & ")"
-
   var sig = Signature(ins: ins, outs: outs)
+  if function_modules.hasKey(sig):
+    return function_modules[sig]
+
+  let basename = sig.name
+
   var tp = Type(name: basename, kind: functionT, sig: sig)
   var items = @[ Item(name: "", kind: tItem, t: tp) ]
 
@@ -252,10 +301,11 @@ proc functionFn (argument: Module): Module =
     )
   ))
 
-  return Module(
+  result = Module(
     name: basename & "_module",
     kind: simpleM,
     items: items,
   )
+  function_modules[sig] = result
 
 machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))

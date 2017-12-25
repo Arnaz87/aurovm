@@ -169,7 +169,7 @@ suite "Full Tests":
       2, # Statics
         2, $0, # int 0
         2, $1, # int 1
-      9, # Block for #2
+      9, # Block for #1
         #0 = ins[0]
         4, 0, #1 = const_0 (0)
         4, 1, #2 = const_1 (1)
@@ -366,7 +366,7 @@ suite "Full Tests":
           1, 0, # 1 out: int
         2, #4 Defined main
           0, # 0 ins
-          1, 1, # 1 outs: int
+          1, 0, # 1 outs: int
       3, # Statics
         2, $4, # int 4
         2, $5, # int 5
@@ -401,8 +401,6 @@ suite "Full Tests":
     #[ Equivalent Cu
       // Type string not found in cobre.core
       import cobre.core { type string; }
-      // Temporarily necessary to force the import
-      void nop (string s) {}
     ]#
 
     let code = bin(
@@ -439,9 +437,108 @@ suite "Full Tests":
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed)
+
+      checkpoint("Expected Cobre Error")
+      fail()
     except CobreError:
       let exception = (ref CobreError) getCurrentException()
       let srcpos = exception.srcpos
       check(srcpos.line == some(2))
       check(srcpos.column == some(25))
 
+
+
+  test "Typecheck fail":
+
+    #[ Equivalent Cu
+      // Type string not found in cobre.core
+      import cobre.prim { type int; }
+      import cobre.string { type string; }
+      import cobre.system { void print(string); }
+      void main () {
+        print(42); // Should fail typecheck
+      }
+    ]#
+
+    let code = bin(
+      "Cobre ~4", 0,
+      4, # Modules
+        # module #0 is the argument
+        1, 1, #1 Define (exports)
+          2, 1, $"main",
+        0, $"cobre.prim", #2
+        0, $"cobre.string", #3
+        0, $"cobre.system", #4
+      2, # Types
+        1, 2, $"int",    #0 from cobre.core import int
+        1, 3, $"string", #1 from cobre.core import string
+      2, # Functions
+        1, 4, $"print", #0 from cobre.system
+          1, 1, 0,      #  void print(string)
+        2, 0, 0,        #1 void main ()
+      1, # Statics
+        2, 42, #0 int 42
+      3, # Block for #1 (main)
+        4, 0, #0 sgt #0 (42)
+        (16 + 0), 0, # print #0 (Shouldn't typecheck)
+        0,
+      1, 0, # Static Block
+      (1 shl 2), # Metadata, 1 toplevel node
+        (3 shl 2), # 2 nodes (+ header)
+          (10 shl 2 or 2), "source map",
+          (2 shl 2),
+            (4 shl 2 or 2), "file",
+            (4 shl 2 or 2), "test",
+          (2 shl 2), # 1 codes (+ header)
+            (10 shl 2 or 2), "code",
+            (2 shl 2), # code for block #0
+              (0 shl 1 or 1), # block #0
+              (3 shl 2), # 2 instructions (+ header)
+                (6 shl 2 or 2), "inst",
+                (3 shl 2),
+                  (0 shl 1 or 1), # code[0] (sgt 42)
+                  (6 shl 1 or 1), # line 6
+                  (8 shl 1 or 1), # column 8
+                (3 shl 2),
+                  (0 shl 1 or 1), # code[1] (call print)
+                  (6 shl 1 or 1), # line 6
+                  (8 shl 1 or 1), # column 8
+    )
+
+    try:
+      let parsed = parseData(code)
+      let compiled = compile(parsed)
+
+      checkpoint("Expected Cobre Error")
+      fail()
+    except TypeError:
+      let exception = (ref TypeError) getCurrentException()
+      #let srcpos = exception.srcpos
+      #check(srcpos.line == some(6))
+      #check(srcpos.column == some(8))
+
+  test "Incorrect Signature":
+
+    #[ Equivalent Cu
+      // Type string not found in cobre.core
+      import cobre.core { type string; }
+    ]#
+
+    let code = bin(
+      "Cobre ~4", 0,
+      2, # Modules
+        # module #0 is the argument
+        1, 0, #1 Define (exports)
+        0, $"cobre.system", #2 Import
+      0, # Types
+      1, # Functions
+        1, 2, $"print", #0 from cobre.system import string
+          0, 0, #  void print () (wrong, it really is void print(string))
+      0, # Statics
+      1, 0, # Static Block
+      0,
+    )
+
+    expect TypeError:
+      let parsed = parseData(code)
+      let compiled = compile(parsed)

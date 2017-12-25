@@ -1,6 +1,9 @@
 
 import options
 
+import sequtils
+import strutils
+
 type
   SrcPos* = object of RootObj
     file*: Option[string]
@@ -18,7 +21,7 @@ type
   ValueKind* = enum nilV, boolV, intV, strV, binV, productV, functionV
   Value* = object
     case kind*: ValueKind
-    of nilV: discard
+    of nilV: t*: Type
     of boolV: b*: bool
     of intV: i*: int
     of strV: s*: string
@@ -134,7 +137,6 @@ proc `$`* (t: Type): string =
     for i in 0 .. t.sig.outs.high:
       result &= " " & t.sig.outs[i].name
   result &= ")"
-
 proc `[]=`* (m: var Module, k: string, f: Function) =
   m.items.add(Item(name: k, kind: fItem, f: f))
 proc `[]=`* (m: var Module, k: string, t: Type) =
@@ -146,6 +148,11 @@ proc `[]`* (m: Module, k: string): Item =
     if item.name == k:
       return item
   return Item(kind: nilItem)
+
+proc name* (sig: Signature): string =
+  let ins = sig.ins.map(proc (t: Type): string = t.name)
+  let outs = sig.outs.map(proc (t: Type): string = t.name)
+  "(" & ins.join(" ") & " -> " & outs.join(" ") & ")"
 
 proc newModule* (
   name: string,
@@ -203,6 +210,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     stack.add(nst)
 
   pushState(fn, ins)
+
+  #echo "Statics: ", fn.statics
 
   try:
     while stack.len > 0:

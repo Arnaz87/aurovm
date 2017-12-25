@@ -1,8 +1,11 @@
 
 import parse as P
 import machine
+import cobrelib
 
 import options
+import sequtils
+import strutils
 
 type
   Module = machine.Module
@@ -19,13 +22,15 @@ type
     parser: P.Parser
     modules: seq[Module]
     types: seq[Data[Type]]
-    #types: seq[Type]
     funcs: seq[Function]
     statics: seq[Value]
+    static_types: seq[Type]
     static_function: Function
 
+  UnsupportedError* = object of Exception
+
   CompileError* = object of CobreError
-  UnsupportedError* = object of CompileError
+  TypeError* = object of CompileError
 
 proc getType(self: State, i: int): Type
 
@@ -81,8 +86,92 @@ proc getType (self: State, i: int): Type =
   self.types[i].pending = false
   return item.t
 
+proc typeCheck(self: State, fn: Function) =
+
+  proc check(t1: Type, t2: Type, index: int) =
+    if t1 != t2:
+      let n1 = if not t1.isNil: t1.name else: "<nil>"
+      let n2 = if not t2.isNil: t2.name else: "<nil>"
+      let at = fn.name & "[" & $index & "]"
+      let msg = "Type Mismatch. Expected " & n2 & ", got " & n1 & " at " & at
+      raise newException(TypeError, msg)
+
+  var regs = newSeq[Type](fn.reg_count)
+  var code = newSeq[machine.Inst](0)
+  var next_code = fn.code
+
+  for i in 0..fn.sig.ins.high:
+    regs[i] = fn.sig.ins[i]
+
+  #echo "Typechecking ", fn.name
+  #echo "  statics ", self.static_types
+
+  # Repeat until the next code is equal to the current code
+  # in which case no progress was made
+  while next_code.len != code.len:
+    code = next_code
+    next_code = @[]
+
+    for index in 0..code.high:
+      let inst = code[index]
+      # Wether to cancel this instruction transfer
+      var cancel = false
+      case inst.kind
+      of varI: discard # Nothing to do
+      of dupI, anyI:
+        if regs[inst.src].isNil:
+          regs[inst.dest] = regs[inst.src]
+        else: cancel = true
+      of setI:
+        if not regs[inst.src].isNil:
+          # If dest has no type, assign it
+          if not regs[inst.dest].isNil:
+            regs[inst.dest] = regs[inst.src]
+          check(regs[inst.src], regs[inst.dest], index)
+        else: cancel = true
+      of sgtI:
+        regs[inst.dest] = self.static_types[inst.src]
+      of sstI:
+        if regs[inst.src] != self.static_types[inst.dest]:
+          raise newException(TypeError, "Type Mismatch")
+      of jmpI: discard
+      of jifI, nifI:
+        if not regs[inst.src].isNil:
+          let boolT = findModule("cobre.core")["bool"].t
+          check(regs[inst.src], boolT, index)
+        else: cancel = true
+      of endI:
+        for i in 0 .. inst.args.high:
+          let xi = inst.args[i]
+          if regs[xi].isNil:
+            cancel = true
+            break
+          check(regs[xi], fn.sig.outs[i], index)
+      of callI:
+        for i in 0 .. inst.args.high:
+          let xi = inst.args[i]
+          if regs[xi].isNil:
+            cancel = true
+            break
+          check(regs[xi], inst.f.sig.ins[i], index)
+        if not cancel:
+          for i in 0 .. inst.f.sig.outs.high:
+            regs[i + inst.ret] = inst.f.sig.outs[i]
+
+      #echo "  ", regs, " ", inst, " ", cancel
+      if cancel:
+        next_code.add(inst)
+
+  if next_code.len > 0:
+    raise newException(EXception, "Could not typecheck " & $next_code & " in " & fn.name)
+
+
+
+
 proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
   var reg_count = ins
+
+  type RegInfo = tuple[t: Type, d: P.Inst]
 
   fn.code = newSeq[machine.Inst](code.len)
   for i in 0 .. fn.code.high:
@@ -124,6 +213,8 @@ proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
 
   fn.reg_count = reg_count
 
+  self.typeCheck(fn)
+
 proc compile* (parser: P.Parser): Module =
 
   var self = State(parser: parser)
@@ -152,24 +243,72 @@ proc compile* (parser: P.Parser): Module =
 
 
   # First create the statics so that functions can use them
+  # This must always be assigned with shallowCopy
   self.statics = newSeq[Value](p.statics.len)
-  shallow(self.statics) # Makes the seq be passed by reference instead of by value
+
+  # This is to be used only here
+  self.static_types = newSeq[Type](p.statics.len)
 
   # First iteration to have all the functions available
   self.funcs = newSeq[Function](p.functions.len)
   for i in 0 .. self.funcs.high:
     let data = p.functions[i]
 
+    let sig = Signature(
+      ins:  data.ins.map(proc (x: int): Type = self.getType(x)),
+      outs: data.outs.map(proc (x: int): Type = self.getType(x))
+    )
+
     if data.internal:
       let name = "<function#" & $i & ">"
-      self.funcs[i] = Function(name: name, kind: codeF, statics: self.statics)
+      self.funcs[i] = Function(name: name, kind: codeF, sig: sig)
+      self.funcs[i].statics.shallowCopy(self.statics)
     else:
       let module = self.getModule(data.module)
       let item = module[data.name]
-      if item.kind != machine.fItem: raise newException(CompileError, "Function " & data.name & " not found in " & module.name)
-      else: self.funcs[i] = item.f
+      if item.kind != machine.fItem:
+        raise newException(CompileError, "Function " & data.name & " not found in " & module.name)
 
-  self.static_function = Function(name: "<static>", kind: codeF, statics: self.statics)
+      if item.f.sig != sig:
+        let msg = item.f.name & " is " & item.f.sig.name & ", but expected " & sig.name
+        raise newException(TypeError, msg)
+      self.funcs[i] = item.f
+
+  self.static_function = Function(name: "<static>", kind: codeF)
+  self.static_function.statics.shallowCopy(self.statics)
+
+  # Ceate all the statics
+  for i in 0 .. p.statics.high:
+    let data = p.statics[i]
+    case data.kind
+    of intStatic:
+      self.statics[i] = Value(kind: intV, i: data.value)
+      self.static_types[i] = findModule("cobre.prim")["int"].t
+    of binStatic:
+      self.statics[i] = Value(kind: binV, bytes: data.bytes)
+      self.static_types[i] = findModule("cobre.core")["bin"].t
+    of funStatic:
+      let f = self.funcs[data.value]
+      self.statics[i] = Value(kind: functionV, f: f)
+      let functor = findModule("cobre.function")
+      var items = newSeq[machine.Item](0)
+
+      for i in 0 .. f.sig.ins.high:
+        items.add(machine.Item(name: "in" & $i, kind: machine.tItem, t: f.sig.ins[i]))
+      for i in 0 .. f.sig.outs.high:
+        items.add(machine.Item(name: "out" & $i, kind: machine.tItem, t: f.sig.outs[i]))
+
+      let argument = Module(kind: simpleM, items: items)
+      let module = functor.fn(argument)
+      self.static_types[i] = module[""].t
+    of nullStatic:
+      self.statics[i] = Value(kind: nilV)
+      self.static_types[i] = self.getType(data.value)
+    else:
+      raise newException(UnsupportedError, "Unsupported static kind " & $data.kind)
+
+  # Static must be created before the code,
+  # because typechecking needs the statics' types
 
   # Second iteration to create the code, having all the functions
   for i in 0 .. self.funcs.high:
@@ -177,22 +316,6 @@ proc compile* (parser: P.Parser): Module =
     if not data.internal: continue
     self.compileCode(self.funcs[i], data.ins.len, data.code)
   self.compileCode(self.static_function, 0, p.static_code)
-
-
-  # Now create all the statics
-  for i in 0 .. p.statics.high:
-    let data = p.statics[i]
-    case data.kind
-    of intStatic:
-      self.statics[i] = Value(kind: intV, i: data.value)
-    of binStatic:
-      self.statics[i] = Value(kind: binV, bytes: data.bytes)
-    of funStatic:
-      self.statics[i] = Value(kind: functionV, f: self.funcs[data.value])
-    of nullStatic:
-      self.statics[i] = Value(kind: nilV)
-    else:
-      raise newException(UnsupportedError, "Unsupported static kind " & $data.kind)
 
   # Force all unused types, to trigger full module validation
   for i in 0 .. self.types.high:
