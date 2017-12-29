@@ -6,6 +6,8 @@ import machine
 import parse
 import compile
 
+import metadata
+
 import unittest
 import macros
 import options
@@ -321,13 +323,12 @@ suite "Full Tests":
       0, # No metadata
     )
 
-    expect CobreError:
-      let parsed = parseData(data)
-      let compiled = compile(parsed)
-      let function = compiled.get_function("main")
+    let parsed = parseData(data)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("main")
 
-      let result = function.run(@[])
-      check(result == @[Value(kind: intV, i: 5)])
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 5)])
 
   test "Function Object":
 
@@ -415,38 +416,44 @@ suite "Full Tests":
       0, # Statics
       1, 0, # Static Block
       (1 shl 2), # Metadata, 1 toplevel node
-        (3 shl 2), # 2 nodes (+ header)
+        (4 shl 2), # 3 nodes (+ header)
           (10 shl 2 or 2), "source map",
           (2 shl 2),
             (4 shl 2 or 2), "file",
             (4 shl 2 or 2), "test",
-          (3 shl 2), # 2 components (+ header)
-            (10 shl 2 or 2), "components",
-            (4 shl 2),
-              (6 shl 2 or 2), "module",
-              (2 shl 1 or 1), # module at index #2
+          (4 shl 2),
+            (6 shl 2 or 2), "module",
+            (2 shl 1 or 1), # module at index #2
+            (2 shl 2),
+              (4 shl 2 or 2), "line",
               (2 shl 1 or 1), # at line 2
+            (2 shl 2),
+              (6 shl 2 or 2), "column",
               (7 shl 1 or 1), # at column 7
-            (4 shl 2),
-              (4 shl 2 or 2), "type",
-              (0 shl 1 or 1), # at index #0
+          (4 shl 2),
+            (4 shl 2 or 2), "type",
+            (0 shl 1 or 1), # at index #0
+            (2 shl 2),
+              (4 shl 2 or 2), "line",
               (2 shl 1 or 1), # at line 2
+            (2 shl 2),
+              (6 shl 2 or 2), "column",
               (25 shl 1 or 1), # at column 25
     )
+
+
 
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed)
 
-      checkpoint("Expected Cobre Error")
+      checkpoint("Expected TypeNotFoundError")
       fail()
-    except CobreError:
-      let exception = (ref CobreError) getCurrentException()
-      let srcpos = exception.srcpos
-      check(srcpos.line == some(2))
-      check(srcpos.column == some(25))
-
-
+    except TypeNotFoundError:
+      let exception = (ref TypeNotFoundError) getCurrentException()
+      let typeinfo = exception.typeinfo
+      check(typeinfo.line == some(2))
+      check(typeinfo.column == some(25))
 
   test "Typecheck fail":
 
@@ -489,39 +496,44 @@ suite "Full Tests":
           (2 shl 2),
             (4 shl 2 or 2), "file",
             (4 shl 2 or 2), "test",
-          (2 shl 2), # 1 codes (+ header)
-            (10 shl 2 or 2), "code",
-            (2 shl 2), # code for block #0
-              (0 shl 1 or 1), # block #0
-              (3 shl 2), # 2 instructions (+ header)
-                (6 shl 2 or 2), "inst",
-                (3 shl 2),
-                  (0 shl 1 or 1), # code[0] (sgt 42)
-                  (6 shl 1 or 1), # line 6
-                  (8 shl 1 or 1), # column 8
-                (3 shl 2),
-                  (0 shl 1 or 1), # code[1] (call print)
-                  (6 shl 1 or 1), # line 6
-                  (8 shl 1 or 1), # column 8
+          (4 shl 2),
+            (8 shl 2 or 2), "function",
+            (1 shl 1 or 1), # function #1
+
+            (2 shl 2),
+              (4 shl 2 or 2), "line",
+              (5 shl 1 or 1),
+            
+            (3 shl 2), # 2 instructions (+ header)
+              (4 shl 2 or 2), "code",
+              (3 shl 2),
+                (0 shl 1 or 1), # code[0] (sgt 42)
+                (6 shl 1 or 1), # line 6
+                (8 shl 1 or 1), # column 8
+              (3 shl 2),
+                (1 shl 1 or 1), # code[1] (call print)
+                (6 shl 1 or 1), # line 6
+                (2 shl 1 or 1), # column 2
     )
 
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed)
 
-      checkpoint("Expected Cobre Error")
+      checkpoint("Expected TypeError")
       fail()
     except TypeError:
       let exception = (ref TypeError) getCurrentException()
-      #let srcpos = exception.srcpos
-      #check(srcpos.line == some(6))
-      #check(srcpos.column == some(8))
+      let instinfo = exception.instinfo
+      check(instinfo.line == some(6))
+      check(instinfo.column == some(2))
 
   test "Incorrect Signature":
 
     #[ Equivalent Cu
-      // Type string not found in cobre.core
-      import cobre.core { type string; }
+      import cobre.system {
+        void print(); // It's actually void print(string)
+      }
     ]#
 
     let code = bin(
@@ -536,9 +548,40 @@ suite "Full Tests":
           0, 0, #  void print () (wrong, it really is void print(string))
       0, # Statics
       1, 0, # Static Block
-      0,
+      (1 shl 2), # Metadata, 1 toplevel node
+        (4 shl 2), # 3 nodes (+ header)
+          (10 shl 2 or 2), "source map",
+          (2 shl 2),
+            (4 shl 2 or 2), "file",
+            (4 shl 2 or 2), "test",
+          (4 shl 2),
+            (6 shl 2 or 2), "module",
+            (0 shl 1 or 1), # module at index #0
+            (2 shl 2),
+              (4 shl 2 or 2), "line",
+              (1 shl 1 or 1),
+            (2 shl 2),
+              (6 shl 2 or 2), "column",
+              (7 shl 1 or 1),
+          (4 shl 2),
+            (8 shl 2 or 2), "function",
+            (0 shl 1 or 1), # at index #0
+            (2 shl 2),
+              (4 shl 2 or 2), "line",
+              (2 shl 1 or 1),
+            (2 shl 2),
+              (6 shl 2 or 2), "column",
+              (7 shl 1 or 1),
     )
 
-    expect TypeError:
+    try:
       let parsed = parseData(code)
       let compiled = compile(parsed)
+
+      checkpoint("Expected Incorrect Signature Error")
+      fail()
+    except IncorrectSignatureError:
+      let exception = (ref IncorrectSignatureError) getCurrentException()
+      let codeinfo = exception.codeinfo
+      check(codeinfo.line == some(2))
+      check(codeinfo.column == some(7))

@@ -1,5 +1,7 @@
 
 import parse as P
+import metadata
+import sourcemap
 import machine
 import cobrelib
 
@@ -20,6 +22,7 @@ type
 
   State = ref object of RootObj
     parser: P.Parser
+    sourcemap: SourceMap
     modules: seq[Module]
     types: seq[Data[Type]]
     funcs: seq[Function]
@@ -30,7 +33,21 @@ type
   UnsupportedError* = object of Exception
 
   CompileError* = object of CobreError
+
+  NotFoundError* = object of CompileError
+
+  ModuleNotFoundError* = object of NotFoundError
+    moduleinfo*: ModuleInfo
+  TypeNotFoundError* = object of NotFoundError
+    typeinfo*: TypeInfo
+  FunctionNotFoundError* = object of NotFoundError
+    codeinfo*: CodeInfo
+
+  IncorrectSignatureError* = object of CompileError
+    codeinfo*: CodeInfo
+
   TypeError* = object of CompileError
+    instinfo*: InstInfo
 
 proc getType(self: State, i: int): Type
 
@@ -79,9 +96,14 @@ proc getType (self: State, i: int): Type =
   let module = self.getModule(data.module)
   let item = module[data.name]
 
+  let typeinfo = self.sourcemap.getType(i)
+
   if item.kind != machine.tItem:
-    let msg = "Type " & data.name & " not found in " & module.name
-    cobreRaise[CompileError](msg, self.types[i].srcpos)
+    let msg = "Type not found in " & module.name
+    var e = newException(TypeNotFoundError, msg)
+    e.typeinfo = typeinfo
+    raise e
+
   self.types[i].value = some(item.t)
   self.types[i].pending = false
   return item.t
@@ -92,9 +114,11 @@ proc typeCheck(self: State, fn: Function) =
     if t1 != t2:
       let n1 = if not t1.isNil: t1.name else: "<nil>"
       let n2 = if not t2.isNil: t2.name else: "<nil>"
-      let at = fn.name & "[" & $index & "]"
-      let msg = "Type Mismatch. Expected " & n2 & ", got " & n1 & " at " & at
-      raise newException(TypeError, msg)
+      let instinfo = fn.codeinfo.getInst(index)
+      let msg = "Type Mismatch. Expected " & n2 & ", got " & n1
+      var e = newException(TypeError, msg)
+      e.instinfo = instinfo
+      raise e
 
   var regs = newSeq[Type](fn.reg_count)
   var code = newSeq[machine.Inst](0)
@@ -166,12 +190,8 @@ proc typeCheck(self: State, fn: Function) =
     raise newException(EXception, "Could not typecheck " & $next_code & " in " & fn.name)
 
 
-
-
 proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
   var reg_count = ins
-
-  type RegInfo = tuple[t: Type, d: P.Inst]
 
   fn.code = newSeq[machine.Inst](code.len)
   for i in 0 .. fn.code.high:
@@ -220,26 +240,20 @@ proc compile* (parser: P.Parser): Module =
   var self = State(parser: parser)
   let p = self.parser
 
+
+  if parser.metadata.children.len > 0:
+    for topnode in parser.metadata.children:
+      if topnode.isNamed("source map"):
+        self.sourcemap = newSourceMap(topnode)
+  if self.sourcemap.isNil:
+    self.sourcemap = newSourceMap()
+
   # modules[0] is the argument. For now it doesn't exist
   self.modules = newSeq[Module](p.modules.len+1)
   #for i in 0 .. p.modules.high:
   #  self.modules[i+1] = ModProm(data: p.modules[i], m: nil)
 
   self.types = newSeq[Data[Type]](p.types.len)
-
-  # Source mapping
-  if self.parser.metadata.children.len > 0:
-    for topnode in self.parser.metadata.children:
-      if topnode.isNamed("source map"):
-        let components = topnode["components"]
-        if components.isSome:
-          for component in components.get.tail:
-            if component.isNamed("type"):
-              let index = component[1].get.n
-              if component[2].isSome:
-                self.types[index].srcpos.line = some(component[2].get.n)
-              if component[3].isSome:
-                self.types[index].srcpos.column = some(component[3].get.n)
 
 
   # First create the statics so that functions can use them
@@ -251,18 +265,21 @@ proc compile* (parser: P.Parser): Module =
 
   # First iteration to have all the functions available
   self.funcs = newSeq[Function](p.functions.len)
-  for i in 0 .. self.funcs.high:
-    let data = p.functions[i]
+  for index in 0 .. self.funcs.high:
+    let data = p.functions[index]
 
     let sig = Signature(
       ins:  data.ins.map(proc (x: int): Type = self.getType(x)),
       outs: data.outs.map(proc (x: int): Type = self.getType(x))
     )
 
+    let codeinfo = self.sourcemap.getFunction(index)
+
     if data.internal:
-      let name = "<function#" & $i & ">"
-      self.funcs[i] = Function(name: name, kind: codeF, sig: sig)
-      self.funcs[i].statics.shallowCopy(self.statics)
+      let name = "<function#" & $index & ">"
+      self.funcs[index] = Function(name: name, kind: codeF, sig: sig)
+      self.funcs[index].statics.shallowCopy(self.statics)
+      self.funcs[index].codeinfo = codeinfo
     else:
       let module = self.getModule(data.module)
       let item = module[data.name]
@@ -271,8 +288,10 @@ proc compile* (parser: P.Parser): Module =
 
       if item.f.sig != sig:
         let msg = item.f.name & " is " & item.f.sig.name & ", but expected " & sig.name
-        raise newException(TypeError, msg)
-      self.funcs[i] = item.f
+        var e = newException(IncorrectSignatureError, msg)
+        e.codeinfo = codeinfo
+        raise e
+      self.funcs[index] = item.f
 
   self.static_function = Function(name: "<static>", kind: codeF)
   self.static_function.statics.shallowCopy(self.statics)
@@ -326,6 +345,3 @@ proc compile* (parser: P.Parser): Module =
 
   # Main Module
   result = self.getModule(1)
-
-
-

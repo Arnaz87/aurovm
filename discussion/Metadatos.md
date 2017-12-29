@@ -19,13 +19,15 @@ Cada nodo source map es un archivo fuente. Diferentes archivos fuentes deben est
 
 ~~~
 ("file" filename)
-(components (kind file index line column name?)* )
-("code"
-  (block_index
-    ("regs" (index name line column?)*)
-    ("inst" (index line column?)*)
-  )*
-)
+(
+  "import"|"type"|"function"
+  index -- Must always be the second children
+  ("name" name)?
+  ("line" line)?
+  ("column" column)?
+  ("code" (index line column?)*)? -- Only for functions
+  ("regs" (index name)*)? -- Only for functions
+)*
 ~~~
 
 ## structure

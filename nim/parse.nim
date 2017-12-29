@@ -2,6 +2,7 @@
 ## Parse binary data into an in-memory data structure.
 
 from machine import InstKind
+import metadata
 import options
 from strutils import toHex
 
@@ -71,55 +72,11 @@ type
 
   UnsupportedError* = object of Exception
 
-  NodeKind* = enum listNode, strNode, intNode
-  Node* = object of RootObj
-    case kind*: NodeKind
-    of listNode: children*: seq[Node]
-    of strNode: s*: string
-    of intNode: n*: int
-
 proc parseRaise*[T](p: Parser, xmsg: string) =
   let msg = xmsg & ", at byte " & p.pos.toHex(4)
   var e = newException(T, msg)
   e.pos = p.pos
   raise e
-
-proc `$`*(nd: Node): string =
-  case nd.kind
-  of strNode: return '"' & nd.s & '"'
-  of intNode: return $nd.n
-  of listNode:
-    result = "("
-    var first = true
-    for x in nd.children:
-      if first: first = false
-      else: result &= " "
-      result &= $x
-    result &= ")"
-
-proc tail*(node: Node): seq[Node] =
-  result = newSeq[Node](node.children.len - 1)
-  for i in 1 .. node.children.high:
-    result[i-1] = node.children[i]
-
-proc `[]`*(nd: Node, index: int): Option[Node] =
-  if (nd.kind == listNode) and (index < nd.children.len):
-    return some(nd.children[index])
-  else: return none(Node)
-
-proc isNamed*(node: Node, name: string): bool =
-  if node[0].isSome:
-    let head = node[0].get
-    if head.kind == strNode and head.s == name:
-      return true
-  return false
-
-proc `[]`*(nd: Node, key: string): Option[Node] =
-  if nd.kind == listNode:
-    for child in nd.children:
-      if child.isNamed(key):
-        return some(child)
-  else: return none(Node)
 
 #=== Primitives ===#
 

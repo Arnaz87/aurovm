@@ -1,8 +1,9 @@
 
-import options
-
 import sequtils
 import strutils
+import options
+
+import sourcemap
 
 type
   SrcPos* = object of RootObj
@@ -33,6 +34,7 @@ type
   Function* = ref object of RootObj
     name*: string
     sig*: Signature
+    codeinfo*: CodeInfo
     case kind*: FunctionKind
     of procF:
       prc*: proc(ins: seq[Value]): seq[Value]
@@ -197,6 +199,7 @@ proc makeCode* (
   f.statics = statics
   shallow(f.statics) # So that functions can change it
   f.regcount = regcount
+
 
 proc run* (fn: Function, ins: seq[Value]): seq[Value] =
   if fn.kind == procF: return fn.prc(ins)
