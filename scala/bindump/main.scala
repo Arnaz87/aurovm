@@ -1,7 +1,30 @@
 package arnaud.myvm.bindump
 
 class Reader (_content: Iterator[Int]) {
+
+  val RESET    = "\u001b[39m"
+  val MODULE   = "\u001b[34m" // Blue
+  val TYPE     = "\u001b[36m" // Cyan
+  val FUNCTION = "\u001b[35m" // Magenta
+  val STATIC   = "\u001b[33m" // Yellow
+  val REG      = "\u001b[32m" // Green
+  val INST     = "\u001b[34m" // Blue
+
   import scala.collection.mutable.ArrayBuffer
+
+  def PByte (n: Int, color: String) = {
+    val str = f"$n%3d"
+    if (color == null) str
+    else color+str+RESET
+  }
+
+  def PChar (b: Int) =
+    if (b >= 0x20 && b <= 0x7e)
+      f"\u001b[1;30m  $b%c\u001b[0;39m"
+    else f"$b%3d"
+
+  def F(str: String) = s"\u001b[1;30m${str}\u001b[0;39m"
+  def F(i: Int, color: String) = color + i + RESET
 
   val content = new Iterator[Int] {
     var pos = 0;
@@ -10,11 +33,12 @@ class Reader (_content: Iterator[Int]) {
   }
 
   var pos = content.pos
-  var buffer: ArrayBuffer[Int] = new ArrayBuffer()
+  var buffer: ArrayBuffer[String] = new ArrayBuffer()
 
   //=== Print ===//
-    def printBar  () { println("- "*20) }
-    def printText (text: String) { println(" "*32 + "| " + text) }
+    val BAR = "\u001b[1;30m" + (". "*39) + "\u001b[0;39m\n"
+    def printBar  () { println(BAR) }
+    def printText (text: String) { println(" "*40 + "| " + text) }
     def printData (text: String) {
 
       // El iterador lee ocho bytes a la vez, cada chunk es un List
@@ -35,15 +59,12 @@ class Reader (_content: Iterator[Int]) {
         case (Nil, text, _) => printText(text)
 
         // Si sí hay bytes, imprimir todo bonito
-        case (chars, text, i) =>
+        case (bytes, text, i) =>
           val pstr = if (i==0) f"${pos+(i*8)}%04x:" else " "*5
 
           val hexline = {
-            // Convertir cada byte en su representación
-            val hexes = chars.map{ c: Int => f"$c%02x" }
-
             // Llenar con espacios vacíos hasta llegar a ocho
-            val padded = hexes.padTo(8, "  ")
+            val padded = bytes.padTo(8, "   ")
 
             // Combinar los strings con espacios en medio
             padded.mkString(" ")
@@ -57,32 +78,34 @@ class Reader (_content: Iterator[Int]) {
     }
 
   //=== Read ===//
-    def readByte () = {
+    def readByte (color: String = null) = {
       val byte = content.next()
-      this.buffer += byte
+      this.buffer += PByte(byte, color)
       byte.asInstanceOf[Int]
     }
 
-    def readBytes (n: Int) = (1 to n).map{_=>readByte()}
+    def readBytes (n: Int) = {
+      for (_ <- 1 to n) yield {
+        val byte = content.next()
+        this.buffer += PChar(byte)
+        byte.asInstanceOf[Int]
+      }
+    }
 
-    def readShort () = ((readByte << 8) | readByte)
-
-    def readInt () = {
+    def readInt (color: String): Int = {
       var n = 0
-      var byte = readByte()
+      var byte = readByte(color)
       while ((byte & 0x80) > 0) {
         n = (n << 7) | (byte & 0x7f)
-        byte = readByte()
+        byte = readByte(color)
       }
       (n << 7) | (byte & 0x7f)
     }
+    def readInt (): Int = readInt(null)
 
     def readString (): String = {
       val size = readInt()
-
-      val bts = content.take(size).toSeq
-      buffer ++= bts
-
+      val bts = readBytes(size)
       val bytes = bts.map(_.asInstanceOf[Byte]).toArray
       new String(bytes, "UTF-8")
     }
@@ -100,9 +123,12 @@ class Reader (_content: Iterator[Int]) {
     def hasName = !name.isEmpty
   }
 
+  case class Function (ins: Int, outs: Int, isCode: Boolean)
+
   val typeBuffer = new ArrayBuffer[Type]()
   //val funcBuffer = new ArrayBuffer[Func]()
 
+  var functions: Array[Function] = null
   var rutines: Array[Func] = null
 
   val importBuffer = new ArrayBuffer[String]()
@@ -124,8 +150,8 @@ class Reader (_content: Iterator[Int]) {
     if (i > typeBuffer.length) s"tipo[#$i]"
     else typeBuffer(i-1).name
 
-  def print_magic () {
-    val magic = "Cobre ~1\0"
+  def print_signature () {
+    val magic = "Cobre ~4\0"
     val data = readBytes(9)
     val valid = (magic zip data) forall {
       case (c: Char, d: Int) => (c == d)
@@ -134,25 +160,46 @@ class Reader (_content: Iterator[Int]) {
       val bytes = data.map(_.asInstanceOf[Byte]).toArray
       val mag = new String(bytes, "UTF-8")
 
-      throw new Exception(s"Invalid Magic Number $mag")
+      throw new Exception(s"Invalid Singature $mag, expected Cobre ~4")
     }
 
-    printData("Magic: \"Cobre ~1\\0\"")
+    printData(F("Cobre ~4"))
   }
 
-  def print_imports () {
+  def print_modules () {
     val count = readInt()
-    printData(s"$count Dependencias")
-    for (i <- 1 to count) {
-      val name = readString().replace("\u001f", ".")
-      printData(s"#$i $name")
-      val paramCount = readInt()
-      printData(s"$paramCount parámetros")
-      for (j <- 1 to paramCount) {
-        val cns = readInt()
-        printData(s"  const_$cns")
+    printData(s"$count Modules")
+    for (i <- 0 until count) {
+      readInt() match {
+        case 0 =>
+          val name = readString()
+          printData(s"$i: import ${F(name)}")
+        case 1 =>
+          val len = readInt()
+          printData(s"$i: define $len items")
+          for (i <- 1 to len) {
+            val (kname, color) = readInt() match {
+              case 0 => ("module", MODULE)
+              case 1 => ("type", TYPE)
+              case 2 => ("function", FUNCTION)
+              case 3 => ("value", STATIC)
+            }
+            val index = readInt(color)
+            val name = readString()
+            printData(s"  ${F(name)}: $kname ${F(index, color)}")
+          }
+        case 2 =>
+          val name = readString()
+          printData(s"$i: import functor ${F(name)}")
+        case 3 =>
+          val mod = readInt(MODULE)
+          val name = readString()
+          printData(s"$i: import ${F(name)} from ${F(mod, MODULE)}")
+        case 4 =>
+          val base = readInt(MODULE)
+          val arg = readInt(MODULE)
+          printData(s"$i: build ${F(base, MODULE)} with ${F(arg, MODULE)}")
       }
-      importBuffer += name
     }
   }
 
@@ -160,251 +207,139 @@ class Reader (_content: Iterator[Int]) {
     val count = readInt()
     printData(s"$count Tipos")
 
-    for (i <- 1 to count) {
+    for (i <- 0 until count) {
       readInt() match {
-        case 0 => throw new Exception(s"Null type kind")
-        case 1 => throw new Exception("Internal type kind not yet supported")
-        case 2 =>
-          val imp = importBuffer(readInt() - 1)
-          val name = s"$imp.$readString"
-
-          printData(s"#$i Importado $name")
-
+        case 0 => printData(s"$i: Null type")
+        case 1 =>
+          val mod = readInt(MODULE)
+          val name = readString()
+          printData(s"$i: import ${F(name)} from ${F(mod, MODULE)}")
           typeBuffer += Type(name)
-        case 3 => throw new Exception("Use type kind not yet supported")
         case k => throw new Exception(s"Unknown type kind $k")
       }
     }
   }
 
-  // 18 líneas
-  def print_basic () {
-    this.typeCount = readInt()
-    printData(s"${this.typeCount} Tipos")
-
-    val rutCount = readInt()
-    this.rutines = new Array(rutCount)
-    printData(s"$rutCount Rutinas")
-
-    val constCount = readInt()
-    printData(s"$constCount Constantes")
-
-    printData("")
-
-    this.paramCount = readInt()
-    printData(s"${this.paramCount} Parámetros")
-    for (i <- 1 to this.paramCount) {
-      val tp = readInt()
-      printData(s"  #$i ${getTypeName(tp)}")
-    }
-  }
-
   // 19 líneas
-  def print_prototypes () {
-    printData("Prototipos")
+  def print_functions () {
     val count = readInt()
-    printData(s"$count Rutinas")
+    printData(s"$count Functions")
 
-    this.rutines = new Array(count)
+    this.functions = new Array(count)
 
     for (i <- 0 until count) {
+      var isCode = false
+      readInt() match {
+        case 0 => printData(s"$i: null")
+        case 1 =>
+          val mod = F(readInt(MODULE), MODULE)
+          val name = F(readString())
+          printData(s"$i: import $name from $mod")
+        case 2 =>
+          printData(s"$i: code")
+          isCode = true
+        case k =>
+          throw new Exception(s"Unknown function kind $k")
+      }
+
       val inCount = readInt()
-      val ins = (1 to inCount) map { _: Int =>
-        val tp = readInt()
-        getTypeName(tp)
-      } mkString " "
+      val ins = (for(_<- 1 to inCount) yield F(readInt(TYPE), TYPE)) mkString " "
 
       val outCount = readInt()
-      val outs = (1 to outCount) map { _: Int =>
-        val tp = readInt()
-        getTypeName(tp)
-      } mkString " "
+      val outs = (for(_<- 1 to outCount) yield F(readInt(TYPE), TYPE)) mkString " "
 
-      val rutine = Func(i+1, inCount, outCount)
-      printData(s"#${rutine.index} $ins -> $outs")
+      printData(s"  $ins -> $outs")
 
-      this.rutines(i) = rutine
+      val fn = Function(inCount, outCount, isCode)
+      this.functions(i) = fn
     }
   }
 
-  def print_rutines () {
-    printData("Definiciones de rutinas")
-    for (rutine <- this.rutines) {
-      readInt() match {
-        case 0 => throw new Exception("Null rutine kind")
-        case 2 =>
-          val imp = importBuffer(readInt()-1)
-          val name = readString()
-          rutine.name = s"$imp.$name"
-          printData(s"#${rutine.index} Importada: ${rutine.name}")
-        case 1 =>
-          val name = readString()
-          rutine.name = name
-          printData(s"#${rutine.index} Interna $name")
+  def single_code (name: String, function: Function) {
+    val count = readInt()
+    printData(s"$count instructions for $name")
 
-          val regCount = readInt()
-          printData(s"  $regCount registros")
+    var reg = function.ins
 
-          for (i <- 1 to regCount) {
-            val tp = readInt()
-            val typename = getTypeName(tp)
-            val _i = i + rutine.ins + rutine.outs
-            printData(s"    $typename #$i")
-          }
+    def readReg () = F(readInt(REG), REG)
+    def readInst () = F(readInt(INST), INST)
 
-          val instCount = readInt()
-          printData(s"  $instCount Instrucciones")
+    def useRegs (n: Int) = {
+      val regs = for (i <- 0 until n) yield F(reg+i, REG)
+      reg += n
+      s"[${regs mkString " "}]"
+    }
+    def useReg = useRegs(1)
 
-          for (i <- 1 to instCount) {
-            val inst = readInt()
+    for (i <- 1 to count) {
+      val inst = readInt()
 
-            def readReg() = {
-              val ins = rutine.ins
-              val inouts = rutine.ins + rutine.outs
-
-              readInt match {
-                case j if j <= ins => s"in_$j"
-                case j if j <= inouts => s"out_${j-ins}"
-                case j => s"reg[${j - inouts}]"
-              }
-            }
-
-            val desc = inst match {
-              case 0 => "%end"
-              case 1 => s"%cpy $readReg $readReg"
-              case 2 => s"%cns $readReg const_$readInt"
-              case 3 => s"%get $readReg $readReg field[$readInt]"
-              case 4 => s"%set $readReg field[$readInt] $readReg"
-              case 5 => s"%lbl lbl_$readInt"
-              case 6 => s"%jmp lbl_$readInt"
-              case 7 => s"%jif lbl_$readInt $readReg"
-              case 8 => s"%ifn lbl_$readInt $readReg"
-              case inst if inst < 16 => s"unknown $inst"
-              case inst =>
-                val rutine = rutines(inst-16)
-                val outs = (1 to rutine.outs).map{_ => readReg}.mkString(" ")
-                val ins = (1 to rutine.ins).map{_ => readReg}.mkString(" ")
-                s"${rutine.name} $outs <- $ins"
-            }
-
-            printData(s"    $desc")
-          }
-        case 3 => throw new Exception(s"Use rutine kind not yet supported")
-        case k => throw new Exception(s"Unknown rutine kind $k")
+      val desc = inst match {
+        case 0 =>
+          val outs = for (i <- 1 to function.outs) yield readReg()
+          "end " + outs.mkString(" ")
+        case 1 => "var"
+        case 2 => s"$useReg dup $readReg"
+        case 3 => s"set $readReg = $readReg"
+        case 4 => s"$useReg sgt ${F(readInt(STATIC), STATIC)}"
+        case 5 => s"sst ${F(readInt(STATIC), STATIC)} = $readReg"
+        case 6 => s"jmp $readInst"
+        case 7 => s"jif $readInst if $readReg"
+        case 8 => s"nif $readInst if not $readReg"
+        case 9 => s"$useReg any $readInst if not $readReg"
+        case inst if inst < 16 => throw new Exception(s"Unknown instruction $inst")
+        case inst =>
+          val ix = inst - 16
+          val fn = functions(ix)
+          val ins = for (_ <- 1 to fn.ins) yield readReg()
+          s"${useRegs(fn.outs)} ${F(ix, FUNCTION)} ${ins.mkString}"
       }
+
+      printData(s"  $desc")
     }
   }
 
-  // 55 líneas
   def print_code () {
-    val rutCount = readInt()
-    printData(s"$rutCount Rutinas")
-
-    for (i <- 1 to rutCount) {
-      val rutine = nextRutine()
-      printData(s"Rutina ${rutine.name}")
-
-      val regCount = readInt()
-      printData(s"  $regCount registros")
-
-      for (i <- 1 to regCount) {
-        val tp = readInt()
-        val typename = getTypeName(tp)
-        val _i = i + rutine.ins + rutine.outs
-        printData(s"    $typename #$i")
-      }
-
-      val instCount = readInt()
-      printData(s"  $instCount Instrucciones")
-
-      for (i <- 1 to instCount) {
-        val inst = readInt()
-
-        def readReg() = {
-          val ins = rutine.ins
-          val inouts = rutine.ins + rutine.outs
-
-          readInt match {
-            case j if j <= ins => s"in_$j"
-            case j if j <= inouts => s"out_${j-ins}"
-            case j => s"reg[${j - inouts}]"
-          }
-        }
-
-        val desc = inst match {
-          case 0 => "%end"
-          case 1 => s"%cpy $readReg $readReg"
-          case 2 => s"%cns $readReg const_$readInt"
-          case 3 => s"%get $readReg $readReg field[$readInt]"
-          case 4 => s"%set $readReg field[$readInt] $readReg"
-          case 5 => s"%lbl lbl_$readInt"
-          case 6 => s"%jmp lbl_$readInt"
-          case 7 => s"%jif lbl_$readInt $readReg"
-          case 8 => s"%ifn lbl_$readInt $readReg"
-          case inst if inst < 16 => s"unknown $inst"
-          case inst =>
-            val rutine = rutines(inst-16)
-            val outs = (1 to rutine.outs).map{_ => readReg}.mkString(" ")
-            val ins = (1 to rutine.ins).map{_ => readReg}.mkString(" ")
-            s"${rutine.name} $outs <- $ins"
-        }
-
-        printData(s"    $desc")
-      }
+    printData("Code")
+    for ((fn, index) <- functions.zipWithIndex if fn.isCode) {
+      single_code(F(index, FUNCTION), fn)
     }
+    single_code("<static>", Function(0, 0, true))
   }
 
-  // 54 líneas
-  def print_constants () {
-    val _count = readInt()
-    printData(s"${_count} Constantes")
+  def print_statics () {
+    val count = readInt()
+    printData(s"$count Statics")
 
-    val count = _count + this.paramCount;
-
-    var i = this.paramCount + 1;
-    while (i <= count) {
+    for (i <- 0 until count) {
       readInt() match {
-        case 0 => throw new Exception("Null constant kind")
+        case 0 => printData(s"$i: null static")
         case 1 =>
+          val mod = F(readInt(MODULE), MODULE)
+          val name = F(readString())
+          printData(s"$i: import $name from $mod")
+        case 2 =>
+          val int = readInt()
+          printData(s"$i int $int")
+        case 3 =>
           val size = readInt
           val bytes = readBytes(size)
           val isPrintable = bytes forall { c: Int => !Character.isISOControl(c) }
           val msg = if (isPrintable) {
-            "\"" + (
-              new String(bytes.map{b => b.asInstanceOf[Byte]}.toArray, "UTF-8")
-            ) + "\""
+            val bs = bytes map (_.asInstanceOf[Byte])
+            F(new String(bs.toArray, "UTF-8"))
           } else { s"$size bytes" }
-          printData(s"#$i Binario: $msg")
-          i += 1
-        case 2 =>
-          val size = readInt
-          val vals = (0 until size) map {_ => readInt()}
-          val txt = vals map {v => s"const_$v"} mkString " "
-          printData(s"#$i Arreglo: $txt")
-          i += 1
-        case 3 =>
-          val index = readInt
-          printData(s"#$i Tipo: #$index")
-          i += 1
+          printData(s"$i: binary data: $msg")
         case 4 =>
-          val index = readInt
-          printData(s"#$i Rutina: #$index")
-          i += 1
-        case k if k<16 => throw new Exception(s"Unknown Kind $k")
-        case j =>
-          val rutine = rutines(j-16)
-
-          val outs = (0 until rutine.outs).map{
-            j => s"#${i + j}"
-          }.mkString(" ")
-
-          val ins = (1 to rutine.ins).map{
-            _ => s"const_$readInt"
-          }.mkString(" ")
-
-          i = i+rutine.outs
-
-          printData(s"$outs <- ${rutine.name} $ins")
+          val tp = F(readInt(TYPE), TYPE)
+          printData(s"$i: type $tp")
+        case 6 =>
+          val fn = F(readInt(FUNCTION), FUNCTION)
+          printData(s"$i type $fn")
+        case k if k<16 => throw new Exception(s"Unknown static kind $k")
+        case k =>
+          val tp = F(k - 16, TYPE)
+          printData(s"$i: null $tp")
       }
     }
   }
@@ -429,25 +364,25 @@ class Reader (_content: Iterator[Int]) {
   def readAll () {
     // 8 secciones
 
-    print_magic()
+    print_signature()
     printBar()
 
-    print_imports()
+    print_modules()
     printBar()
 
     print_types()
     printBar()
 
-    print_prototypes()
+    print_functions()
     printBar()
 
-    print_rutines()
+    print_statics()
     printBar()
 
-    print_constants()
+    print_code()
     printBar()
 
-    print_metadata()
+    //print_metadata()
   }
 }
 
