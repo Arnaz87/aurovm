@@ -29,10 +29,10 @@ type
     regs: seq[PrivRegInfo]
 
   SourceMap* = ref object of RootObj
-    file: Option[string]
-    modules: Table[int, ModuleInfo]
-    types: Table[int, TypeInfo]
-    functions: Table[int, CodeInfo]
+    file*: Option[string]
+    modules*: Table[int, ModuleInfo]
+    types*: Table[int, TypeInfo]
+    functions*: Table[int, CodeInfo]
 
 proc newSourceMap* (): SourceMap =
   SourceMap(
@@ -50,14 +50,16 @@ proc newSourceMap* (node: Node): SourceMap =
 
   for item in node.tail:
     if item.isNamed("type"):
-      var info = TypeInfo(index: item[1].n)
+      var info = TypeInfo(index: item[1].n, file: result.file)
       if item["line"].isSome:
         info.line = some(item["line"].get[1].n)
       if item["column"].isSome:
         info.column = some(item["column"].get[1].n)
       result.types[info.index] = info
     if item.isNamed("function"):
-      var fun = CodeInfo(index: item[1].n)
+      var fun = CodeInfo(index: item[1].n, file: result.file)
+      if item["name"].isSome:
+        fun.name = some(item["name"].get[1].s)
       if item["line"].isSome:
         fun.line = some(item["line"].get[1].n)
       if item["column"].isSome:
@@ -90,7 +92,27 @@ proc getInst* (self: CodeInfo, index: int): InstInfo =
     result.line = last.get.line
     result.column = last.get.column
   result.index = index
+  result.file = self.file
   result.function = self
+
+proc getFuncName (self: ItemInfo): string =
+  if self.name.isSome: self.name.get
+  else: "function #" & $self.index
+
+proc getPosStr (self: PosInfo): string =
+  result = ""
+  if self.file.isSome:
+    result = self.file.get
+  if self.line.isSome:
+    result &= ":" & $self.line.get
+    if self.column.isSome:
+      result &= ":" & $self.column.get
+
+proc `$`*(self: InstInfo): string =
+  result = self.function.getFuncName
+  if self.line.isSome: result &= " (" & self.getPosStr & ")"
+  else: result &= ": instruction #" & $self.index
+
 
 
 

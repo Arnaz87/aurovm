@@ -3,6 +3,7 @@ import os
 import machine
 import parse
 import compile
+
 import cobrelib
 
 if paramCount() != 1:
@@ -19,8 +20,19 @@ proc read_byte (): uint8 =
   if L != 1: raise newException(IOError, "cannot read byte")
 let parsed = parse(read_byte)
 
-let compiled = compile(parsed)
+var compiled: machine.Module
+try:
+  compiled = compile(parsed)
+except CompileError:
+  echo getCurrentExceptionMsg()
+  quit(QuitFailure)
 
 let item = compiled["main"]
-if item.kind == machine.fItem: discard item.f.run(@[])
-else: raise newException(Exception, "main function not found")
+if item.kind != machine.fItem:
+  echo "main function not found"
+  quit(QuitFailure)
+
+# TODO: Surround with try/except and print stack
+discard item.f.run(@[])
+
+

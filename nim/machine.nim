@@ -19,16 +19,17 @@ type
     tp*: Type
     fields*: seq[Value]
 
-  ValueKind* = enum nilV, boolV, intV, strV, binV, productV, functionV
+  ValueKind* = enum nilV, boolV, intV, fltV, strV, binV, productV, functionV
   Value* = object
     case kind*: ValueKind
     of nilV: t*: Type
     of boolV: b*: bool
     of intV: i*: int
+    of fltV: f*: float
     of strV: s*: string
     of binV: bytes*: seq[uint8]
     of productV: p*: Product
-    of functionV: f*: Function
+    of functionV: fn*: Function
 
   FunctionKind* = enum procF, codeF, applyF
   Function* = ref object of RootObj
@@ -269,7 +270,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
           var fargs = newSeq[Value](args.len - 1)
           for i in 0 ..< fargs.len:
             fargs[i] = args[i+1]
-          pushState(args[0].f, fargs)
+          pushState(args[0].fn, fargs)
       of endI:
         let rets = getValues(inst.args)
         discard stack.pop
@@ -311,10 +312,11 @@ proc `==`* (a: Value, b: Value): bool =
   of nilV: true
   of boolV: a.b == b.b
   of intV: a.i == b.i
+  of fltV: a.f == b.f
   of strV: a.s == b.s
   of binV: a.bytes == b.bytes
   of productV: a.p == b.p
-  of functionV: a.f == b.f
+  of functionV: a.fn == b.fn
 
 when defined(test):
   include test_machine

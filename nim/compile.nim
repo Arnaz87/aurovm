@@ -99,7 +99,7 @@ proc getType (self: State, i: int): Type =
   let typeinfo = self.sourcemap.getType(i)
 
   if item.kind != machine.tItem:
-    let msg = "Type not found in " & module.name
+    let msg = "Type " & data.name & " not found in " & module.name
     var e = newException(TypeNotFoundError, msg)
     e.typeinfo = typeinfo
     raise e
@@ -115,7 +115,7 @@ proc typeCheck(self: State, fn: Function) =
       let n1 = if not t1.isNil: t1.name else: "<nil>"
       let n2 = if not t2.isNil: t2.name else: "<nil>"
       let instinfo = fn.codeinfo.getInst(index)
-      let msg = "Type Mismatch. Expected " & n2 & ", got " & n1
+      let msg = "Type Mismatch. Expected " & n2 & ", got " & n1 & ", at: " & $instinfo
       var e = newException(TypeError, msg)
       e.instinfo = instinfo
       raise e
@@ -149,15 +149,17 @@ proc typeCheck(self: State, fn: Function) =
       of setI:
         if not regs[inst.src].isNil:
           # If dest has no type, assign it
-          if not regs[inst.dest].isNil:
+          if regs[inst.dest].isNil:
             regs[inst.dest] = regs[inst.src]
-          check(regs[inst.src], regs[inst.dest], index)
+          else:
+            check(regs[inst.src], regs[inst.dest], index)
         else: cancel = true
       of sgtI:
         regs[inst.dest] = self.static_types[inst.src]
       of sstI:
-        if regs[inst.src] != self.static_types[inst.dest]:
-          raise newException(TypeError, "Type Mismatch")
+        if not regs[inst.src].isNil:
+          check(regs[inst.src], self.static_types[inst.dest], index)
+        else: cancel = true
       of jmpI: discard
       of jifI, nifI:
         if not regs[inst.src].isNil:
@@ -308,7 +310,7 @@ proc compile* (parser: P.Parser): Module =
       self.static_types[i] = findModule("cobre.core")["bin"].t
     of funStatic:
       let f = self.funcs[data.value]
-      self.statics[i] = Value(kind: functionV, f: f)
+      self.statics[i] = Value(kind: functionV, fn: f)
       let functor = findModule("cobre.function")
       var items = newSeq[machine.Item](0)
 

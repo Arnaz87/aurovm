@@ -27,7 +27,8 @@ object Ast {
 
   case class Type (expr: Expr)
 
-  case class Num (n: Double) extends Literal
+  case class IntLit (n: Int) extends Literal
+  case class FltLit (mag: Int, exp: Int) extends Literal
   case class Str (s: String) extends Literal
   case class Bool (b: Boolean) extends Literal
   case object Null extends Literal

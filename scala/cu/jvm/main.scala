@@ -59,9 +59,9 @@ object Main {
       }
     }
 
-    val parsed = args.input match {
-      case args.File(file) => parse_file(file)
-      case args.Code(code) => parse_text(code)
+    val (filename, parsed) = args.input match {
+      case args.File(file) => (file, parse_file(file))
+      case args.Code(code) => ("<string>", parse_text(code))
       case _ => manual()
     }
 
@@ -73,7 +73,7 @@ object Main {
     }
     maybeExit()
     
-    val program = compiler.compile(parsed)
+    val program = compiler.compile(parsed, filename)
 
     val buffer = new collection.mutable.ArrayBuffer[Int]()
     val writer = new arnaud.cobre.format.Writer(buffer)

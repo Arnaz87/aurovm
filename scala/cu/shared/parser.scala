@@ -22,19 +22,17 @@ class Parser (text: String) {
       def multiplyTens (n: Double, i: Int): Double =
         if (i < 1) {n} else { multiplyTens(n*10, i-1) }
       val digits = P( CharIn('0' to '9').rep(1).! )
-      val sign =
-        P(("+"|"-").!.?.map(_ match {
-          case Some("+") => Positive
-          case Some("-") => Negative
-          case None => Positive
-          case _ => ???
-        }))
-      val intpart =
-        P(sign ~ digits).map(_ match {
-          case (Positive, digits) => digits.toInt
-          case (Negative, digits) => -(digits.toInt)
-        })
-      val realpart =
+      val sign = P(("+"|"-").!.? map {
+        case Some("+") => Positive
+        case Some("-") => Negative
+        case None => Positive
+        case _ => ???
+      })
+      val intpart = P(sign ~ digits) map {
+        case (Positive, digits) => digits.toInt
+        case (Negative, digits) => -(digits.toInt)
+      }
+      /*val realpart =
         P(intpart ~ ("." ~ digits).?).map(_ match {
           case (intpart, None) => intpart.toDouble
           case (intpart, Some(fracpart)) =>
@@ -48,7 +46,27 @@ class Parser (text: String) {
           case (realpart, Some((Negative, expdigits))) =>
             divideTens(realpart, expdigits.toInt)
         }
-      ).map(Ast.Num)
+      ).map(Ast.Num)*/
+
+      P(intpart ~ ("." ~ digits).? ~ (("e"|"E") ~ sign ~ digits ).? ) map {
+        case (intpart, None, None) => Ast.IntLit(intpart)
+        case (intpart, fracpart, exppart) =>
+          var mag = intpart
+          var exp = exppart match {
+            case Some((Positive, digits)) => digits.toInt
+            case Some((Negative, digits)) => -(digits.toInt)
+            case _ => 1
+          }
+
+          fracpart match {
+            case Some(digits) =>
+              mag = mag * digits.length + digits.toInt
+              exp -= digits.length
+            case _ =>
+          }
+
+          Ast.FltLit(mag, exp)
+      }
     }
 
     def quoted (lim: String) = {

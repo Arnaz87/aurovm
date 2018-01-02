@@ -15,7 +15,7 @@ package object compiler {
 
   sealed abstract class Item
 
-  class Program {
+  class Program (filename: String) {
     type Module = compiler.Module[this.type]
     type Rutine = compiler.Rutine[this.type]
 
@@ -38,49 +38,83 @@ package object compiler {
 
     // `object default` es Lazy, pero necesito que los módulos se evalúen
     val default = new Object {
-      val prims = Module("cobre.prim", Nil)
+      val intmod = Module("cobre.int", Nil)
       val core = Module("cobre.core", Nil)
       val strmod = Module("cobre.string", Nil)
+      val fltmod = Module("cobre.float", Nil)
       val sysmod = Module("cobre.system", Nil)
 
       val binaryType = core.types("bin")
       val boolType = core.types("bool")
-      val intType = prims.types("int")
+      val intType = intmod.types("int")
+      val fltType = fltmod.types("float")
       val strType = strmod.types("string")
 
-      prims.rutines ++= Map(
+      intmod.rutines ++= Map(
         "add" -> Proto( Array(intType, intType), Array(intType) ),
         "sub" -> Proto( Array(intType, intType), Array(intType) ),
         "mul" -> Proto( Array(intType, intType), Array(intType) ),
         "div" -> Proto( Array(intType, intType), Array(intType) ),
         "eq"  -> Proto( Array(intType, intType), Array(boolType) ),
         "gt"  -> Proto( Array(intType, intType), Array(boolType) ),
-        "gte" -> Proto( Array(intType, intType), Array(boolType) )
+        "gte" -> Proto( Array(intType, intType), Array(boolType) ),
+        "lt"  -> Proto( Array(intType, intType), Array(boolType) ),
+        "lte" -> Proto( Array(intType, intType), Array(boolType) ),
       )
 
-      def iadd = prims.rutines("add").get
-      def isub = prims.rutines("sub").get
-      def imul = prims.rutines("mul").get
-      def idiv = prims.rutines("div").get
-      def ieq  = prims.rutines("eq").get
-      def igt  = prims.rutines("gt").get
-      def igte = prims.rutines("gte").get
+      fltmod.rutines ++= Map(
+        "add" -> Proto( Array(fltType, fltType), Array(fltType) ),
+        "sub" -> Proto( Array(fltType, fltType), Array(fltType) ),
+        "mul" -> Proto( Array(fltType, fltType), Array(fltType) ),
+        "div" -> Proto( Array(fltType, fltType), Array(fltType) ),
+        "eq"  -> Proto( Array(fltType, fltType), Array(boolType) ),
+        "gt"  -> Proto( Array(fltType, fltType), Array(boolType) ),
+        "gte" -> Proto( Array(fltType, fltType), Array(boolType) ),
+        "lt"  -> Proto( Array(intType, intType), Array(boolType) ),
+        "lte" -> Proto( Array(intType, intType), Array(boolType) ),
+        "itof"-> Proto( Array(intType), Array(fltType) ),
+        "base10" -> Proto( Array(intType, intType), Array(fltType) ),
+      )
+
+      def iadd = intmod.rutines("add").get
+      def isub = intmod.rutines("sub").get
+      def imul = intmod.rutines("mul").get
+      def idiv = intmod.rutines("div").get
+      def ieq  = intmod.rutines("eq").get
+      def igt  = intmod.rutines("gt").get
+      def igte = intmod.rutines("gte").get
+      def ilt  = intmod.rutines("lt").get
+      def ilte = intmod.rutines("lte").get
+
+      def fadd = fltmod.rutines("add").get
+      def fsub = fltmod.rutines("sub").get
+      def fmul = fltmod.rutines("mul").get
+      def fdiv = fltmod.rutines("div").get
+      def feq  = fltmod.rutines("eq").get
+      def fgt  = fltmod.rutines("gt").get
+      def fgte = fltmod.rutines("gte").get
+      def flt  = fltmod.rutines("lt").get
+      def flte = fltmod.rutines("lte").get
+      def fbase10 = fltmod.rutines("base10").get
 
       strmod.rutines ++= Map(
         "new" -> Proto( Array(binaryType), Array(strType) ),
         "concat" -> Proto( Array(strType, strType), Array(strType) ),
-        "itos" -> Proto( Array(intType), Array(strType) )
+        "itos" -> Proto( Array(intType), Array(strType) ),
+        "ftos" -> Proto( Array(fltType), Array(strType) ),
       )
 
-      def makestr = strmod.rutines("new").get
+      def newstr = strmod.rutines("new").get
       def concat = strmod.rutines("concat").get
 
       sysmod.rutines ++= Map(
-        "print" -> Proto( Array(strType), Nil )
+        "print" -> Proto( Array(strType), Nil ),
+        "clock" -> Proto( Nil, Array(fltType) )
       )
 
       val types = Map(
         "int" -> intType,
+        "float" -> fltType,
         "bool" -> boolType,
         "string" -> strType
       )
@@ -93,17 +127,9 @@ package object compiler {
       import format.{meta => Meta}
       import Meta.implicits._
 
-      val srcpos = new ArrayBuffer[Meta.Node]()
-      val srcnames = new ArrayBuffer[Meta.Node]()
-
-      program.metadata += new Meta.SeqNode(srcpos)
-      program.metadata += new Meta.SeqNode(srcnames)
-
-      val srcmap = new ArrayBuffer[Meta.Node]()
-      srcmap += "source map"
-      val rutmap = new ArrayBuffer[Meta.Node]()
-      rutmap += "rutines"
-      srcmap += new Meta.SeqNode(rutmap)
+      val srcmap = ArrayBuffer[Meta.Node](
+        "source map", Meta.SeqNode("file", filename)
+      )
     }
 
     def get (name: String): Option[Item] = {
@@ -128,10 +154,20 @@ package object compiler {
     }
 
     def %% (node: Ast.Expr): Item = node match {
-      case Ast.Num(dbl) =>
-        val int = dbl.asInstanceOf[Int]
+      case Ast.IntLit(int) =>
         val const = program.IntStatic(int)
         ConstItem(const, default.intType)
+      case Ast.FltLit(mag, exp) =>
+        val magst = program.IntStatic(mag)
+        val expst = program.IntStatic(exp)
+        val const = program.NullStatic(default.fltType)
+
+        val magreg = program.StaticCode.Sgt(magst).reg
+        val expreg = program.StaticCode.Sgt(expst).reg
+        val call = program.StaticCode.Call(default.fbase10, Array(magreg, expreg))
+        program.StaticCode.Sst(const, call.regs(0))
+
+        ConstItem(const, default.fltType)
       case Ast.Str(str) =>
         val bytes = str.getBytes("UTF-8")
         val bin = program.BinStatic(
@@ -140,7 +176,7 @@ package object compiler {
         val const = program.NullStatic(default.strType)
 
         val reg = program.StaticCode.Sgt(bin).reg
-        val call = program.StaticCode.Call(default.makestr, Array(reg))
+        val call = program.StaticCode.Call(default.newstr, Array(reg))
         program.StaticCode.Sst(const, call.regs(0))
 
         ConstItem(const, default.strType)
@@ -250,15 +286,13 @@ package object compiler {
 
     import rdef.Reg
 
-    case class RegItem(reg: Reg) extends Item
+    case class RegItem(reg: Reg, tp: program.program.Type) extends Item
 
     object srcinfo {
       import mutable.ArrayBuffer
       import format.{meta => Meta}
       import Meta.SeqNode
       import Meta.implicits._
-
-      val buffer = new ArrayBuffer[Meta.Node]
 
       // Instruction Index => (Line, Column)
       val insts = mutable.Map[rdef.Inst, (Int, Int)]()
@@ -267,6 +301,8 @@ package object compiler {
       val vars = mutable.Map[rdef.Reg, (Int, Int, String)]()
 
       def compile () {
+        val buffer = new ArrayBuffer[Meta.Node]
+        buffer += "function"
         buffer += rdef.index
         buffer += SeqNode("name", name)
         buffer += SeqNode("line", node.line)
@@ -276,25 +312,25 @@ package object compiler {
           case (reg, (line, column, name)) =>
             SeqNode(reg.index, name, line, column)
         }.toSeq)
-        buffer += new SeqNode(("insts": Meta.Node) +: insts.map{
+        buffer += new SeqNode(("code": Meta.Node) +: insts.map{
           case (inst, (line, column)) =>
             SeqNode(inst.index, line, column)
         }.toSeq)
-        program.meta.rutmap += new SeqNode(buffer)
+        program.meta.srcmap += new SeqNode(buffer)
       }
     }
 
     class Scope {
-      val map = mutable.Map[String, Reg]()
+      val map = mutable.Map[String, RegItem]()
 
       def get (k: String): Option[Item] =
-        map.get(k) map RegItem orElse program.get(k)
+        map.get(k) orElse program.get(k)
 
-      def update (k: String, reg: Reg) { map(k) = reg }
+      def update (k: String, reg: RegItem) { map(k) = reg }
 
       class SubScope (val parent: Scope) extends Scope {
         override def get (k: String): Option[Item] =
-          map.get(k).map(RegItem) orElse parent.get(k)
+          map.get(k) orElse parent.get(k)
       }
 
       def SubScope = new SubScope(this)
@@ -321,43 +357,43 @@ package object compiler {
         case Ast.Call(rutexpr, args) =>
           val rutine = getRutine(rutexpr)
           if (rutine.outs.size < 0) node.error("Expresions cannot be void")
-          val call = rdef.Call(rutine, args map (%%!(_)))
+          val call = rdef.Call(rutine, args map (%%!(_).reg))
           val reg = call.regs(0)
           srcinfo.insts(call) = (node.line, node.column)
-          RegItem(reg)
+          RegItem(reg, rutine.outs(0))
         case Ast.Binop(op, _a, _b) =>
           import program.default._
           val a = %%!(_a)
           val b = %%!(_b)
-          val (rutine, rtp) = op match {
-            case Ast.Add => (iadd, intType)
-              /*(a.t, b.t) match {
-                case (`intType`, `intType`) => (iadd, intType)
-                case (`strType`, `strType`) => (concat, strType)
-              }*/
-            case Ast.Sub => (isub, intType)
-            case Ast.Mul => (imul, intType)
-            case Ast.Div => (idiv, intType)
-            case Ast.Gt  => (igt, boolType)
-            case Ast.Gte => (igte, boolType)
-            case Ast.Eq  => (ieq, boolType)
-            case _ => node.error(
-              s"Unknown overload for $op" //"with ${a.t} and ${b.t}"
+          val (rutine, rtp) = (op, a.tp, b.tp) match {
+            case (Ast.Add, `intType`, `intType`) => (iadd, intType)
+            case (Ast.Add, `fltType`, `fltType`) => (fadd, fltType)
+            case (Ast.Add, `strType`, `strType`) => (concat, strType)
+            case (Ast.Sub,  _, _) => (isub, intType)
+            case (Ast.Mul,  _, _) => (imul, intType)
+            case (Ast.Div,  _, _) => (idiv, intType)
+            case (Ast.Gt,   _, _) => (igt, boolType)
+            case (Ast.Gte,  _, _) => (igte, boolType)
+            case (Ast.Lt,   _, _) => (ilt, boolType)
+            case (Ast.Lte,  _, _) => (ilte, boolType)
+            case (Ast.Eq,   _, _) => (ieq, boolType)
+            case (op, at, bt) => node.error(
+              s"Unknown overload for $op"// with ${at} and ${bt}"
             )
           }
           //val reg = rdef.Reg(rtp)
-          val call = rdef.Call(rutine, Array(a, b))
+          val call = rdef.Call(rutine, Array(a.reg, b.reg))
           val reg = call.regs(0)
           srcinfo.insts(call) = (node.line, node.column)
-          RegItem(reg)
+          RegItem(reg, rtp)
       }
 
-      def %%! (node: Ast.Expr): Reg =
+      def %%! (node: Ast.Expr): RegItem =
         %%(node) match {
-          case RegItem(reg) => reg
+          case reg: RegItem => reg
           case program.ConstItem(const, tp) =>
             val sgt = rdef.Sgt(const)
-            sgt.reg
+            RegItem(sgt.reg, tp)
           case _ => node.error("Unusable expression")
         }
 
@@ -368,36 +404,35 @@ package object compiler {
             case _ => node.error("Not a type")
           }
           for (decl@ Ast.DeclPart(nm, vl) <- parts) {
-            val reg = rdef.Var().reg
-            this(nm) = reg
-            vl match {
-              case Some(expr) =>
-                val result = %%!(expr)
-                rdef.Set(reg, result)
+            val item = vl match {
+              case Some(expr) => %%!(expr)
               case None =>
+                val reg = rdef.Var().reg
+                RegItem(reg, tp)
             }
-            srcinfo.vars(reg) = (node.line, node.column, nm)
+            this(nm) = item
+            srcinfo.vars(item.reg) = (node.line, node.column, nm)
           }
         case Ast.Call(rutexpr, args) =>
           val rutine = getRutine(rutexpr, args.size)
-          val regargs = args map (%%!(_))
+          val regargs = args map (%%!(_).reg)
           var call = rdef.Call(rutine, regargs)
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Assign(nm, expr) =>
           val reg = get(nm) match {
-            case Some(RegItem(reg)) => reg
+            case Some(RegItem(reg, _)) => reg
             case _ => node.error(s"$nm is not a variable")
           }
           val result = %%!(expr)
-          val inst = rdef.Set(reg, result)
+          val inst = rdef.Set(reg, result.reg)
           srcinfo.insts(inst) = (node.line, node.column)
         case Ast.Multi(_ls, Ast.Call(rutexpr, args)) =>
           val rutine = getRutine(rutexpr, args.size)
           val ls = _ls map {nm => get(nm) match {
-            case Some(RegItem(reg)) => reg
+            case Some(RegItem(reg, _)) => reg
             case _ => node.error(s"$nm is not a variable")
           } }
-          val rs = args map (%%!(_))
+          val rs = args map (%%!(_).reg)
           var call = rdef.Call(rutine, rs)
           for (i <- 0 until args.size)
             rdef.Set(ls(i), call.regs(i))
@@ -413,7 +448,7 @@ package object compiler {
 
           $start.create()
           val $cond = %%!(cond)
-          rdef.Nif($end, $cond)
+          rdef.Nif($end, $cond.reg)
 
           %%(body)
 
@@ -424,7 +459,7 @@ package object compiler {
           val $end  = rdef.Lbl()
 
           val $cond = %%!(cond)
-          rdef.Nif($else, $cond)
+          rdef.Nif($else, $cond.reg)
 
           %%(body)
 
@@ -440,7 +475,7 @@ package object compiler {
           if (exprs.size != retcount) node.error(
             s"Expected ${retcount} return values, found ${exprs.size}"
           )
-          val args = for (expr <- exprs) yield %%!(expr)
+          val args = for (expr <- exprs) yield %%!(expr).reg
           rdef.End(args)
       }
     }
@@ -448,7 +483,7 @@ package object compiler {
     val topScope = new Scope
 
     for (i <- 0 until node.params.size)
-      topScope(node.params(i)._2) = rdef.inregs(i)
+      topScope(node.params(i)._2) = RegItem(rdef.inregs(i), rdef.ins(i))
 
     def compile () {
       node.body.stmts map (topScope %% _)
@@ -522,8 +557,8 @@ package object compiler {
     }*/
   }
 
-  def compile (prg: Ast.Program): format.Program = {
-    val program = new Program
+  def compile (prg: Ast.Program, filename: String): format.Program = {
+    val program = new Program(filename)
     //for (stmt <- prg.stmts) program %% stmt
     program.compile(prg.stmts)
     program.program
