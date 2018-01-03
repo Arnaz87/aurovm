@@ -38,7 +38,7 @@ type
     codeinfo*: CodeInfo
     case kind*: FunctionKind
     of procF:
-      prc*: proc(ins: seq[Value]): seq[Value]
+      prc*: proc(args: var seq[Value])
     of codeF:
       code*: seq[Inst]
       regcount*: int
@@ -187,7 +187,7 @@ var max_stack_depth = 16
 proc newFunction* (
   name: string = "",
   sig: Signature = Signature(ins: @[], outs: @[]),
-  prc: proc(ins: seq[Value]): seq[Value]
+  prc: proc(args: var seq[Value])
 ): Function = Function(name: name, sig: sig, kind: procF, prc: prc)
 
 proc makeCode* (
@@ -203,17 +203,24 @@ proc makeCode* (
 
 
 proc run* (fn: Function, ins: seq[Value]): seq[Value] =
-  if fn.kind == procF: return fn.prc(ins)
+  var args = ins
+
+  if fn.kind == procF:
+    fn.prc(args)
+    return args
 
   var stack = newSeq[State](0)
-  proc pushState (f: Function, ins: seq[Value]) =
+
+
+  # ins is var to avoid copying it
+  proc pushState (f: Function) =
     if stack.len > max_stack_depth:
       raise newException(StackOverflowError, "Stack size is greater than " & $max_stack_depth)
     var nst = State( f: f, regs: newSeq[Value](f.regcount) )
-    for i, v in ins.pairs: nst.regs[i] = v
+    for i, v in args.pairs: nst.regs[i] = v
     stack.add(nst)
 
-  pushState(fn, ins)
+  pushState(fn)
 
   #echo "Statics: ", fn.statics
 
@@ -224,10 +231,10 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       #if st.counter > max_instruction_count:
       #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
-      proc getValues (xs: seq[int]): seq[Value] =
-        result = newSeq[Value](xs.len)
+      proc getArgs (xs: seq[int]) =
+        args.setLen(xs.len)
         for i in 0 .. xs.high:
-          result[i] = st.regs[ xs[i] ]
+          args[i] = st.regs[ xs[i] ]
 
       let inst = st.f.code[st.pc]
       let oldpc = st.pc
@@ -256,28 +263,30 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         else:
           st.regs[inst.dest] = st.regs[inst.src]
       of callI:
-        let args = getValues(inst.args)
+        getArgs(inst.args)
         case inst.f.kind:
         of procF:
-          let rets = inst.f.prc(args)
-          for i, r in rets.pairs:
+          inst.f.prc(args)
+          for i, r in args.pairs:
             st.regs[i + inst.ret] = r
         of codeF:
           st.retpos = inst.ret
-          pushState(inst.f, args)
+          pushState(inst.f)
         of applyF:
+          let fn = args[0].fn
           st.retpos = inst.ret
-          var fargs = newSeq[Value](args.len - 1)
-          for i in 0 ..< fargs.len:
-            fargs[i] = args[i+1]
-          pushState(args[0].fn, fargs)
+          # Shift all args to the left (discard the first, the function)
+          for i in 1 .. args.high:
+            args[i-1] = args[i]
+          args.setLen(args.len - 1)
+          pushState(fn)
       of endI:
-        let rets = getValues(inst.args)
+        getArgs(inst.args)
         discard stack.pop
-        if stack.len == 0: result = rets
+        if stack.len == 0: result = args
         else:
           var prevst = stack[stack.high]
-          for i, v in rets:
+          for i, v in args:
             let ni = i + prevst.retpos
             prevst.regs[ni] = v
             #echo "  [", ni, "]:", prevst.regs[ni]

@@ -6,6 +6,10 @@ import tables
 
 from times import cpuTime
 
+proc ret (sq: var seq[Value], v: Value) =
+  sq.setLen(1)
+  sq[0] = v
+
 #==========================================================#
 #===                     cobre.core                     ===#
 #==========================================================#
@@ -26,63 +30,63 @@ discard newModule(
 let intT: Type = Type(kind: nativeT, name: "int")
 
 block:
-  proc addf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i + ins[1].i
-    @[Value(kind: intV, i: r)]
+  proc addf (args: var seq[Value]) =
+    let r = args[0].i + args[1].i
+    args.ret Value(kind: intV, i: r)
 
-  proc subf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i - ins[1].i
-    @[Value(kind: intV, i: r)]
+  proc subf (args: var seq[Value]) =
+    let r = args[0].i - args[1].i
+    args.ret Value(kind: intV, i: r)
 
-  proc mulf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i * ins[1].i
-    @[Value(kind: intV, i: r)]
+  proc mulf (args: var seq[Value]) =
+    let r = args[0].i * args[1].i
+    args.ret Value(kind: intV, i: r)
 
-  proc divf (ins: seq[Value]): seq[Value] =
-    let r: int = (int) (ins[0].i / ins[1].i)
-    @[Value(kind: intV, i: r)]
+  proc divf (args: var seq[Value]) =
+    let r: int = (int) (args[0].i / args[1].i)
+    args.ret Value(kind: intV, i: r)
 
-  proc eqf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i == ins[1].i
-    @[Value(kind: boolV, b: r)]
+  proc eqf (args: var seq[Value]) =
+    let r = args[0].i == args[1].i
+    args.ret Value(kind: boolV, b: r)
 
-  proc gtf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i > ins[1].i
-    @[Value(kind: boolV, b: r)]
+  proc gtf (args: var seq[Value]) =
+    let r = args[0].i > args[1].i
+    args.ret Value(kind: boolV, b: r)
 
-  proc gtef (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i >= ins[1].i
-    @[Value(kind: boolV, b: r)]
+  proc gtef (args: var seq[Value]) =
+    let r = args[0].i >= args[1].i
+    args.ret Value(kind: boolV, b: r)
 
-  proc ltf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i < ins[1].i
-    @[Value(kind: boolV, b: r)]
+  proc ltf (args: var seq[Value]) =
+    let r = args[0].i < args[1].i
+    args.ret Value(kind: boolV, b: r)
 
-  proc ltef (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i <= ins[1].i
-    @[Value(kind: boolV, b: r)]
+  proc ltef (args: var seq[Value]) =
+    let r = args[0].i <= args[1].i
+    args.ret Value(kind: boolV, b: r)
 
-  proc gtzf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i > 0
-    @[Value(kind: boolV, b: r)]
+  proc gtzf (args: var seq[Value]) =
+    let r = args[0].i > 0
+    args.ret Value(kind: boolV, b: r)
 
-  proc incf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i + 1
-    @[Value(kind: intV, i: r)]
+  proc incf (args: var seq[Value]) =
+    let r = args[0].i + 1
+    args.ret Value(kind: intV, i: r)
 
-  proc decf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i - 1
-    @[Value(kind: intV, i: r)]
+  proc decf (args: var seq[Value]) =
+    let r = args[0].i - 1
+    args.ret Value(kind: intV, i: r)
 
-  proc negf (ins: seq[Value]): seq[Value] =
-    let r = 0 - ins[0].i
-    @[Value(kind: intV, i: r)]
+  proc negf (args: var seq[Value]) =
+    let r = 0 - args[0].i
+    args.ret Value(kind: intV, i: r)
 
-  proc signedf (ins: seq[Value]): seq[Value] =
-    let i = ins[0].i
+  proc signedf (args: var seq[Value]) =
+    let i = args[0].i
     let mag = i shr 1
     let r = if (i and 1) == 1: -mag else: mag
-    @[Value(kind: intV, i: r)]
+    args.ret Value(kind: intV, i: r)
 
   let iitoi = Signature(
     ins: @[intT, intT],
@@ -142,13 +146,13 @@ block:
 let fltT: Type = Type(kind: nativeT, name: "float")
 
 block:
-  proc itoff (ins: seq[Value]): seq[Value] =
-    let r = (float) ins[0].i
-    @[Value(kind: fltV, f: r)]
+  proc itoff (args: var seq[Value]) =
+    let r = (float) args[0].i
+    args.ret Value(kind: fltV, f: r)
 
-  proc decimalf (ins: seq[Value]): seq[Value] =
-    var r = (float) ins[0].i
-    var exp = ins[1].i
+  proc decimalf (args: var seq[Value]) =
+    var r = (float) args[0].i
+    var exp = args[1].i
 
     while exp > 0:
       r = r*10
@@ -157,47 +161,47 @@ block:
     while exp < 0:
       r = r/10
       exp += 1
-    @[Value(kind: fltV, f: r)]
+    args.ret Value(kind: fltV, f: r)
 
-  proc addf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f + ins[1].f
-    @[Value(kind: fltV, f: r)]
+  proc addf (args: var seq[Value]) =
+    let r = args[0].f + args[1].f
+    args.ret Value(kind: fltV, f: r)
 
-  proc subf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f - ins[1].f
-    @[Value(kind: fltV, f: r)]
+  proc subf (args: var seq[Value]) =
+    let r = args[0].f - args[1].f
+    args.ret Value(kind: fltV, f: r)
 
-  proc mulf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f * ins[1].f
-    @[Value(kind: fltV, f: r)]
+  proc mulf (args: var seq[Value]) =
+    let r = args[0].f * args[1].f
+    args.ret Value(kind: fltV, f: r)
 
-  proc divf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f / ins[1].f
-    @[Value(kind: fltV, f: r)]
+  proc divf (args: var seq[Value]) =
+    let r = args[0].f / args[1].f
+    args.ret Value(kind: fltV, f: r)
 
-  proc eqf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f == ins[1].f
-    @[Value(kind: boolV, b: r)]
+  proc eqf (args: var seq[Value]) =
+    let r = args[0].f == args[1].f
+    args.ret Value(kind: boolV, b: r)
 
-  proc gtf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f > ins[1].f
-    @[Value(kind: boolV, b: r)]
+  proc gtf (args: var seq[Value]) =
+    let r = args[0].f > args[1].f
+    args.ret Value(kind: boolV, b: r)
 
-  proc gtef (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f >= ins[1].f
-    @[Value(kind: boolV, b: r)]
+  proc gtef (args: var seq[Value]) =
+    let r = args[0].f >= args[1].f
+    args.ret Value(kind: boolV, b: r)
 
-  proc ltf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f < ins[1].f
-    @[Value(kind: boolV, b: r)]
+  proc ltf (args: var seq[Value]) =
+    let r = args[0].f < args[1].f
+    args.ret Value(kind: boolV, b: r)
 
-  proc ltef (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f <= ins[1].f
-    @[Value(kind: boolV, b: r)]
+  proc ltef (args: var seq[Value]) =
+    let r = args[0].f <= args[1].f
+    args.ret Value(kind: boolV, b: r)
 
-  proc gtzf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f > 0
-    @[Value(kind: boolV, b: r)]
+  proc gtzf (args: var seq[Value]) =
+    let r = args[0].f > 0
+    args.ret Value(kind: boolV, b: r)
 
   let fftof = Signature(
     ins: @[fltT, fltT],
@@ -238,24 +242,24 @@ block:
 
 let strT: Type = Type(kind: nativeT, name: "string")
 
-proc newstrf (ins: seq[Value]): seq[Value] =
-  let bytes = ins[0].bytes
+proc newstrf (args: var seq[Value]) =
+  let bytes = args[0].bytes
   var str = newString(bytes.len)
   for i in 0..bytes.high:
     str[i] = char(bytes[i])
-  @[Value(kind: strV, s: str)]
+  args.ret Value(kind: strV, s: str)
 
-proc itosf (ins: seq[Value]): seq[Value] =
-  let i = ins[0].i
-  @[Value(kind: strV, s: $i)]
+proc itosf (args: var seq[Value]) =
+  let i = args[0].i
+  args.ret Value(kind: strV, s: $i)
 
-proc ftosf (ins: seq[Value]): seq[Value] =
-  let f = ins[0].f
-  @[Value(kind: strV, s: $f)]
+proc ftosf (args: var seq[Value]) =
+  let f = args[0].f
+  args.ret Value(kind: strV, s: $f)
 
-proc concatf (ins: seq[Value]): seq[Value] =
-  let r = ins[0].s & ins[1].s
-  @[Value(kind: strV, s: r)]
+proc concatf (args: var seq[Value]) =
+  let r = args[0].s & args[1].s
+  args.ret Value(kind: strV, s: r)
 
 discard newModule(
   name = "cobre.string",
@@ -273,12 +277,12 @@ discard newModule(
 #===                    cobre.system                    ===#
 #==========================================================#
 
-proc printf (ins: seq[Value]): seq[Value] =
-  echo ins[0].s
-  @[]
+proc printf (args: var seq[Value]) =
+  echo args[0].s
+  args.setLen(0)
 
-proc clockf (ins: seq[Value]): seq[Value] =
-  @[Value(kind: fltV, f: cpuTime())]
+proc clockf (args: var seq[Value]) =
+  args.ret Value(kind: fltV, f: cpuTime())
 
 discard newModule(
   name = "cobre.system",
@@ -308,12 +312,12 @@ proc tplFn (argument: Module): Module =
   var items = @[ Item(name: "", kind: tItem, t: tp) ]
 
   proc create_getter (index: int): Function =
-    proc prc (ins: seq[Value]): seq[Value] =
-      let v = ins[0]
+    proc prc (args: var seq[Value]) =
+      let v = args[0]
       case v.kind
       of productV:
         let field = v.p.fields[index]
-        return @[field]
+        args.ret(field)
       else:
         let msg = "Runtime type mismatch, expected " & tp.name
         raise newException(Exception, msg)
@@ -332,23 +336,23 @@ proc tplFn (argument: Module): Module =
       f: create_getter(i)
     ))
 
-  proc newProc (ins: seq[Value]): seq[Value] =
+  proc newProc (args: var seq[Value]) =
 
-    if ins.len != types.len:
+    if args.len != types.len:
       let msg = "Expected " & $types.len & " arguments"
       raise newException(Exception, msg)
 
     var vs = newSeq[Value](types.len)
     for i in 0..<types.len:
-      vs[i] = ins[i]
+      vs[i] = args[i]
 
-    return @[Value(
+    args.ret Value(
       kind: productV,
       p: Product(
         tp: tp,
         fields: vs
       )
-    )]
+    )
 
   let sig = Signature(ins: types, outs: @[tp])
   items.add(Item(

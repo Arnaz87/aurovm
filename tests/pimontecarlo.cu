@@ -40,5 +40,5 @@ void main () {
 }
 
 // with count=500
-// PI: 3.112 in 19.370937s
-// almost 30x slower than lua's 0.6s
+// PI: 3.112 in 13.821958s
+// almost 20x slower than lua's 0.6s

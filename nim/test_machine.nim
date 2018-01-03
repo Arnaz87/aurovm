@@ -2,15 +2,15 @@ import unittest
 
 suite "Machine":
 
-  proc addf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].i + ins[1].i
-    @[Value(kind: intV, i: r)]
+  proc addf (args: var seq[Value]) =
+    let r = args[0].i + args[1].i
+    args = @[Value(kind: intV, i: r)]
 
-  proc decf (ins: seq[Value]): seq[Value] =
-    @[Value(kind: intV, i: ins[0].i - 1)]
+  proc decf (args: var seq[Value]) =
+    args = @[Value(kind: intV, i: args[0].i - 1)]
 
-  proc gtzf (ins: seq[Value]): seq[Value] =
-    @[Value(kind: boolV, b: ins[0].i > 0)]
+  proc gtzf (args: var seq[Value]) =
+    args = @[Value(kind: boolV, b: args[0].i > 0)]
 
   let add = newFunction(name = "add", prc = addf)
   let dec = newFunction(name = "dec", prc = decf)
@@ -82,7 +82,9 @@ suite "Machine":
     ])
     check(result2 == expected)
 
-  test "Safety Checkers":
+  #[
+  # There are no more infinite loop checks
+  test "Infinite Loop":
     var myfunc = Function(name: "myfunc")
     myfunc.makeCode(
       code = @[
@@ -102,6 +104,7 @@ suite "Machine":
     check( myfunc.run(@[Value(kind: intV, i: 0)]) == newSeq[Value](0) )
     expect InfiniteLoopError:
       discard myfunc.run(@[Value(kind: intV, i: 1)])
+  ]#
 
   test "Recursion":
     var myfunc = Function(name: "myfunc")
