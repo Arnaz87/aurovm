@@ -210,12 +210,17 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     fn.prc(args)
     return args
 
-  # TODO: make a shared value stack for all the states, to not allocate
-  # a seq[Value] every call
+  # I tried making one single stack for everything, but it's slower.
+  # First i made a type View that holds a pointer to it's first item
+  # and gets the rest with pointer arithmetic, it degraded the performance
+  # from 2s to 2.6s
+  # Then I modified the type to hold a shallow copy of that seq and just adds
+  # an offset on every access, it got to 2.5s, still slower than the original
+  # 2s, so none of these optimizations works, the naive approach of to just
+  # allocate a seq for every state is the best so far
 
   var stack = newSeq[State](0)
   var top: State
-  var has_top = true
 
   proc buildTop (fn: Function) {.inline.} =
     top.pc = 0
@@ -230,19 +235,14 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     stack.add(top)
     buildTop(fn)
 
-  proc popState () {.inline.} =
-    if stack.len > 0: top = stack.pop
-    else: has_top = false
-
   buildTop(fn)
 
   #echo "Statics: ", fn.statics
 
   try:
-    while has_top:
+    while true:
 
-      # Faster than top (Barely, really)
-      # var st_ptr = top.addr
+      # Just an alias to not modify everything below
       template st: untyped = top
 
       var advance = true
@@ -298,8 +298,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         of codeF:
           st.retpos = inst.ret
           pushState(inst.f)
-          # avoid advancing to 2nd instruction of child state
-          # at the end of that state will advance this one
+          # avoid advancing to 2nd instruction of child state,
+          # at the end of that state this one will advance
           advance = false
         of applyF:
           let fn = args[0].fn
@@ -310,17 +310,15 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       of endI:
         getArgs(inst.args)
 
-        # From here on, top refers to the parent state
-        popState()
-
-        if has_top:
+        if stack.len > 0:
+          top = stack.pop
           for i, v in args:
             let ni = i + top.retpos
             top.regs[ni] = v
         else:
-          # Do not advance an invalid top state
-          advance = false
-          result = args
+          return args
+
+        # from here on, top is the previous state
 
       if advance: top.pc.inc()
   except Exception:
