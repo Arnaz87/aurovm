@@ -210,36 +210,40 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     fn.prc(args)
     return args
 
-
-  # Possible optimization: Instead of accessing top through a pointer,
-  # move it to the stack
+  # TODO: make a shared value stack for all the states, to not allocate
+  # a seq[Value] every call
 
   var stack = newSeq[State](0)
-  template top: untyped = stack[stack.high]
+  var top: State
+  var has_top = true
 
-  # ins is var to avoid copying it
-  proc pushState (f: Function) =
-    if stack.len > max_stack_depth:
-      raise newException(StackOverflowError, "Stack size is greater than " & $max_stack_depth)
-
-    # TODO: Make a shared value stack for all the states, to not allocate
-    # a seq[Value] in every call
-
-    stack.add( State(f: f) )
-    top.regs = newSeq[Value](f.regcount)
+  proc buildTop (fn: Function) {.inline.} =
+    top.pc = 0
+    top.f = fn
+    top.regs = newSeq[Value](fn.regcount)
+    top.regs.shallow()
     for i, v in args.pairs: top.regs[i] = v
 
+  proc pushState (fn: Function) {.inline.} =
+    if stack.len > max_stack_depth:
+      raise newException(StackOverflowError, "Stack size is greater than " & $max_stack_depth)
+    stack.add(top)
+    buildTop(fn)
 
-  pushState(fn)
+  proc popState () {.inline.} =
+    if stack.len > 0: top = stack.pop
+    else: has_top = false
+
+  buildTop(fn)
 
   #echo "Statics: ", fn.statics
 
   try:
-    while stack.len > 0:
+    while has_top:
 
       # Faster than top (Barely, really)
-      var st_ptr = top.addr
-      template st: untyped = st_ptr[]
+      # var st_ptr = top.addr
+      template st: untyped = top
 
       var advance = true
 
@@ -247,14 +251,13 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
       # xs is var to avoid copying it
-      proc getArgs (xs: var seq[int]) =
+      proc getArgs (xs: var seq[int]) {.inline.} =
         args.setLen(xs.len)
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
 
       let inst_ptr = st.f.code[st.pc].addr
       template inst: untyped = inst_ptr[]
-      let oldpc = st.pc
 
       #sleep(100)
       #echo st.f.name, ":", st.pc , " inst:", inst
@@ -268,16 +271,21 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         st.regs[inst.dest] = st.f.statics[inst.src]
         #echo "  [", inst.dest, "]:", st.regs[inst.dest]
       of sstI: st.f.statics[inst.dest] = st.regs[inst.src]
-      of jmpI: st.pc = inst.inst
+      of jmpI:
+        st.pc = inst.inst
+        advance = false
       of jifI:
         if st.regs[inst.src].b:
           st.pc = inst.inst
+          advance = false
       of nifI:
         if not st.regs[inst.src].b:
           st.pc = inst.inst
+          advance = false
       of anyI:
         if st.regs[inst.src].kind == nilV:
           st.pc = inst.inst
+          advance = false
         else:
           st.regs[inst.dest] = st.regs[inst.src]
       of callI:
@@ -290,33 +298,31 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         of codeF:
           st.retpos = inst.ret
           pushState(inst.f)
-          advance = false # avoid advancing to 2nd instruction
+          # avoid advancing to 2nd instruction of child state
+          # at the end of that state will advance this one
+          advance = false
         of applyF:
           let fn = args[0].fn
           st.retpos = inst.ret
           args.delete(0) # Remove the function off the arguments
           pushState(fn)
-          advance = false # same
+          advance = false # Same as above
       of endI:
         getArgs(inst.args)
-        discard stack.pop
+
         # From here on, top refers to the parent state
+        popState()
 
-        # Avoid accidentally advancing the parent State, because
-        # rst.pc == oldpc is up to luck when the states are not the same,
-        # or worse, the parent state may be nil if this was the last state
-        advance = false
-
-        if stack.len == 0: result = args
-        else:
-          top.pc.inc() # Confidently advance parent State
+        if has_top:
           for i, v in args:
             let ni = i + top.retpos
             top.regs[ni] = v
-            #echo "  [", ni, "]:", top.regs[ni]
+        else:
+          # Do not advance an invalid top state
+          advance = false
+          result = args
 
-      if advance and top.pc == oldpc: top.pc.inc()
-      #top.counter.inc()
+      if advance: top.pc.inc()
   except Exception:
     var e = getCurrentException()
     e.msg &= "\n"
