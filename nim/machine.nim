@@ -221,8 +221,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     while stack.len > 0:
       var st = stack[stack.high]
 
-      if st.counter > max_instruction_count:
-        raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
+      #if st.counter > max_instruction_count:
+      #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
       proc getValues (xs: seq[int]): seq[Value] =
         result = newSeq[Value](xs.len)
@@ -283,7 +283,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
             #echo "  [", ni, "]:", prevst.regs[ni]
 
       if st.pc == oldpc: st.pc.inc()
-      st.counter.inc()
+      #st.counter.inc()
   except Exception:
     var e = getCurrentException()
     e.msg &= "\n"

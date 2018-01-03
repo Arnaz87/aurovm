@@ -36,7 +36,7 @@ class Reader (_content: Iterator[Int]) {
   var buffer: ArrayBuffer[String] = new ArrayBuffer()
 
   //=== Print ===//
-    val BAR = "\u001b[1;30m" + (". "*39) + "\u001b[0;39m\n"
+    val BAR = "\u001b[1;30m" + (" ."*39) + "\u001b[0;39m\n"
     def printBar  () { println(BAR) }
     def printText (text: String) { println(" "*40 + "| " + text) }
     def printData (text: String) {
@@ -169,14 +169,16 @@ class Reader (_content: Iterator[Int]) {
   def print_modules () {
     val count = readInt()
     printData(s"$count Modules")
-    for (i <- 0 until count) {
+    // Start from 1 because module 0 is the argument
+    for (i <- 1 to count) {
+      val ix = F(i, MODULE)
       readInt() match {
         case 0 =>
           val name = readString()
-          printData(s"$i: import ${F(name)}")
+          printData(s"$ix: import ${F(name)}")
         case 1 =>
           val len = readInt()
-          printData(s"$i: define $len items")
+          printData(s"$ix: define $len items")
           for (i <- 1 to len) {
             val (kname, color) = readInt() match {
               case 0 => ("module", MODULE)
@@ -190,15 +192,15 @@ class Reader (_content: Iterator[Int]) {
           }
         case 2 =>
           val name = readString()
-          printData(s"$i: import functor ${F(name)}")
+          printData(s"$ix: import functor ${F(name)}")
         case 3 =>
           val mod = readInt(MODULE)
           val name = readString()
-          printData(s"$i: import ${F(name)} from ${F(mod, MODULE)}")
+          printData(s"$ix: import ${F(name)} from ${F(mod, MODULE)}")
         case 4 =>
           val base = readInt(MODULE)
           val arg = readInt(MODULE)
-          printData(s"$i: build ${F(base, MODULE)} with ${F(arg, MODULE)}")
+          printData(s"$ix: build ${F(base, MODULE)} with ${F(arg, MODULE)}")
       }
     }
   }
@@ -208,12 +210,13 @@ class Reader (_content: Iterator[Int]) {
     printData(s"$count Tipos")
 
     for (i <- 0 until count) {
+      val ix = F(i, TYPE)
       readInt() match {
-        case 0 => printData(s"$i: Null type")
+        case 0 => printData(s"$ix: Null type")
         case 1 =>
           val mod = readInt(MODULE)
           val name = readString()
-          printData(s"$i: import ${F(name)} from ${F(mod, MODULE)}")
+          printData(s"$ix: import ${F(name)} from ${F(mod, MODULE)}")
           typeBuffer += Type(name)
         case k => throw new Exception(s"Unknown type kind $k")
       }
@@ -228,15 +231,16 @@ class Reader (_content: Iterator[Int]) {
     this.functions = new Array(count)
 
     for (i <- 0 until count) {
+      val ix = F(i, FUNCTION)
       var isCode = false
       readInt() match {
-        case 0 => printData(s"$i: null")
+        case 0 => printData(s"$ix: null")
         case 1 =>
           val mod = F(readInt(MODULE), MODULE)
           val name = F(readString())
-          printData(s"$i: import $name from $mod")
+          printData(s"$ix: import $name from $mod")
         case 2 =>
-          printData(s"$i: code")
+          printData(s"$ix: code")
           isCode = true
         case k =>
           throw new Exception(s"Unknown function kind $k")
@@ -278,7 +282,7 @@ class Reader (_content: Iterator[Int]) {
         case 0 =>
           val outs = for (i <- 1 to function.outs) yield readReg()
           "end " + outs.mkString(" ")
-        case 1 => "var"
+        case 1 => s"$useReg var"
         case 2 => s"$useReg dup $readReg"
         case 3 => s"set $readReg = $readReg"
         case 4 => s"$useReg sgt ${F(readInt(STATIC), STATIC)}"
@@ -292,10 +296,10 @@ class Reader (_content: Iterator[Int]) {
           val ix = inst - 16
           val fn = functions(ix)
           val ins = for (_ <- 1 to fn.ins) yield readReg()
-          s"${useRegs(fn.outs)} ${F(ix, FUNCTION)} ${ins.mkString}"
+          s"${useRegs(fn.outs)} ${F(ix, FUNCTION)} ${ins mkString " "}"
       }
 
-      printData(s"  $desc")
+      printData(s"  ${F(i, INST)}: $desc")
     }
   }
 
@@ -312,34 +316,35 @@ class Reader (_content: Iterator[Int]) {
     printData(s"$count Statics")
 
     for (i <- 0 until count) {
+      val ix = F(i, STATIC)
       readInt() match {
-        case 0 => printData(s"$i: null static")
+        case 0 => printData(s"$ix: null static")
         case 1 =>
           val mod = F(readInt(MODULE), MODULE)
           val name = F(readString())
           printData(s"$i: import $name from $mod")
         case 2 =>
           val int = readInt()
-          printData(s"$i int $int")
+          printData(s"$ix: int $int")
         case 3 =>
           val size = readInt
           val bytes = readBytes(size)
           val isPrintable = bytes forall { c: Int => !Character.isISOControl(c) }
-          val msg = if (isPrintable) {
+          val desc = if (isPrintable) {
             val bs = bytes map (_.asInstanceOf[Byte])
             F(new String(bs.toArray, "UTF-8"))
           } else { s"$size bytes" }
-          printData(s"$i: binary data: $msg")
+          printData(s"$ix: binary data: $desc")
         case 4 =>
           val tp = F(readInt(TYPE), TYPE)
-          printData(s"$i: type $tp")
+          printData(s"$ix: type $tp")
         case 6 =>
           val fn = F(readInt(FUNCTION), FUNCTION)
-          printData(s"$i type $fn")
+          printData(s"$ix: function $fn")
         case k if k<16 => throw new Exception(s"Unknown static kind $k")
         case k =>
           val tp = F(k - 16, TYPE)
-          printData(s"$i: null $tp")
+          printData(s"$ix: null $tp")
       }
     }
   }

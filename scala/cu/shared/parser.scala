@@ -55,12 +55,15 @@ class Parser (text: String) {
           var exp = exppart match {
             case Some((Positive, digits)) => digits.toInt
             case Some((Negative, digits)) => -(digits.toInt)
-            case _ => 1
+            case _ => 0
           }
 
           fracpart match {
             case Some(digits) =>
-              mag = mag * digits.length + digits.toInt
+              var mult = 1
+              for (_ <- 0 until digits.length)
+                mult = mult*10
+              mag = mag * mult + digits.toInt
               exp -= digits.length
             case _ =>
           }

@@ -78,7 +78,7 @@ A type defined as an item of one of the modules.
 
 # Functions
 
-All functions item kinds define the form of the function:
+All functions kinds define the form of the function at the end:
     
     in_count: int
     in_types: type_index[in_count]

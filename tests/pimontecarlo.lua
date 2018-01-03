@@ -12,7 +12,7 @@ local function rand ()
 	return st / 0x10000.0
 end
 
-local count = 10000
+local count = 500
 local i = 0
 local inside = 0
 
@@ -38,4 +38,7 @@ local time = fin - start
 local pi = (inside / count)*4
 
 print("PI: " .. pi .. " in " .. time .. "s")
+
+-- with count=500
+-- PI: 3.112 in 0.666587s
 

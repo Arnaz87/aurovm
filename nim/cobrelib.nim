@@ -74,6 +74,16 @@ block:
     let r = ins[0].i - 1
     @[Value(kind: intV, i: r)]
 
+  proc negf (ins: seq[Value]): seq[Value] =
+    let r = 0 - ins[0].i
+    @[Value(kind: intV, i: r)]
+
+  proc signedf (ins: seq[Value]): seq[Value] =
+    let i = ins[0].i
+    let mag = i shr 1
+    let r = if (i and 1) == 1: -mag else: mag
+    @[Value(kind: intV, i: r)]
+
   let iitoi = Signature(
     ins: @[intT, intT],
     outs: @[intT]
@@ -119,6 +129,8 @@ block:
       "gtz": newFunction("gtz", itob, gtzf),
       "inc": newFunction("inc", itoi, incf),
       "dec": newFunction("dec", itoi, decf),
+      "neg": newFunction("neg", itoi, negf),
+      "signed": newFunction("signed", itoi, signedf),
     }
   )
 
@@ -134,7 +146,7 @@ block:
     let r = (float) ins[0].i
     @[Value(kind: fltV, f: r)]
 
-  proc base10f (ins: seq[Value]): seq[Value] =
+  proc decimalf (ins: seq[Value]): seq[Value] =
     var r = (float) ins[0].i
     var exp = ins[1].i
 
@@ -187,14 +199,6 @@ block:
     let r = ins[0].f > 0
     @[Value(kind: boolV, b: r)]
 
-  proc incf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f + 1
-    @[Value(kind: fltV, f: r)]
-
-  proc decf (ins: seq[Value]): seq[Value] =
-    let r = ins[0].f - 1
-    @[Value(kind: fltV, f: r)]
-
   let fftof = Signature(
     ins: @[fltT, fltT],
     outs: @[fltT]
@@ -222,10 +226,8 @@ block:
       "lt" : newFunction("lt" , fftob, ltf),
       "lte": newFunction("lte", fftob, ltef),
       "gtz": newFunction("gtz", ftob, gtzf),
-      "inc": newFunction("inc", ftof, incf),
-      "dec": newFunction("dec", ftof, decf),
       "itof": newFunction("itof", itofsig, itoff),
-      "base10": newFunction("base10", iitofsig, base10f),
+      "decimal": newFunction("decimal", iitofsig, decimalf),
     }
   )
 

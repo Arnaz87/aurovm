@@ -51,6 +51,8 @@ package object compiler {
       val strType = strmod.types("string")
 
       intmod.rutines ++= Map(
+        "neg" -> Proto( Array(intType), Array(intType) ),
+        "signed" -> Proto( Array(intType), Array(intType) ),
         "add" -> Proto( Array(intType, intType), Array(intType) ),
         "sub" -> Proto( Array(intType, intType), Array(intType) ),
         "mul" -> Proto( Array(intType, intType), Array(intType) ),
@@ -70,12 +72,13 @@ package object compiler {
         "eq"  -> Proto( Array(fltType, fltType), Array(boolType) ),
         "gt"  -> Proto( Array(fltType, fltType), Array(boolType) ),
         "gte" -> Proto( Array(fltType, fltType), Array(boolType) ),
-        "lt"  -> Proto( Array(intType, intType), Array(boolType) ),
-        "lte" -> Proto( Array(intType, intType), Array(boolType) ),
+        "lt"  -> Proto( Array(fltType, fltType), Array(boolType) ),
+        "lte" -> Proto( Array(fltType, fltType), Array(boolType) ),
         "itof"-> Proto( Array(intType), Array(fltType) ),
-        "base10" -> Proto( Array(intType, intType), Array(fltType) ),
+        "decimal" -> Proto( Array(intType, intType), Array(fltType) ),
       )
 
+      def ineg = intmod.rutines("neg").get
       def iadd = intmod.rutines("add").get
       def isub = intmod.rutines("sub").get
       def imul = intmod.rutines("mul").get
@@ -85,6 +88,7 @@ package object compiler {
       def igte = intmod.rutines("gte").get
       def ilt  = intmod.rutines("lt").get
       def ilte = intmod.rutines("lte").get
+      def isigned = intmod.rutines("signed").get
 
       def fadd = fltmod.rutines("add").get
       def fsub = fltmod.rutines("sub").get
@@ -95,7 +99,7 @@ package object compiler {
       def fgte = fltmod.rutines("gte").get
       def flt  = fltmod.rutines("lt").get
       def flte = fltmod.rutines("lte").get
-      def fbase10 = fltmod.rutines("base10").get
+      def fdecimal = fltmod.rutines("decimal").get
 
       strmod.rutines ++= Map(
         "new" -> Proto( Array(binaryType), Array(strType) ),
@@ -155,16 +159,35 @@ package object compiler {
 
     def %% (node: Ast.Expr): Item = node match {
       case Ast.IntLit(int) =>
-        val const = program.IntStatic(int)
+        val base = program.IntStatic(int.abs)
+        val const = if (int >= 0) base else {
+          val const = program.NullStatic(default.intType)
+          val reg = program.StaticCode.Sgt(base).reg
+          val call = program.StaticCode.Call(default.ineg, Array(reg))
+          program.StaticCode.Sst(const, call.regs(0))
+          const
+        }
         ConstItem(const, default.intType)
       case Ast.FltLit(mag, exp) =>
-        val magst = program.IntStatic(mag)
-        val expst = program.IntStatic(exp)
+        val magst = program.IntStatic(mag.abs)
+        val expst = program.IntStatic(exp.abs)
         val const = program.NullStatic(default.fltType)
 
-        val magreg = program.StaticCode.Sgt(magst).reg
-        val expreg = program.StaticCode.Sgt(expst).reg
-        val call = program.StaticCode.Call(default.fbase10, Array(magreg, expreg))
+        val magreg = {
+          val reg = program.StaticCode.Sgt(magst).reg
+          if (mag<0)
+            program.StaticCode.Call(default.ineg, Array(reg)).regs(0)
+          else reg
+        }
+
+        val expreg = {
+          val reg = program.StaticCode.Sgt(expst).reg
+          if (exp<0)
+            program.StaticCode.Call(default.ineg, Array(reg)).regs(0)
+          else reg
+        }
+
+        val call = program.StaticCode.Call(default.fdecimal, Array(magreg, expreg))
         program.StaticCode.Sst(const, call.regs(0))
 
         ConstItem(const, default.fltType)
@@ -369,14 +392,22 @@ package object compiler {
             case (Ast.Add, `intType`, `intType`) => (iadd, intType)
             case (Ast.Add, `fltType`, `fltType`) => (fadd, fltType)
             case (Ast.Add, `strType`, `strType`) => (concat, strType)
-            case (Ast.Sub,  _, _) => (isub, intType)
-            case (Ast.Mul,  _, _) => (imul, intType)
-            case (Ast.Div,  _, _) => (idiv, intType)
-            case (Ast.Gt,   _, _) => (igt, boolType)
-            case (Ast.Gte,  _, _) => (igte, boolType)
-            case (Ast.Lt,   _, _) => (ilt, boolType)
-            case (Ast.Lte,  _, _) => (ilte, boolType)
-            case (Ast.Eq,   _, _) => (ieq, boolType)
+            case (Ast.Sub, `intType`, `intType`) => (isub, intType)
+            case (Ast.Sub, `fltType`, `fltType`) => (fsub, fltType)
+            case (Ast.Mul, `intType`, `intType`) => (imul, intType)
+            case (Ast.Mul, `fltType`, `fltType`) => (fmul, fltType)
+            case (Ast.Div, `intType`, `intType`) => (idiv, intType)
+            case (Ast.Div, `fltType`, `fltType`) => (fdiv, fltType)
+            case (Ast.Gt , `intType`, `intType`) => (igt, boolType)
+            case (Ast.Gt , `fltType`, `fltType`) => (fgt, boolType)
+            case (Ast.Gte, `intType`, `intType`) => (igte, boolType)
+            case (Ast.Gte, `fltType`, `fltType`) => (fgte, boolType)
+            case (Ast.Lt , `intType`, `intType`) => (ilt, boolType)
+            case (Ast.Lt , `fltType`, `fltType`) => (flt, boolType)
+            case (Ast.Lte, `intType`, `intType`) => (ilte, boolType)
+            case (Ast.Lte, `fltType`, `fltType`) => (flte, boolType)
+            case (Ast.Eq , `intType`, `intType`) => (ieq, boolType)
+            case (Ast.Eq , `fltType`, `fltType`) => (feq, boolType)
             case (op, at, bt) => node.error(
               s"Unknown overload for $op"// with ${at} and ${bt}"
             )
@@ -434,7 +465,7 @@ package object compiler {
           } }
           val rs = args map (%%!(_).reg)
           var call = rdef.Call(rutine, rs)
-          for (i <- 0 until args.size)
+          for (i <- 0 until rutine.outs.size)
             rdef.Set(ls(i), call.regs(i))
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Multi(_, _) =>

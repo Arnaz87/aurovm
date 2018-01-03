@@ -101,7 +101,7 @@ class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
         %%(5)
         %%(fun.index)
       case NullStatic(tp) =>
-        %%(15 + tp.index)
+        %%(16 + tp.index)
     }
 
     def writeCode (base: Code) {

@@ -8,12 +8,12 @@ float, int rand(int st) {
 	while (st >= 65536) {
 		st = st - 65536;
 	}
-	return itof(st / 65536.0), st;
+	return itof(st)/65536.0, st;
 }
 
 void main () {
 	int st = 1234;
-	int count = 10000;
+	int count = 500;
 	int inside = 0;
 	int i = 0;
 
@@ -30,6 +30,15 @@ void main () {
 	float fin = clock();
 	float time = fin - start;
 
-	float pi = itof((inside/count)*4);
+	print("inside: " + itos(inside));
+
+	float ratio = itof(inside) / itof(count);
+	print("ratio: " + ftos(ratio));
+
+	float pi = 4.0 * ratio;
 	print("PI: " + ftos(pi) + " in " + ftos(time) + "s");
 }
+
+// with count=500
+// PI: 3.112 in 19.370937s
+// almost 30x slower than lua's 0.6s
