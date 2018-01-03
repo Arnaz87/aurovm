@@ -10,6 +10,8 @@ class Reader (_content: Iterator[Int]) {
   val REG      = "\u001b[32m" // Green
   val INST     = "\u001b[34m" // Blue
 
+  var no_metadata = false
+
   import scala.collection.mutable.ArrayBuffer
 
   def PByte (n: Int, color: String) = {
@@ -39,7 +41,7 @@ class Reader (_content: Iterator[Int]) {
     val BAR = "\u001b[1;30m" + (" ."*39) + "\u001b[0;39m\n"
     def printBar  () { println(BAR) }
     def printText (text: String) { println(" "*40 + "| " + text) }
-    def printData (text: String) {
+    def printData (text: String, empty: String = "") {
 
       // El iterador lee ocho bytes a la vez, cada chunk es un List
       val chuncked = buffer.iterator.grouped(8).map(_.toList)
@@ -47,7 +49,7 @@ class Reader (_content: Iterator[Int]) {
       // Iterar sobre chunks de ocho bytes y líneas
       // Cuando los chunks se acaben, botar Nil
       // Cuando las líneas se acaben, botar texto vacío
-      val zipped = chuncked.zipAll(text.lines, Nil, "")
+      val zipped = chuncked.zipAll(text.lines, Nil, empty)
 
       // Contar de ocho en ocho, empezando desde pos
       val col = zipped.zipWithIndex.map{
@@ -350,20 +352,29 @@ class Reader (_content: Iterator[Int]) {
   }
 
   def print_metadata () {
-    def print_item (ident: String) {
+    def print_item (ident1: String, ident2: String) {
       val n = readInt()
-      val len = n>>1
-      if ((n & 1) == 0) {
-        printData(ident + s"$len Items")
-        for (i <- 1 to len) print_item(ident + "  ")
+      if ((n & 1) == 1) {
+        val int = n >> 1
+        printData(ident1 + int)
       } else {
-        val bytes = readBytes(len) map (_.asInstanceOf[Byte])
-        val str = new String(bytes.toArray, "UTF-8")
-        printData(ident + str)
+        val len = n >> 2
+        if ((n & 2) == 0) {
+          printData(ident1 + s"$len Items")
+          if (len > 0) {
+            for (i <- 1 to (len-1)) // All but last
+              print_item(ident2 + "├╸", ident2 + "│ ")
+            print_item(ident2 + "╰╸", ident2 + "  ")
+          }
+        } else {
+          val bytes = readBytes(len) map (_.asInstanceOf[Byte])
+          val str = new String(bytes.toArray, "UTF-8")
+          printData(ident1 + F(str), ident2)
+        }
       }
     }
-    printData("Metadatos")
-    print_item("")
+    printData("Metadata")
+    print_item("", "")
   }
 
   def readAll () {
@@ -387,7 +398,7 @@ class Reader (_content: Iterator[Int]) {
     print_code()
     printBar()
 
-    //print_metadata()
+    if (!no_metadata) print_metadata()
   }
 }
 
@@ -416,8 +427,9 @@ object Reader {
 
 object Main {
   def main (args: Array[String]) {
-    val reader = Reader.fromFile( args(0) )
-
+    val nmd = args(0) == "--no-metadata"
+    val reader = Reader.fromFile( if (nmd) args(1) else args(0) )
+    reader.no_metadata = nmd
     reader.readAll()
   }
 }
