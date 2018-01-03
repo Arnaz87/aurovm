@@ -3,6 +3,8 @@ import sequtils
 import strutils
 import options
 
+from os import sleep
+
 import sourcemap
 
 type
@@ -58,7 +60,7 @@ type
       dest*: int
       inst*: int
 
-  State = ref object
+  State = object
     f: Function
     pc: int
     regs: seq[Value]
@@ -201,7 +203,6 @@ proc makeCode* (
   shallow(f.statics) # So that functions can change it
   f.regcount = regcount
 
-
 proc run* (fn: Function, ins: seq[Value]): seq[Value] =
   var args = ins
 
@@ -209,16 +210,25 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     fn.prc(args)
     return args
 
-  var stack = newSeq[State](0)
 
+  # Possible optimization: Instead of accessing top through a pointer,
+  # move it to the stack
+
+  var stack = newSeq[State](0)
+  template top: untyped = stack[stack.high]
 
   # ins is var to avoid copying it
   proc pushState (f: Function) =
     if stack.len > max_stack_depth:
       raise newException(StackOverflowError, "Stack size is greater than " & $max_stack_depth)
-    var nst = State( f: f, regs: newSeq[Value](f.regcount) )
-    for i, v in args.pairs: nst.regs[i] = v
-    stack.add(nst)
+
+    # TODO: Make a shared value stack for all the states, to not allocate
+    # a seq[Value] in every call
+
+    stack.add( State(f: f) )
+    top.regs = newSeq[Value](f.regcount)
+    for i, v in args.pairs: top.regs[i] = v
+
 
   pushState(fn)
 
@@ -226,19 +236,27 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
 
   try:
     while stack.len > 0:
-      var st = stack[stack.high]
+
+      # Faster than top (Barely, really)
+      var st_ptr = top.addr
+      template st: untyped = st_ptr[]
+
+      var advance = true
 
       #if st.counter > max_instruction_count:
       #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
-      proc getArgs (xs: seq[int]) =
+      # xs is var to avoid copying it
+      proc getArgs (xs: var seq[int]) =
         args.setLen(xs.len)
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
 
-      let inst = st.f.code[st.pc]
+      let inst_ptr = st.f.code[st.pc].addr
+      template inst: untyped = inst_ptr[]
       let oldpc = st.pc
 
+      #sleep(100)
       #echo st.f.name, ":", st.pc , " inst:", inst
 
       case inst.kind
@@ -267,32 +285,38 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         case inst.f.kind:
         of procF:
           inst.f.prc(args)
-          for i, r in args.pairs:
-            st.regs[i + inst.ret] = r
+          for i in 0 ..< inst.f.sig.outs.len:
+            st.regs[i + inst.ret] = args[i]
         of codeF:
           st.retpos = inst.ret
           pushState(inst.f)
+          advance = false # avoid advancing to 2nd instruction
         of applyF:
           let fn = args[0].fn
           st.retpos = inst.ret
-          # Shift all args to the left (discard the first, the function)
-          for i in 1 .. args.high:
-            args[i-1] = args[i]
-          args.setLen(args.len - 1)
+          args.delete(0) # Remove the function off the arguments
           pushState(fn)
+          advance = false # same
       of endI:
         getArgs(inst.args)
         discard stack.pop
+        # From here on, top refers to the parent state
+
+        # Avoid accidentally advancing the parent State, because
+        # rst.pc == oldpc is up to luck when the states are not the same,
+        # or worse, the parent state may be nil if this was the last state
+        advance = false
+
         if stack.len == 0: result = args
         else:
-          var prevst = stack[stack.high]
+          top.pc.inc() # Confidently advance parent State
           for i, v in args:
-            let ni = i + prevst.retpos
-            prevst.regs[ni] = v
-            #echo "  [", ni, "]:", prevst.regs[ni]
+            let ni = i + top.retpos
+            top.regs[ni] = v
+            #echo "  [", ni, "]:", top.regs[ni]
 
-      if st.pc == oldpc: st.pc.inc()
-      #st.counter.inc()
+      if advance and top.pc == oldpc: top.pc.inc()
+      #top.counter.inc()
   except Exception:
     var e = getCurrentException()
     e.msg &= "\n"

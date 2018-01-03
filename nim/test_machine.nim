@@ -2,19 +2,22 @@ import unittest
 
 suite "Machine":
 
+  let intT = Type(name: "int", kind: nativeT)
+  let boolT = Type(name: "int", kind: nativeT)
+
   proc addf (args: var seq[Value]) =
     let r = args[0].i + args[1].i
-    args = @[Value(kind: intV, i: r)]
+    args[0] = Value(kind: intV, i: r)
 
   proc decf (args: var seq[Value]) =
-    args = @[Value(kind: intV, i: args[0].i - 1)]
+    args[0] = Value(kind: intV, i: args[0].i - 1)
 
   proc gtzf (args: var seq[Value]) =
-    args = @[Value(kind: boolV, b: args[0].i > 0)]
+    args[0] = Value(kind: boolV, b: args[0].i > 0)
 
-  let add = newFunction(name = "add", prc = addf)
-  let dec = newFunction(name = "dec", prc = decf)
-  let gtz = newFunction(name = "gtz", prc = gtzf)
+  let add = newFunction("add", Signature(ins: @[intT, intT], outs: @[intT]), addf)
+  let dec = newFunction("dec", Signature(ins: @[intT], outs: @[intT]), decf)
+  let gtz = newFunction("gtz", Signature(ins: @[intT], outs: @[boolT]), gtzf)
 
   var emptyModule = Module( name: "test" )
 

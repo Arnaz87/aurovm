@@ -6,9 +6,12 @@ import tables
 
 from times import cpuTime
 
-proc ret (sq: var seq[Value], v: Value) =
-  sq.setLen(1)
-  sq[0] = v
+proc retn (sq: var seq[Value], vs: openarray[Value]) =
+  sq.setLen(vs.len)
+  for i in 0 .. vs.high:
+    sq[i] = vs[i]
+
+template ret (sq: var seq[Value], v: Value) = retn(sq, [v])
 
 #==========================================================#
 #===                     cobre.core                     ===#

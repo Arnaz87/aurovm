@@ -40,5 +40,9 @@ void main () {
 }
 
 // with count=500
-// PI: 3.112 in 13.821958s
-// almost 20x slower than lua's 0.6s
+// PI: 3.112 in 11.766043s
+// almost 17x slower than lua's 0.6s
+
+// with -d:release
+// PI: 3.112 in 2.010895s
+// about 4x slower than lua's 0.6s
