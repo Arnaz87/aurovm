@@ -1,4 +1,4 @@
-package arnaud.cobre.format.meta
+package arnaud.cobre.meta
 import scala.util.{Try, Success, Failure}
 import scala.collection.mutable.{Buffer, ArrayBuffer}
 

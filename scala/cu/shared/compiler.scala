@@ -1,6 +1,6 @@
 package arnaud.culang
 
-import arnaud.cobre.format
+import arnaud.cobre
 import collection.mutable
 
 
@@ -19,7 +19,7 @@ package object compiler {
     type Module = compiler.Module[this.type]
     type Rutine = compiler.Rutine[this.type]
 
-    val program = new format.Program()
+    val program = new cobre.Program()
     val modules = mutable.Set[Module]()
     val rutines = mutable.Set[Rutine]()
     val types = mutable.Map[String, program.Type]()
@@ -128,7 +128,7 @@ package object compiler {
 
     object meta {
       import mutable.ArrayBuffer
-      import format.{meta => Meta}
+      import cobre.{meta => Meta}
       import Meta.implicits._
 
       val srcmap = ArrayBuffer[Meta.Node](
@@ -293,7 +293,7 @@ package object compiler {
 
       program.StaticCode.End(Nil)
 
-      program.metadata += new format.meta.SeqNode(meta.srcmap)
+      program.metadata += new cobre.meta.SeqNode(meta.srcmap)
     }
   }
 
@@ -313,7 +313,7 @@ package object compiler {
 
     object srcinfo {
       import mutable.ArrayBuffer
-      import format.{meta => Meta}
+      import cobre.{meta => Meta}
       import Meta.SeqNode
       import Meta.implicits._
 
@@ -588,7 +588,7 @@ package object compiler {
     }*/
   }
 
-  def compile (prg: Ast.Program, filename: String): format.Program = {
+  def compile (prg: Ast.Program, filename: String): cobre.Program = {
     val program = new Program(filename)
     //for (stmt <- prg.stmts) program %% stmt
     program.compile(prg.stmts)

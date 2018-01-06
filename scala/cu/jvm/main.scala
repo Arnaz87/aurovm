@@ -76,7 +76,7 @@ object Main {
     val program = compiler.compile(parsed, filename)
 
     val buffer = new collection.mutable.ArrayBuffer[Int]()
-    val writer = new arnaud.cobre.format.Writer(buffer)
+    val writer = new arnaud.cobre.Writer(buffer)
     writer.write(program)
 
     if (args print "binary") {

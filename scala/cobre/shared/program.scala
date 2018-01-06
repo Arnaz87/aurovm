@@ -1,4 +1,4 @@
-package arnaud.cobre.format
+package arnaud.cobre
 
 class Program {
   import scala.collection.mutable.{Set, Buffer, ArrayBuffer}

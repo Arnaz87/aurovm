@@ -10,13 +10,13 @@ lazy val bindump = (project in file("bindump")).
   
 
 
-lazy val format = (crossProject in file("format")).
+lazy val cobre = (crossProject in file("cobre")).
   settings(commonSettings: _*).
   settings(
     scalaSource in Compile := baseDirectory.value / "../shared/"
   )
-lazy val formatJS = format.js
-lazy val formatJVM = format.jvm.dependsOn(bindump)
+lazy val cobreJS = cobre.js
+lazy val cobreJVM = cobre.jvm.dependsOn(bindump)
 
 
 
@@ -26,7 +26,7 @@ lazy val cu = (crossProject in file("cu")).
     scalaSource in Compile := baseDirectory.value / "../shared/",
     libraryDependencies ++= Seq("com.lihaoyi" %%% "fastparse" % "1.0.0")
   ).
-  dependsOn(format)
+  dependsOn(cobre)
 lazy val cuJS = cu.js
 lazy val cuJVM = cu.jvm
 
@@ -37,18 +37,9 @@ lazy val js = (crossProject in file("js")).
   settings(
     scalaSource in Compile := baseDirectory.value / "../shared/"
   ).
-  dependsOn(format)
+  dependsOn(cobre)
 lazy val jsJS = js.js
 lazy val jsJVM = js.jvm.dependsOn(cuJVM)
-
-
-/*
-lazy val lua = (project in file("lua")).
-  settings(commonSettings: _*).
-  settings(
-    libraryDependencies ++= Seq("com.lihaoyi" %% "fastparse" % "1.0.0")
-  ).
-  dependsOn(formatJVM)*/
 
 
 // JS Only

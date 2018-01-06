@@ -1,4 +1,4 @@
-package arnaud.myvm.bindump
+package arnaud.cobre.bindump
 
 class Reader (_content: Iterator[Int]) {
 

@@ -1,6 +1,6 @@
 # Cobre VM
 
-Cobre is an abstract machine specification, simple enough to make it easy to write a complete implementation from scratch, and versatile enough to represent a wide range of languages and paradigms.
+Cobre is an abstract machine specification, simple enough to make easy writing a complete implementation from scratch, and versatile enough to represent a wide range of languages and paradigms.
 
 Ideally, Cobre would be a platform in which a developer can write in any language and can interact easily with modules written in any other, which can run in a lot of different platforms, like different OS's, the web, the JVM or embedded in games and applications.
 
@@ -8,24 +8,32 @@ This project has many things being developed in parallel: the design, an example
 
 The main documentation is in [docs/Module Format.md](docs/Module Format.md).
 
+# Motivations
+
+I like the web, but I don't like Javascript. I like to write small scripts and programs, and I like Python's and Java's libraries, but I don't like Python nor Java. I love Scala, but I don't like big and fat JVM. I like scripting my games, but I get tired of Lua. I sometimes want to go functional, but Scheme implementations are too incomplete and GHC is another big and fat.
+
+I want to develop in any platform, in any language I want, with the libraries I like.
+
+*I also want all of my programs to be **as fast as Cee**. One can only dream, right?*
+
+# Project structure
+
 ## nim
 
 An example interpreter written in the Nim programming language. I choose Nim because it's low level enough so I can say how machine resources are managed, but it's also very easy to read and write.
 
-## scala/codegen
+## scala/cobre
 
-This is the most important of the scala projects, it's a library that helps with code generation from other languages.
-
-## scala/lua
-
-Reads and compiles Lua code.
+A scala interface for working with Cobre modules.
 
 ## scala/cu
 
 Culang is a language like C that reflects Cobre's internals.
 
 ```
-import void Prelude.print(String);
+import cobre.system {
+  void print(string);
+}
 
 int, int sumsub (int a, int b) {
   return a+b, a-b;
@@ -33,50 +41,50 @@ int, int sumsub (int a, int b) {
 
 void main () {
   int r = sumsub(5, 6);
-  String s = itos(r);
+  string s = itos(r);
   print(s);
 }
 ```
 
-## scala/js
+## scala/bindump
 
-Compiles Cobre's instructions to Javascript code, so it can run in browsers.
+Parses and prints the contents of a Cobre module.
 
-# Proyectos Similares
+## scala/js (inactive)
 
-(Too long to translate, TLDR in english)
+Compiles Cobre modules to Javascript, so it can run in browsers.
 
-- __JVM__: Este es el principal proyecto que me inspiró a iniciar el mío, me gusta mucho el ecosistema que se ha creado alrededor de él, como su inmensa cantidad de librerías y frameworks y, más que todo, los asombrosos lenguajes que se crearon para ella (Scala, Groovy, Jython, JRuby, Frege, Clojure), y que pueden trabajar fácilmente con lo que ya existe ahí, pero no me gusta que es muy específico de Java, la semántica de la JVM refleja a la del lenguaje Java, y más que todo lo complejo del proyecto, crear un lenguaje así o una implementación de la JVM es una misión imposible.
-- __CLI/.Net__: Igual que la JVM, mejora lo referente a la semántica de la máquina, no está atada a ningún lenguaje en particular, y ofrece facilidades para la interacción entre lenguajes, pero sigue siendo muy grande y complejo, y es muy específico de Microsoft (No siento que Mono reciba tanta atención de la gente en general como lo hace .Net).
-- __Parrot__: Está completamente diseñado para la interacción entre lenguajes y la facilidad para implementar lenguajes en Parrot, además le da mucho más énfasis a las características dinámicas, pero se mueve un poco lento y desordenado a mi parecer, no me gustan mucho algunas decisiones de diseño que tomaron, y en general sigue siendo un poco grande.
-- __Webasm__: Aunque no tenga nada que ver, la descripción de Parrot lo describe bastante bien, la verdad. Pero confieso que a pesar de todo, este proyecto me emociona un poco.
-- __Lua__: El tamaño y simplicidad de Lua es absolutamente perfecto, es justo lo que busco, pero es solo un lenguaje, con una semántica muy específica, por lo que no es tan fácil desarrollar paradigmas diferentes o lenguajes sobre Lua eficientemente.
-- __LLVM__: Arquitectura virtual diseñada para parecerse mucho a cpus reales, está hecha como lenguaje intermedio en un compilador, por lo que está muy atado al mundo de los compiladores, no es muy bueno como representación portable de un programa ni es fácil de interpretar. Pnacl es un proyecto para hacer LLVM portable.
+# Similar projects
 
-TLDR: Most of the existing projects are too big and complex for one single person to understand, and those that aren't (Lua), are not versatile enough.
+- __JVM__: The main proyect that inspired me to begin mine, I like a lot the ecosystem created around it, like it's inmense amount of libraries, frameworks, and mainly the awesome languages that run on top of it (Scala, Groovy, Jython, JRuby, Closure, Frege), and that works so easily with what it's already in the Java ecosystem. But the problems are that is very Java specific, the JVM reflects the Java language, not viceversa, and so other projects must adapt to the *Java Way*. But worst than that is the extreme scope and complexity of the JVM, creating a language for it or roll off your own implementation of the JVM is close to imposible if you are not a BIG team (IBM, GNU, etc.).
+- __CLI/.Net__: Microsoft's approach to Java, and it has alost all of it's flaws. The only significant improvement is it's language independence, now the building blocks are more general and friendlier to different paradigms, but the biggest problem is still there, it's size and complexity, and in spite of it's platform independence, very few people have actually succesfully implemented Net and the Microsoft's default implementation doesn't care about other platforms, so it's only good for big standalone windows-only applications, and a bad fit for anything else.
+- __Parrot__: Completely designed to support a wide variety of programming languages, focusing mostly on dynamic typing. A significant improvement to above's problems, but doesn't get there yet, although smaller is still a big proyect hard to understand all at once.
+- __WebAssembly__: A very simple virtual machine, designed to run many languages anywhere, but is simple by being very low level, compiling to Webasm is like compiling for an x86 processor, and there is a reason why scripting languages are more popular than compiled ones (because they are more and healthier because they are easier to implement). The designers actually want a lot of the things I want, but their priority is C++ on the browser (that's why they target C++ compilers, not developers), so it doesn't align completely with Cobre's intent.
+- __Lua__: Perfect simplicity, the design is very straightforward and **so simple**, so much in fact, that one man alone created the fastest scripting language imlplementation so far (LuaJIT, if not the fastest at least definitely up there). The problem is that, like Java, is very language specific, basically the only languages one can implement on top of it are Lua-like (ie. moonscript, just like with Javascript). If one desired LuaJIT to script a project, because of it's size and speed, one has to stick with Lua, which a lot of people don't like.
+- __LLVM__: It's actually a compiler intermediate representation, not by itself a compilation target, LLVM IR files are not really distributable. One has to distribute either the source code and expect everyone to have that language's compiler installed, or the machine code and expect everyone to have the same architecture and OS, or distribute many diferent binaries for each flavour (potentially **a lot**).
+- __Javascript__: errr... where do i start... Javascript is actually a pretty messy and badly designed scripting language. The reason everyone wants to compile to Javascript is because it is **Everywhere**, but not for it's positive qualities as a language, it is everywhere because everyone has a browser and it became popular in browsers, at the begining it wasn't so horrible and there wasn't anything else, but the only reason browsers can implement modern Javascript is because browser vendors are **Big Corporate Monsters** that have the manpower to implement Javascript, and because of that they also want to be in every person's computer and they also have the power to attempt that (and succeed). A better alternative is actually WebAssembly, a second attempt which actually may be well designed this time, but I already mentioned it's problems. I would like Cobre to be everywhere, but for different reasons as Javascript, I want it to be better designed and easier to implement.
 
-# Tareas
+**TLDR**: Most of the existing projects are too big and complex for one single person to understand, and those that aren't (Lua, WebAssembly), are not versatile enough.
 
-Algunas de las cosas que necesito hacer para la máquina.
+# Tasks
 
-- Structs
-- Arrays
-- Cargar múltiples módulos
-- Módulos paramétricos
-- Uso de componentes como valores
-- Uso de valores como componentes 
-- Resolver si van a llamarse rutinas, procedures, funciones u operaciones...
+Things that need to be done
 
-## Terminadas
-
-- Especificación de una librería estándar.
-- Soporte para metadatos en todas mis herramientas. (Faltan la VM y Lua)
-- Html con un editor de texto para correr código Cu.
-- Compilador a Javascript, con código legible, ayudandose con metadatos.
-- Constantes y parámetros import en Culang (Solo en el lenguaje, no en la VM).
-
-## Secundarias
-
-- Chequeo de tipos.
-- Errores con posición en el código fuente para la máquina de nim. (Secundaria)
-- Compilador Lua.
+- Load multiple modules
+- Finish the standard library. It must have:
+  + Structs
+  + Arrays
+  + Variants / Unions (possibly with Any)
+  + Any type
+  + Dynamic language tables
+  + Functors
+  + Shell type (Alias)
+  + OOP Class type
+  + IO
+  + FFI
+  + Threads?
+  + Ownership Model? (Simplified?)
+- Implement Lua
+  + Lua library in Cu
+  + Lua compiler in Lua
+- Full support for cobre modules in Culang

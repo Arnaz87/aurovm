@@ -1,4 +1,4 @@
-package arnaud.cobre.format
+package arnaud.cobre
 
 class Writer (buffer: scala.collection.mutable.Buffer[Int]) {
   def putByte (n: Int) { buffer += n & 0xFF }

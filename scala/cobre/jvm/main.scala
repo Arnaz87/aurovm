@@ -1,4 +1,4 @@
-package arnaud.cobre.format
+package arnaud.cobre
 
 object Main {
   def main (args: Array[String]) {
