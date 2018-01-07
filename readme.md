@@ -4,11 +4,15 @@ Cobre is an abstract machine specification, simple enough to make easy writing a
 
 Ideally, Cobre would be a platform in which a developer can write in any language and can interact easily with modules written in any other, which can run in a lot of different platforms, like different OS's, the web, the JVM or embedded in games and applications.
 
-This project has many things being developed in parallel: the design, an example interpreter, a few language implementations, and a special language for the machine.
+It's intended that many features available in many programming languages or elsewhere, like OOP, dynamic dispatch, object serializing, etc. be implemented in standard libraries and conventions, instead of on Cobre itself.
+
+This project has many things being developed in parallel: the design, an example interpreter, a few language implementations, and a high level language with feature parity with Cobre.
 
 The main documentation is in [docs/Module Format.md](docs/Module Format.md).
 
-**Note**: The main documentation is in english, but files in notes and a few source comments are in spanish. I'm working on translating the important stuff to english.
+**Note**: The main documentation is in english, but files in notes and a few source comments here and there are in spanish. I'm working on translating the important stuff to english.
+
+**License**: This project is open source software, distributed under the MIT license.
 
 # Motivations
 
@@ -109,3 +113,12 @@ Things that need to be done
   + Lua library in Cu
   + Lua compiler in Lua
 - Full support for cobre modules in Culang
+
+# Wishlist
+
+Some things I wish existed, created with or on top of Cobre
+
+- A better app centric web.
+- A Unity or Godot level game engine scripted with Cobre.
+- Cobre cross language libraries on top of various protocols, like DBus, Ajax, REST Apis.
+
