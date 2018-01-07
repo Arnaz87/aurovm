@@ -524,9 +524,9 @@ package object compiler {
       if (node.returns.size == 0)
         rdef.End(Nil)
 
-      println(rdef.regs mkString " ")
-      for (inst <- rdef.code)
-        println(inst)
+      //println(rdef.regs mkString " ")
+      //for (inst <- rdef.code)
+      //  println(inst)
     }
   }
 

@@ -30,10 +30,10 @@ void main () {
 	float fin = clock();
 	float time = fin - start;
 
-	print("inside: " + itos(inside));
+	//print("inside: " + itos(inside));
 
 	float ratio = itof(inside) / itof(count);
-	print("ratio: " + ftos(ratio));
+	//print("ratio: " + ftos(ratio));
 
 	float pi = 4.0 * ratio;
 	print(itos(count) + " samples, PI=" + ftos(pi) + " in " + ftos(time) + "s");
