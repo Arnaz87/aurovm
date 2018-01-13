@@ -31,13 +31,13 @@ First, you need scala, sbt (usually comes with scala), and nim installed on your
 To run, for example, the pi monte carlo example, first build the cobre interpreter with `make bin/cobre`, that will create an executable in *bin/cobre* that can execute the contents of a binary cobre module.
 
 To create a binary cobre module, compile one from a culang source file. to do that enter the scala directory and then run
-`sbt -- "cuJVM/run -f ../tests/pimontecarlo.cu -o ../out"`, which compiles the source code at *tests/pimontecarlo.cu* into a cobre module named *out*.
+`sbt "cuJVM/run -f ../tests/pimontecarlo.cu -o ../out"`, which compiles the source code at *tests/pimontecarlo.cu* into a cobre module named *out*.
 
 To execute that, exit the scala directory and invoke the machine with the module as the argument: `bin/cobre out`. You should see the following output:
 
 `2000 samples, PI=3.144 in 7.575521s`
 
-If you want to see the contents of a module instead of just runing it, enter the scala directory and run `sbt -- "bindump/run ../out"`.
+If you want to see the contents of a module instead of just runing it, enter the scala directory and run `sbt "bindump/run ../out"`.
 
 **Warning**: Sbt is very slow and memory heavy.
 
@@ -81,7 +81,7 @@ Compiles Cobre modules to Javascript, so it can run in browsers.
 
 # Similar projects
 
-- __JVM__: The main proyect that inspired me to begin mine, I like a lot the ecosystem created around it, like it's inmense amount of libraries, frameworks, and mainly the awesome languages that run on top of it (Scala, Groovy, Jython, JRuby, Closure, Frege), and that works so easily with what it's already in the Java ecosystem. But the problems are that is very Java specific, the JVM reflects the Java language, not viceversa, and so other projects must adapt to the *Java Way*. But worst than that is the extreme scope and complexity of the JVM, creating a language for it or roll off your own implementation of the JVM is close to imposible if you are not a BIG team (IBM, GNU, etc.).
+- __JVM__: The main proyect that inspired me to begin mine, I like a lot the ecosystem created around it, like it's inmense amount of libraries, frameworks, and mainly the awesome languages that run on top of it (Scala, Groovy, Jython, JRuby, Closure, Frege), and that works so easily with what it's already in the Java ecosystem. But the problems are that is very Java specific, the JVM reflects the Java language, not viceversa, and so other projects must adapt to the *Java Way*. But worst than that is the extreme scope and complexity of the JVM, creating roll off your own implementation of the JVM is very difficult if you are not a big team (IBM, GNU, etc.).
 - __CLI/.Net__: Microsoft's approach to Java, and it has alost all of it's flaws. The only significant improvement is it's language independence, now the building blocks are more general and friendlier to different paradigms, but the biggest problem is still there, it's size and complexity, and in spite of it's platform independence, very few people have actually succesfully implemented Net and the Microsoft's default implementation doesn't care about other platforms, so it's only good for big standalone windows-only applications, and a bad fit for anything else.
 - __Parrot__: Completely designed to support a wide variety of programming languages, focusing mostly on dynamic typing. A significant improvement to above's problems, but doesn't get there yet, although smaller is still a big proyect hard to understand all at once.
 - __WebAssembly__: A very simple virtual machine, designed to run many languages anywhere, but is simple by being very low level, compiling to Webasm is like compiling for an x86 processor, and there is a reason why scripting languages are more popular than compiled ones (because they are more and healthier because they are easier to implement). The designers actually want a lot of the things I want, but their priority is C++ on the browser (that's why they target C++ compilers, not developers), so it doesn't align completely with Cobre's intent.

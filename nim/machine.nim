@@ -91,6 +91,7 @@ type
   ModuleKind* = enum functorM, simpleM
   Module* = ref object
     name*: string
+    deprecated*: bool
     case kind*: ModuleKind
     of simpleM:
       items*: seq[Item]
@@ -110,6 +111,12 @@ proc cobreRaise*[T](msg: string, srcpos: Srcpos = SrcPos()) =
   raise e
 
 var machine_modules* = newSeq[Module]()
+
+type ModLoader = proc(name: string): Module
+proc default_loader (name: string): Module = nil
+var module_loader: ModLoader = default_loader
+proc set_module_loader*(loader: ModLoader) =
+  module_loader = loader
 
 proc `$`* (f: Function): string = f.name
 proc `$`* (i: Item): string =
@@ -180,8 +187,15 @@ proc newModule* (
 proc findModule* (name: string): Module =
   for module in machine_modules:
     if module.name == name:
-      return module
-  return nil
+      result = module
+      break
+  if result.isNil:
+    result = module_loader(name)
+    if not result.isNil:
+      result.name = name
+      machine_modules.add(result)
+  if not result.isNil and result.deprecated:
+    echo "DEPRECATED: " & name
 
 var max_instruction_count = 10_000
 var max_stack_depth = 16

@@ -6,6 +6,8 @@ import tables
 
 from times import cpuTime
 
+import osproc
+
 proc retn (sq: var seq[Value], vs: openarray[Value]) =
   sq.setLen(vs.len)
   for i in 0 .. vs.high:
@@ -102,24 +104,6 @@ block:
   let itoi = Signature(ins: @[intT], outs: @[intT])
   let itob = Signature(ins: @[intT], outs: @[boolT])
 
-  # TODO: Deprecated, use cobre.int instead
-  discard newModule(
-    name = "cobre.prim", 
-    types = @{ "int": intT, },
-    funcs = @{
-      "add": newFunction("add", iitoi, addf),
-      "sub": newFunction("sub", iitoi, subf),
-      "mul": newFunction("mul", iitoi, mulf),
-      "div": newFunction("div", iitoi, divf),
-      "eq" : newFunction("eq" , iitob, eqf),
-      "gt" : newFunction("gt" , iitob, gtf),
-      "gte": newFunction("gte", iitob, gtef),
-      "gtz": newFunction("gtz", itob, gtzf),
-      "inc": newFunction("inc", itoi, incf),
-      "dec": newFunction("dec", itoi, decf),
-    }
-  )
-
   discard newModule(
     name = "cobre.int", 
     types = @{ "int": intT, },
@@ -140,6 +124,24 @@ block:
       "signed": newFunction("signed", itoi, signedf),
     }
   )
+
+  var prim = newModule(
+    name = "cobre.prim", 
+    types = @{ "int": intT, },
+    funcs = @{
+      "add": newFunction("add", iitoi, addf),
+      "sub": newFunction("sub", iitoi, subf),
+      "mul": newFunction("mul", iitoi, mulf),
+      "div": newFunction("div", iitoi, divf),
+      "eq" : newFunction("eq" , iitob, eqf),
+      "gt" : newFunction("gt" , iitob, gtf),
+      "gte": newFunction("gte", iitob, gtef),
+      "gtz": newFunction("gtz", itob, gtzf),
+      "inc": newFunction("inc", itoi, incf),
+      "dec": newFunction("dec", itoi, decf),
+    }
+  )
+  prim.deprecated = true
 
 
 #==========================================================#
@@ -284,20 +286,40 @@ proc printf (args: var seq[Value]) =
   echo args[0].s
   args.setLen(0)
 
+proc readf (args: var seq[Value]) =
+  var line = stdin.readLine()
+  args.ret Value(kind: strV, s: line)
+
 proc clockf (args: var seq[Value]) =
   args.ret Value(kind: fltV, f: cpuTime())
+
+proc cmdf (args: var seq[Value]) =
+  let cmd = args[0].s
+  var p = startProcess(command = cmd, options = {poEvalCommand})
+  var out_file: File
+  discard out_file.open(p.outputHandle, fmRead)
+
+  let code = p.waitForExit()
+  let out_str = out_file.readAll()
+
+  args.retn([
+    Value(kind: intV, i: code),
+    Value(kind: strV, s: out_str)
+  ])
 
 discard newModule(
   name = "cobre.system",
   funcs = @{
     "print": newFunction("print", Signature(ins: @[strT], outs: @[]), printf),
+    "read": newFunction("read", Signature(ins: @[], outs: @[strT]), readf),
     "clock": newFunction("clock", Signature(ins: @[], outs: @[fltT]), clockf),
+    "cmd": newFunction("cmd", Signature(ins: @[strT], outs: @[intT, strT]), cmdf),
   }
 )
 
 
 #==========================================================#
-#===                    cobre.tuple                     ===#
+#===                    cobre.record                     ===#
 #==========================================================#
 
 proc tplFn (argument: Module): Module =
@@ -309,7 +331,7 @@ proc tplFn (argument: Module): Module =
     n += 1
     nitem = argument[$n]
 
-  let basename = "tuple" & $n
+  let basename = "record" & $n
 
   var tp = Type(name: basename, kind: productT, ts: types)
   var items = @[ Item(name: "", kind: tItem, t: tp) ]
@@ -375,7 +397,10 @@ proc tplFn (argument: Module): Module =
     items: items,
   )
 
-machine_modules.add(Module(name: "cobre.tuple", kind: functorM, fn: tplFn))
+machine_modules.add(Module(name: "cobre.record", kind: functorM, fn: tplFn))
+
+# Deprecated
+machine_modules.add(Module(name: "cobre.tuple", kind: functorM, fn: tplFn, deprecated: true))
 
 
 #==========================================================#
@@ -461,3 +486,10 @@ proc functionFn (argument: Module): Module =
   function_modules[sig] = result
 
 machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))
+
+
+#==========================================================#
+#===                     cobre.ffi                      ===#
+#==========================================================#
+
+# Look at libffi and dyncall

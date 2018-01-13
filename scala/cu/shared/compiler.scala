@@ -42,7 +42,7 @@ package object compiler {
       val core = Module("cobre.core", Nil)
       val strmod = Module("cobre.string", Nil)
       val fltmod = Module("cobre.float", Nil)
-      val sysmod = Module("cobre.system", Nil)
+      //val sysmod = Module("cobre.system", Nil)
 
       val binaryType = core.types("bin")
       val boolType = core.types("bool")
@@ -111,10 +111,10 @@ package object compiler {
       def newstr = strmod.rutines("new").get
       def concat = strmod.rutines("concat").get
 
-      sysmod.rutines ++= Map(
+      /*sysmod.rutines ++= Map(
         "print" -> Proto( Array(strType), Nil ),
         "clock" -> Proto( Nil, Array(fltType) )
-      )
+      )*/
 
       val types = Map(
         "int" -> intType,

@@ -1,4 +1,6 @@
 
+## Transforms the data structures output by parse into machine data structures
+
 import parse as P
 import metadata
 import sourcemap
