@@ -24,16 +24,12 @@ I want to develop in any platform, in any language I want, with the libraries I 
 
 # How to use
 
-This project is not really ready yet, but this is a rough guide to use what already works.
+To install cobre, you need the Nim language. Run `make install` as the superuser, then you can run any cobre module with `cobre <module_name>`, the module has to be in the working directory or installed in the system. To install a cobre module run `cobre --install <file>`, the file has to have the module name.
 
-First, you need scala, sbt (usually comes with scala), and nim installed on your system.
+To compile a Cu language source file into a Cobre module, you need scala and sbt. Eenter the *scala* directory and run
+`sbt "cuJVM/run -f ../tests/pimontecarlo.cu -o out"`, which compiles the source code at *tests/pimontecarlo.cu* into a cobre module named *out* in the scala directory.
 
-To run, for example, the pi monte carlo example, first build the cobre interpreter with `make bin/cobre`, that will create an executable in *bin/cobre* that can execute the contents of a binary cobre module.
-
-To create a binary cobre module, compile one from a culang source file. to do that enter the scala directory and then run
-`sbt "cuJVM/run -f ../tests/pimontecarlo.cu -o ../out"`, which compiles the source code at *tests/pimontecarlo.cu* into a cobre module named *out*.
-
-To execute that, exit the scala directory and invoke the machine with the module as the argument: `bin/cobre out`. You should see the following output:
+To execute that, exit the scala directory and run `cobre out`. You should see something like the following output:
 
 `2000 samples, PI=3.144 in 7.575521s`
 

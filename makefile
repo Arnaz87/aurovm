@@ -1,4 +1,7 @@
 
+PREFIX = $(DESTDIR)/usr/local
+BINDIR = $(PREFIX)/bin
+
 scalaprojects=bin/bindump bin/lua
 
 .PHONY: $(scalaprojects) test jstest monitor-test
@@ -34,3 +37,8 @@ jstest: bin/nimtest.js
 monitor-test:
 	while inotifywait -q -e close_write nim/; do make test; done
 
+install: bin/cobre
+	install bin/cobre $(BINDIR)/cobre
+
+uninstall:
+	rm -f $(BINDIR)/cobre
