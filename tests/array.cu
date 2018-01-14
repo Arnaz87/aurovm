@@ -1,13 +1,16 @@
-import cobre.system;
-
-int LOL = 4;
-
-import cobre.array (string) str_arr {
-  struct array;
-  void set (str_arr.array, int, string);
-  string get (str_arr.array, int);
+import cobre.system {
+  void print(string);
 }
 
-void main (str_arr.array args) {
-  print( str_arr.get(args, LOL) );
+import cobre.array (string) {
+  struct array;
+  array new (string, int);
+  string get (array, int);
+  void set (array, int, string);
+}
+
+void main () {
+  array arr = new("a", 3);
+  set(arr, 1, "b");
+  print( get(arr, 0) + get(arr, 1) );
 }

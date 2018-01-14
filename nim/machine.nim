@@ -21,7 +21,12 @@ type
     tp*: Type
     fields*: seq[Value]
 
-  ValueKind* = enum nilV, boolV, intV, fltV, strV, binV, productV, functionV
+  Array* = ref object of RootObj
+    tp*: Type
+    items*: seq[Value]
+
+  ValueKind* = enum
+    nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV
   Value* = object
     case kind*: ValueKind
     of nilV: t*: Type
@@ -32,6 +37,7 @@ type
     of binV: bytes*: seq[uint8]
     of productV: p*: Product
     of functionV: fn*: Function
+    of arrayV: arr*: Array
 
   FunctionKind* = enum procF, codeF, applyF
   Function* = ref object of RootObj
@@ -67,13 +73,13 @@ type
     retpos: int
     counter: int
 
-  TypeKind* = enum nativeT, aliasT, nullableT, productT, sumT, functionT
+  TypeKind* = enum nativeT, aliasT, nullableT, arrayT, productT, sumT, functionT
   Type* = ref object of RootObj
     module*: Module
     name*: string
     case kind*: TypeKind
     of nativeT: discard
-    of aliasT, nullableT:
+    of aliasT, nullableT, arrayT:
       t*: Type
     of productT, sumT:
       ts*: seq[Type]
@@ -135,7 +141,7 @@ proc `$`* (t: Type): string =
   case t.kind
   of nativeT:
     result &= t.name
-  of aliasT, nullableT:
+  of aliasT, nullableT, arrayT:
     result &= t.t.name
   of productT, sumT:
     if t.ts.len > 0:
@@ -368,6 +374,7 @@ proc `==`* (a: Value, b: Value): bool =
   of binV: a.bytes == b.bytes
   of productV: a.p == b.p
   of functionV: a.fn == b.fn
+  of arrayV: a.arr == b.arr
 
 when defined(test):
   include test_machine

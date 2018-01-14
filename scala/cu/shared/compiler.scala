@@ -541,7 +541,20 @@ package object compiler {
     var alias = ""
     var inScope = false
 
-    lazy val module = prg.Import(name, params.size > 0)
+    lazy val module = {
+      val base = prg.Import(name, params.size > 0)
+      if (params.size > 0) {
+        var items = mutable.Map[String, prg.Item]()
+        for (i <- 0 until params.size)
+          items(i.toString) = (program %% params(i)) match {
+            case program.TypeItem(tp) => tp
+            case program.RutItem(fn) => fn
+            case program.ConstItem(cns, tp) => cns
+          }
+        val argument = prg.ModuleDef(items.toMap)
+        prg.ModuleBuild(base, argument)
+      } else base
+    }
 
     // Scala no me deja!
     //import prg.{Function, Type}

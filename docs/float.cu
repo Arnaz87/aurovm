@@ -48,3 +48,11 @@ bool lt (float, float);
 /** Tests wether the first float is less or equal than the second. */
 bool le (float, float);
 
+
+// Creation
+
+/** Converts an int to a float. */
+float itof (int);
+
+/** Creates a float given a magnitude and an exponent base 10 */
+float decimal (int magnitude, int exponent);

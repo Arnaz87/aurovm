@@ -15,6 +15,24 @@ proc retn (sq: var seq[Value], vs: openarray[Value]) =
 
 template ret (sq: var seq[Value], v: Value) = retn(sq, [v])
 
+proc mksig (ins: seq[Type], outs: seq[Type]): Signature =
+  Signature(ins: ins, outs: outs)
+
+template addfn (items: seq[Item], myname: string, mysig: Signature, body: untyped) =
+  items.add(Item(
+    name: myname,
+    kind: fItem,
+    f: Function(
+      name: myname,
+      sig: mysig,
+      kind: procF,
+      prc: proc (myargs: var seq[Value]) =
+        var args {.inject.} = myargs
+        body
+    )
+  ))
+
+
 #==========================================================#
 #===                     cobre.core                     ===#
 #==========================================================#
@@ -293,19 +311,21 @@ proc readf (args: var seq[Value]) =
 proc clockf (args: var seq[Value]) =
   args.ret Value(kind: fltV, f: cpuTime())
 
+proc execf (args: var seq[Value]) =
+  let cmd = args[0].s
+  var p = startProcess(command = cmd, options = {poEvalCommand})
+  let code = p.waitForExit()
+  args.ret Value(kind: intV, i: code)
+
 proc cmdf (args: var seq[Value]) =
   let cmd = args[0].s
   var p = startProcess(command = cmd, options = {poEvalCommand})
   var out_file: File
   discard out_file.open(p.outputHandle, fmRead)
-
-  let code = p.waitForExit()
+  discard p.waitForExit()
   let out_str = out_file.readAll()
 
-  args.retn([
-    Value(kind: intV, i: code),
-    Value(kind: strV, s: out_str)
-  ])
+  args.ret Value(kind: strV, s: out_str)
 
 discard newModule(
   name = "cobre.system",
@@ -313,7 +333,8 @@ discard newModule(
     "print": newFunction("print", Signature(ins: @[strT], outs: @[]), printf),
     "read": newFunction("read", Signature(ins: @[], outs: @[strT]), readf),
     "clock": newFunction("clock", Signature(ins: @[], outs: @[fltT]), clockf),
-    "cmd": newFunction("cmd", Signature(ins: @[strT], outs: @[intT, strT]), cmdf),
+    "exec": newFunction("exec", Signature(ins: @[strT], outs: @[intT]), execf),
+    "cmd": newFunction("cmd", Signature(ins: @[strT], outs: @[strT]), cmdf),
   }
 )
 
@@ -412,8 +433,7 @@ proc nullFn (argument: Module): Module =
   if argitem.kind != tItem:
     raise newException(Exception, "argument 0 for cobre.null is not a type")
   var base = argitem.t
-  #let basename = "null(" & base.name & ")"
-  let basename = "nullable"
+  let basename = "null(" & base.name & ")"
   var tp = Type(name: basename, kind: nullableT, t: base)
 
   var items = @[ Item(kind: tItem, name: "", t: tp) ]
@@ -425,6 +445,86 @@ proc nullFn (argument: Module): Module =
   )
 
 machine_modules.add(Module(name: "cobre.null", kind: functorM, fn: nullFn))
+
+
+#==========================================================#
+#===                    cobre.array                     ===#
+#==========================================================#
+
+proc arrayFn (argument: Module): Module =
+  var argitem = argument["0"]
+  if argitem.kind != tItem:
+    raise newException(Exception, "argument 0 for cobre.array is not a type")
+  var base = argitem.t
+  let basename = "array(" & base.name & ")"
+  var tp = Type(name: basename, kind: arrayT, t: base)
+
+  proc newProc (args: var seq[Value]) =
+    var vs = newSeq[Value](args[1].i)
+    for i in 0 ..< vs.len:
+      vs[i] = args[0]
+
+    args.ret Value(
+      kind: arrayV,
+      arr: Array(
+        tp: tp,
+        items: vs
+      )
+    )
+
+  proc getProc (args: var seq[Value]) =
+    args.ret args[0].arr.items[args[1].i]
+
+  proc setProc (args: var seq[Value]) =
+    args[0].arr.items[args[1].i] = args[2]
+
+  #proc lenProc (args: var seq[Value]) =
+  #  args[0].arr.items[args[1].i] = args[2]
+
+  var items = @[
+    Item(kind: tItem, name: "array", t: tp),
+    Item(
+      name: "new",
+      kind: fItem,
+      f: Function(
+        name: basename & ".new",
+        sig: Signature(ins: @[base, intT], outs: @[tp]),
+        kind: procF,
+        prc: newProc
+      )
+    ),
+    Item(
+      name: "get",
+      kind: fItem,
+      f: Function(
+        name: basename & ".get",
+        sig: Signature(ins: @[tp, intT], outs: @[base]),
+        kind: procF,
+        prc: getProc
+      )
+    ),
+    Item(
+      name: "set",
+      kind: fItem,
+      f: Function(
+        name: basename & ".set",
+        sig: Signature(ins: @[tp, intT, base], outs: @[]),
+        kind: procF,
+        prc: setProc
+      )
+    )
+  ]
+
+  items.addfn("len", mksig(@[tp], @[intT])):
+    args[0].i = args[1].arr.items.len
+
+  return Module(
+    name: basename & "_module",
+    kind: simpleM,
+    items: items,
+  )
+
+machine_modules.add(Module(name: "cobre.array", kind: functorM, fn: arrayFn))
 
 
 #==========================================================#
