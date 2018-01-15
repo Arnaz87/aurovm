@@ -306,7 +306,7 @@ proc compile* (parser: P.Parser): Module =
     case data.kind
     of intStatic:
       self.statics[i] = Value(kind: intV, i: data.value)
-      self.static_types[i] = findModule("cobre.prim")["int"].t
+      self.static_types[i] = findModule("cobre.int")["int"].t
     of binStatic:
       self.statics[i] = Value(kind: binV, bytes: data.bytes)
       self.static_types[i] = findModule("cobre.core")["bin"].t

@@ -18,7 +18,7 @@ template ret* (sq: var seq[Value], v: Value) = retn(sq, [v])
 proc mksig* (ins: openarray[Type], outs: openarray[Type]): Signature =
   Signature(ins: @ins, outs: @outs)
 
-template addfn* (items: seq[Item], myname: string, mysig: Signature, body: untyped) =
+template addfn* (items: var seq[Item], myname: string, mysig: Signature, body: untyped) =
   items.add(Item(
     name: myname,
     kind: fItem,
@@ -27,10 +27,19 @@ template addfn* (items: seq[Item], myname: string, mysig: Signature, body: untyp
       sig: mysig,
       kind: procF,
       prc: proc (myargs: var seq[Value]) =
-        var args {.inject.} = myargs
+        var args {.inject.}: seq[Value]
+        args.shallowCopy(myargs)
         body
     )
   ))
+
+template addfn* (
+  items: var seq[Item],
+  myname: string,
+  myins: openArray[Type],
+  myouts: openArray[Type],
+  body: untyped
+) = addfn(items, myname, mksig(myins, myouts), body)
 
 
 #==========================================================#
@@ -266,35 +275,59 @@ block:
 let strT*: Type = Type(kind: nativeT, name: "string")
 let charT*: Type = Type(kind: nativeT, name: "string")
 
-proc newstrf (args: var seq[Value]) =
-  let bytes = args[0].bytes
-  var str = newString(bytes.len)
-  for i in 0..bytes.high:
-    str[i] = char(bytes[i])
-  args.ret Value(kind: strV, s: str)
+block:
+  var items = @[
+    Item(name: "string", kind: tItem, t: strT),
+    Item(name: "char", kind: tItem, t: charT)
+  ]
 
-proc itosf (args: var seq[Value]) =
-  let i = args[0].i
-  args.ret Value(kind: strV, s: $i)
+  items.addfn("new", [binT], [strT]):
+    let bytes = args[0].bytes
+    var str = newString(bytes.len)
+    for i in 0..bytes.high:
+      str[i] = char(bytes[i])
+    args.ret Value(kind: strV, s: str)
 
-proc ftosf (args: var seq[Value]) =
-  let f = args[0].f
-  args.ret Value(kind: strV, s: $f)
+  items.addfn("itos", [intT], [strT]):
+    let i = args[0].i
+    args.ret Value(kind: strV, s: $i)
 
-proc concatf (args: var seq[Value]) =
-  let r = args[0].s & args[1].s
-  args.ret Value(kind: strV, s: r)
+  items.addfn("ftos", [fltT], [strT]):
+    let f = args[0].f
+    args.ret Value(kind: strV, s: $f)
 
-discard newModule(
-  name = "cobre.string",
-  types = @{ "string": strT },
-  funcs = @{
-    "new": newFunction("new", Signature(ins: @[binT], outs: @[strT]), newstrf),
-    "itos": newFunction("itos", Signature(ins: @[intT], outs: @[strT]), itosf),
-    "ftos": newFunction("ftos", Signature(ins: @[fltT], outs: @[strT]), ftosf),
-    "concat": newFunction("concat", Signature(ins: @[strT, strT], outs: @[strT]), concatf),
-  }
-)
+  items.addfn("add", [strT, charT], [strT]):
+    let r = args[0].s & args[1].s
+    args.ret Value(kind: strV, s: r)
+
+  items.addfn("concat", [strT, strT], [strT]):
+    let r = args[0].s & args[1].s
+    args.ret Value(kind: strV, s: r)
+
+  items.addfn("eq", [strT, strT], [boolT]):
+    let r = args[0].s == args[1].s
+    args.ret Value(kind: boolV, b: r)
+
+  items.addfn("charat", [strT, intT], [charT, intT]):
+    let i = args[1].i
+    let str = $args[0].s[i]
+    args.retn([
+      Value(kind: strV, s: str),
+      Value(kind: intV, i: i+1)
+    ])
+
+  items.addfn("codeof", [charT], [intT]):
+    let code = cast[int](args[0].s[0])
+    args.ret Value(kind: intV, i: code)
+
+  items.addfn("length", [strT], [intT]):
+    args.ret Value(kind: intV, i: args[0].s.len)
+  
+  machine_modules.add Module(
+    name: "cobre.string",
+    kind: simpleM,
+    items: items,
+  )
 
 
 #==========================================================#

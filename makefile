@@ -16,10 +16,10 @@ bin/cu:
 	echo -e "#!/bin/sh\n$(realpath scala/cu/jvm/target/start) \$$@" > $@
 	chmod +x $@
 
-bin/cobre-debug: nim/*.nim
+bin/cobre: nim/*.nim
 	nim --checks:on -o:$@ c nim/main.nim
 
-bin/cobre: nim/*.nim
+bin/cobre-release: nim/*.nim
 	nim -d:release -o:$@ c nim/main.nim
 
 bin/nimtest: nim/*.nim

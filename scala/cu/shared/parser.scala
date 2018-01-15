@@ -93,7 +93,7 @@ class Parser (text: String) {
     )
 
     val keywords: Set[String] =
-      "true false null if else while return continue break goto import struct void".
+      "true false null if else while return continue break goto import type void as".
       split(' ').toSet
 
     val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
@@ -246,17 +246,19 @@ class Parser (text: String) {
 
     val cond = P("(" ~ expr ~ ")")
 
-    val ifstmt = P(Kw("if") ~/ cond ~ block ~ (Kw("else") ~ block).?).map(Ast.If.tupled)
-    val whilestmt = P(Kw("while") ~/ cond ~ block).map(Ast.While.tupled)
+    val ifstmt = P(Kw("if") ~/ cond ~ stmt ~ (Kw("else") ~ stmt).?).map(Ast.If.tupled)
+    val whilestmt = P(Kw("while") ~/ cond ~ stmt).map(Ast.While.tupled)
 
     val retstmt = P(Kw("return") ~/ expr.rep(sep=",") ~ ";").map(Ast.Return)
     val breakstmt = P(Kw("break") ~ ";").map(_ => Ast.Break)
     val continuestmt = P(Kw("continue") ~ ";").map(_ => Ast.Continue)
+    val label = P(Lexical.name ~ ":").map(Ast.Label)
+    val goto = P(Kw("goto") ~ Lexical.name ~ ";").map(Ast.Goto)
 
     val stmt: P[Ast.Stmt] =
-      IP(call | assign | multi | decl |
+      IP(label | call | assign | multi | decl |
         block | ifstmt | whilestmt |
-        retstmt | continuestmt | breakstmt)
+        retstmt | continuestmt | breakstmt | goto)
   }
 
   object Toplevel {
@@ -272,9 +274,9 @@ class Parser (text: String) {
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
     val importstmt = {
-      val tpdef = P(Kw("struct") ~/ Lexical.name ~ ";") map Ast.ImportType
-      val rut = P(procType ~ Lexical.name ~ "(" ~/ etype.rep(sep=",") ~ ")" ~ ";")
-        .map {case (tps, nm, pms) => Ast.ImportRut(nm, pms, tps)}
+      val alias = (Kw("as") ~/ Lexical.name).?
+      val tpdef = P(Kw("type") ~/ Lexical.name ~ alias ~ ";") map Ast.ImportType.tupled
+      val rut = P(procType ~ Lexical.name ~ "(" ~/ etype.rep(sep=",") ~ ")" ~ alias ~ ";") map Ast.ImportRut.tupled
 
       val defs = P(
         ("{" ~ IP(tpdef | rut).rep(min=1) ~ "}")
@@ -284,7 +286,7 @@ class Parser (text: String) {
 
       P(Kw("import") ~/
         Lexical.name.rep(sep=".", min=1) ~
-        params ~ Lexical.name.? ~ defs
+        params ~ alias ~ defs
       ) map Ast.Import.tupled
     }
 

@@ -35,11 +35,14 @@ string slice (string, int start, int end);
 
 // Retrieval
 
+/** Compares the strings content */
+bool eq (string, string);
+
 /** Given a string and a position, returns the character at that position and the position of the next character */
 char, int charat (string, int);
 
 /** Returns the code point of the given character */
-int codeof (int);
+int codeof (char);
 
 /** Returns the size in bytes of the string */
 int len (string);

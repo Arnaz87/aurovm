@@ -24,6 +24,7 @@ package object compiler {
     val rutines = mutable.Set[Rutine]()
     val types = mutable.Map[String, program.Type]()
     val constants = mutable.Map[String, ConstItem]()
+    val aliases = mutable.Map[String, Item]()
 
     case class TypeItem (tp: program.Type) extends Item
     case class RutItem (rut: program.Function) extends Item
@@ -49,6 +50,7 @@ package object compiler {
       val intType = intmod.types("int")
       val fltType = fltmod.types("float")
       val strType = strmod.types("string")
+      val charType = strmod.types("char")
 
       intmod.rutines ++= Map(
         "neg" -> Proto( Array(intType), Array(intType) ),
@@ -104,12 +106,12 @@ package object compiler {
       strmod.rutines ++= Map(
         "new" -> Proto( Array(binaryType), Array(strType) ),
         "concat" -> Proto( Array(strType, strType), Array(strType) ),
-        "itos" -> Proto( Array(intType), Array(strType) ),
-        "ftos" -> Proto( Array(fltType), Array(strType) ),
+        "eq" -> Proto( Array(strType, strType), Array(boolType) ),
       )
 
       def newstr = strmod.rutines("new").get
       def concat = strmod.rutines("concat").get
+      def streq  = strmod.rutines("eq").get
 
       /*sysmod.rutines ++= Map(
         "print" -> Proto( Array(strType), Nil ),
@@ -120,7 +122,8 @@ package object compiler {
         "int" -> intType,
         "float" -> fltType,
         "bool" -> boolType,
-        "string" -> strType
+        "string" -> strType,
+        "char" -> charType,
       )
 
       def apply(nm: String) = types.get(nm) map TypeItem
@@ -152,6 +155,7 @@ package object compiler {
           find(_.name == name).
           map(_.rdef).map(RutItem) orElse
         types.get(name).map(TypeItem) orElse // tipos de este módulo
+        aliases.get(name) orElse // rutinas o tipos con alias
         items.headOption orElse // rutinas o tipos en otros módulos
         modules.find(_.alias == name) orElse // modulos con el nombre
         default(name) ) // builtins (string, true, null, etc..)
@@ -244,10 +248,7 @@ package object compiler {
               if (defs.size == 0)
                 stmt.error(s"Unknown contents of module $hname")
               Module(modname, params)
-            case Some(module) =>
-              if (defs.size > 0)
-                stmt.error(s"Module $hname cannot be redefined")
-              module
+            case Some(module) => module
           }
 
           if (alias.isEmpty) module.inScope = true
@@ -260,17 +261,27 @@ package object compiler {
         }
       }
 
-      for (( module, Ast.ImportType(name) ) <- mods.types)
-        module.types(name)
+      for (( module, Ast.ImportType(name, alias) ) <- mods.types) {
+        val tp = module.types(name)
+        alias match {
+          case Some(alias) => aliases(alias) = TypeItem(tp)
+          case _ =>
+        }
+      }
 
       for (stmt@ Ast.Struct(name, fields) <- stmts)
         stmt.error("Structs not yet supported")
 
-      for (( module, node@Ast.ImportRut(name, ins, outs) ) <- mods.ruts)
+      for (( module, node@Ast.ImportRut(outs, name, ins, alias) ) <- mods.ruts) {
         module.rutines(name) = Proto(
           ins map {tp: Ast.Type => getType(tp)},
           outs map {tp: Ast.Type => getType(tp)}
         )
+        alias match {
+          case Some(alias) => aliases(alias) = RutItem(module.rutines(name).get)
+          case _ =>
+        }
+      }
 
       rutines ++= stmts collect {
         case node: Ast.Proc =>
@@ -343,6 +354,17 @@ package object compiler {
       }
     }
 
+    val labels = mutable.Map[String, rdef.Lbl]()
+    def label(name: String) = {
+      labels.get(name) match {
+        case Some(lbl) => lbl
+        case _ =>
+          val lbl = rdef.Lbl()
+          labels(name) = lbl
+          lbl
+      }
+    }
+
     class Scope {
       val map = mutable.Map[String, RegItem]()
 
@@ -408,6 +430,7 @@ package object compiler {
             case (Ast.Lte, `fltType`, `fltType`) => (flte, boolType)
             case (Ast.Eq , `intType`, `intType`) => (ieq, boolType)
             case (Ast.Eq , `fltType`, `fltType`) => (feq, boolType)
+            case (Ast.Eq , `strType`, `strType`) => (streq, boolType)
             case (op, at, bt) => node.error(
               s"Unknown overload for $op"// with ${at} and ${bt}"
             )
@@ -501,6 +524,8 @@ package object compiler {
             case None =>
           }
           $end.create()
+        case Ast.Label(name) => label(name).create()
+        case Ast.Goto(name) => rdef.Jmp(label(name))
         case Ast.Return(exprs) =>
           val retcount = Rutine.this.node.returns.size
           if (exprs.size != retcount) node.error(

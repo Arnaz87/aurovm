@@ -48,8 +48,11 @@ object Ast {
   case class Multi (ls: Seq[String], vl: Expr) extends Stmt
 
   case class Block (stmts: Seq[Stmt]) extends Stmt
-  case class If (cond: Expr, body: Block, orelse: Option[Block]) extends Stmt
-  case class While (cond: Expr, body: Block) extends Stmt
+  case class If (cond: Expr, body: Stmt, orelse: Option[Stmt]) extends Stmt
+  case class While (cond: Expr, body: Stmt) extends Stmt
+
+  case class Label (name: String) extends Stmt
+  case class Goto (name: String) extends Stmt
 
   case class Return (expr: Seq[Expr]) extends Stmt
   case object Break extends Stmt
@@ -65,8 +68,8 @@ object Ast {
   ) extends Toplevel
 
   sealed abstract class ImportDef extends Node
-  case class ImportType(name: String) extends ImportDef
-  case class ImportRut(name: String, ins: Seq[Type], outs: Seq[Type]) extends ImportDef
+  case class ImportType(name: String, alias: Option[String]) extends ImportDef
+  case class ImportRut(outs: Seq[Type], name: String, ins: Seq[Type], alias: Option[String]) extends ImportDef
   case class Import (
     module: Seq[String],
     params: Seq[Expr],

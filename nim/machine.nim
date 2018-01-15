@@ -7,6 +7,11 @@ from os import sleep
 
 import sourcemap
 
+const do_debug = false
+
+template debug (body: untyped) =
+  when (do_debug): body
+
 type
   SrcPos* = object of RootObj
     file*: Option[string]
@@ -284,17 +289,18 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       let inst_ptr = st.f.code[st.pc].addr
       template inst: untyped = inst_ptr[]
 
-      #sleep(100)
-      #echo st.f.name, ":", st.pc , " inst:", inst
+      debug:
+        sleep(100)
+        echo st.f.name, ":", st.pc , " inst:", inst
 
       case inst.kind
       of varI: discard # noop
       of setI, dupI:
         st.regs[inst.dest] = st.regs[inst.src]
-        #echo "  [", inst.dest, "]:", st.regs[inst.dest]
+        debug: echo "  [", inst.dest, "]:", st.regs[inst.dest]
       of sgtI:
         st.regs[inst.dest] = st.f.statics[inst.src]
-        #echo "  [", inst.dest, "]:", st.regs[inst.dest]
+        debug: echo "  [", inst.dest, "]:", st.regs[inst.dest]
       of sstI: st.f.statics[inst.dest] = st.regs[inst.src]
       of jmpI:
         st.pc = inst.inst
