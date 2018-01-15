@@ -2,15 +2,15 @@ import cobre.system {
   void print(string);
 }
 
-import cobre.array (string) {
+import cobre.array (string) str_arr {
   struct array;
-  array new (string, int);
-  string get (array, int);
-  void set (array, int, string);
+  str_arr.array new (string, int);
+  string get (str_arr.array, int);
+  void set (str_arr.array, int, string);
 }
 
 void main () {
-  array arr = new("a", 3);
-  set(arr, 1, "b");
-  print( get(arr, 0) + get(arr, 1) );
+  str_arr.array arr = str_arr.new("a", 3);
+  str_arr.set(arr, 1, "b");
+  print( str_arr.get(arr, 0) + str_arr.get(arr, 1) );
 }

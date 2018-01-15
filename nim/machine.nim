@@ -26,7 +26,7 @@ type
     items*: seq[Value]
 
   ValueKind* = enum
-    nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV
+    nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV, ptrV
   Value* = object
     case kind*: ValueKind
     of nilV: t*: Type
@@ -38,6 +38,7 @@ type
     of productV: p*: Product
     of functionV: fn*: Function
     of arrayV: arr*: Array
+    of ptrV: pt*: pointer
 
   FunctionKind* = enum procF, codeF, applyF
   Function* = ref object of RootObj
@@ -86,12 +87,15 @@ type
     of functionT:
       sig*: Signature
 
-  ItemKind* = enum nilItem, fItem, tItem
+  ItemKind* = enum nilItem, fItem, tItem, vItem
   Item* = object
     name*: string
     case kind*: ItemKind
     of fItem: f*: Function
     of tItem: t*: Type
+    of vItem:
+      vt*: Type # Values don't store their own types
+      v*: Value
     of nilItem: discard
 
   ModuleKind* = enum functorM, simpleM
@@ -130,6 +134,7 @@ proc `$`* (i: Item): string =
   $i.kind & "(" & i.name & ", " & (case i.kind
     of fItem: $i.f[]
     of tItem: $i.t[]
+    of vItem: $i.v & ":" & i.t.name
     else: ""
   ) & ")"
 proc `$`* (m: Module): string =
@@ -375,6 +380,7 @@ proc `==`* (a: Value, b: Value): bool =
   of productV: a.p == b.p
   of functionV: a.fn == b.fn
   of arrayV: a.arr == b.arr
+  of ptrV: a.pt == b.pt
 
 when defined(test):
   include test_machine

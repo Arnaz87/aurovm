@@ -8,17 +8,17 @@ from times import cpuTime
 
 import osproc
 
-proc retn (sq: var seq[Value], vs: openarray[Value]) =
+proc retn* (sq: var seq[Value], vs: openarray[Value]) =
   sq.setLen(vs.len)
   for i in 0 .. vs.high:
     sq[i] = vs[i]
 
-template ret (sq: var seq[Value], v: Value) = retn(sq, [v])
+template ret* (sq: var seq[Value], v: Value) = retn(sq, [v])
 
-proc mksig (ins: seq[Type], outs: seq[Type]): Signature =
-  Signature(ins: ins, outs: outs)
+proc mksig* (ins: openarray[Type], outs: openarray[Type]): Signature =
+  Signature(ins: @ins, outs: @outs)
 
-template addfn (items: seq[Item], myname: string, mysig: Signature, body: untyped) =
+template addfn* (items: seq[Item], myname: string, mysig: Signature, body: untyped) =
   items.add(Item(
     name: myname,
     kind: fItem,
@@ -37,8 +37,8 @@ template addfn (items: seq[Item], myname: string, mysig: Signature, body: untype
 #===                     cobre.core                     ===#
 #==========================================================#
 
-let binT: Type = Type(kind: nativeT, name: "bin")
-let boolT: Type = Type(kind: nativeT, name: "bool")
+let binT*: Type = Type(kind: nativeT, name: "bin")
+let boolT*: Type = Type(kind: nativeT, name: "bool")
 
 discard newModule(
   name = "cobre.core",
@@ -50,7 +50,7 @@ discard newModule(
 #===                     cobre.int                     ===#
 #==========================================================#
 
-let intT: Type = Type(kind: nativeT, name: "int")
+let intT*: Type = Type(kind: nativeT, name: "int")
 
 block:
   proc addf (args: var seq[Value]) =
@@ -166,7 +166,7 @@ block:
 #===                     cobre.float                    ===#
 #==========================================================#
 
-let fltT: Type = Type(kind: nativeT, name: "float")
+let fltT*: Type = Type(kind: nativeT, name: "float")
 
 block:
   proc itoff (args: var seq[Value]) =
@@ -263,7 +263,8 @@ block:
 #===                    cobre.string                    ===#
 #==========================================================#
 
-let strT: Type = Type(kind: nativeT, name: "string")
+let strT*: Type = Type(kind: nativeT, name: "string")
+let charT*: Type = Type(kind: nativeT, name: "string")
 
 proc newstrf (args: var seq[Value]) =
   let bytes = args[0].bytes
@@ -300,43 +301,68 @@ discard newModule(
 #===                    cobre.system                    ===#
 #==========================================================#
 
-proc printf (args: var seq[Value]) =
-  echo args[0].s
-  args.setLen(0)
+block:
+  let fileT = Type(kind: nativeT, name: "file")
+  var items = @[ Item(name: "file", kind: tItem, t: fileT) ]
 
-proc readf (args: var seq[Value]) =
-  var line = stdin.readLine()
-  args.ret Value(kind: strV, s: line)
+  items.addfn("print", mksig([strT], [])):
+    echo args[0].s
+    args.setLen(0)
 
-proc clockf (args: var seq[Value]) =
-  args.ret Value(kind: fltV, f: cpuTime())
+  items.addfn("read", mksig([], [strT])):
+    var line = stdin.readLine()
+    args.ret Value(kind: strV, s: line)
 
-proc execf (args: var seq[Value]) =
-  let cmd = args[0].s
-  var p = startProcess(command = cmd, options = {poEvalCommand})
-  let code = p.waitForExit()
-  args.ret Value(kind: intV, i: code)
+  items.addfn("clock", mksig([], [fltT])):
+    args.ret Value(kind: fltV, f: cpuTime())
 
-proc cmdf (args: var seq[Value]) =
-  let cmd = args[0].s
-  var p = startProcess(command = cmd, options = {poEvalCommand})
-  var out_file: File
-  discard out_file.open(p.outputHandle, fmRead)
-  discard p.waitForExit()
-  let out_str = out_file.readAll()
+  items.addfn("exec", mksig([strT], [intT])):
+    let cmd = args[0].s
+    var p = startProcess(command = cmd, options = {poEvalCommand})
+    let code = p.waitForExit()
+    args.ret Value(kind: intV, i: code)
 
-  args.ret Value(kind: strV, s: out_str)
+  items.addfn("cmd", mksig([strT], [strT])):
+    let cmd = args[0].s
+    var p = startProcess(command = cmd, options = {poEvalCommand})
+    var out_file: File
+    discard out_file.open(p.outputHandle, fmRead)
+    discard p.waitForExit()
+    let out_str = out_file.readAll()
 
-discard newModule(
-  name = "cobre.system",
-  funcs = @{
-    "print": newFunction("print", Signature(ins: @[strT], outs: @[]), printf),
-    "read": newFunction("read", Signature(ins: @[], outs: @[strT]), readf),
-    "clock": newFunction("clock", Signature(ins: @[], outs: @[fltT]), clockf),
-    "exec": newFunction("exec", Signature(ins: @[strT], outs: @[intT]), execf),
-    "cmd": newFunction("cmd", Signature(ins: @[strT], outs: @[strT]), cmdf),
-  }
-)
+    args.ret Value(kind: strV, s: out_str)
+
+  items.addfn("open", mksig([strT, strT], [fileT])):
+    let path = args[0].s
+    let mode = case args[1].s
+      of "w": fmWrite
+      of "a": fmAppend
+      else: fmRead
+    let file = open(path, mode)
+    args.ret(Value(kind: ptrV, pt: file))
+
+  items.addfn("readall", mksig([strT], [strT])):
+    let path = args[0].s
+    let file = open(path, fmRead)
+    let contents = readAll(file)
+    args.ret(Value(kind: strV, s: contents))
+
+  items.addfn("write", mksig([fileT, strT], [])):
+    let file = cast[File](args[0].pt)
+    file.write(args[1].s)
+
+  items.addfn("writebyte", mksig([fileT, intT], [])):
+    let file = cast[File](args[0].pt)
+    let b = uint8(args[1].i)
+    let written = file.writeBytes([b], 0, 1)
+    if written != 1:
+      raise newException(Exception, "Couldn't write file")
+
+  machine_modules.add Module(
+    name: "cobre.system",
+    kind: simpleM,
+    items: items,
+  )
 
 
 #==========================================================#
@@ -586,10 +612,3 @@ proc functionFn (argument: Module): Module =
   function_modules[sig] = result
 
 machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))
-
-
-#==========================================================#
-#===                     cobre.ffi                      ===#
-#==========================================================#
-
-# Look at libffi and dyncall
