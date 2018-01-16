@@ -401,7 +401,7 @@ package object compiler {
           }
         case Ast.Call(rutexpr, args) =>
           val rutine = getRutine(rutexpr)
-          if (rutine.outs.size < 0) node.error("Expresions cannot be void")
+          if (rutine.outs.size < 1) node.error("Expresions cannot be void")
           val call = rdef.Call(rutine, args map (%%!(_).reg))
           val reg = call.regs(0)
           srcinfo.insts(call) = (node.line, node.column)

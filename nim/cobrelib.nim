@@ -338,6 +338,9 @@ block:
   let fileT = Type(kind: nativeT, name: "file")
   var items = @[ Item(name: "file", kind: tItem, t: fileT) ]
 
+  items.addfn("quit", [intT], []):
+    quit(args[0].i)
+
   items.addfn("print", mksig([strT], [])):
     echo args[0].s
     args.setLen(0)
@@ -402,6 +405,9 @@ block:
 #===                    cobre.record                     ===#
 #==========================================================#
 
+proc hash(t: Type): Hash = t.name.hash
+var record_modules = initTable[seq[Type], Module](32)
+
 proc tplFn (argument: Module): Module =
   var types: seq[Type] = @[]
   var n = 0
@@ -410,6 +416,9 @@ proc tplFn (argument: Module): Module =
     types.add(nitem.t)
     n += 1
     nitem = argument[$n]
+
+  if record_modules.hasKey(types):
+    return record_modules[types]
 
   let basename = "record" & $n
 
@@ -434,11 +443,34 @@ proc tplFn (argument: Module): Module =
       prc: prc
     )
 
+  proc create_setter (index: int): Function =
+    proc prc (args: var seq[Value]) =
+      let p = args[0]
+      let v = args[1]
+      case p.kind
+      of productV:
+        p.p.fields[index] = v
+      else:
+        let msg = "Runtime type mismatch, expected " & tp.name
+        raise newException(Exception, msg)
+    let sig = Signature(ins: @[tp, types[index]], outs: @[])
+    return Function(
+      name: basename & ".set" & $index,
+      sig: sig,
+      kind: procF,
+      prc: prc
+    )
+
   for i in 0..<n:
     items.add(Item(
       name: "get" & $i,
       kind: fItem,
       f: create_getter(i)
+    ))
+    items.add(Item(
+      name: "set" & $i,
+      kind: fItem,
+      f: create_setter(i)
     ))
 
   proc newProc (args: var seq[Value]) =
@@ -471,11 +503,12 @@ proc tplFn (argument: Module): Module =
     )
   ))
 
-  return Module(
+  result = Module(
     name: basename & "_module",
     kind: simpleM,
     items: items,
   )
+  record_modules[types] = result
 
 machine_modules.add(Module(name: "cobre.record", kind: functorM, fn: tplFn))
 
@@ -510,11 +543,17 @@ machine_modules.add(Module(name: "cobre.null", kind: functorM, fn: nullFn))
 #===                    cobre.array                     ===#
 #==========================================================#
 
+var array_modules = initTable[Type, Module](32)
+
 proc arrayFn (argument: Module): Module =
   var argitem = argument["0"]
   if argitem.kind != tItem:
     raise newException(Exception, "argument 0 for cobre.array is not a type")
   var base = argitem.t
+
+  if array_modules.hasKey(base):
+    return array_modules[base]
+
   let basename = "array(" & base.name & ")"
   var tp = Type(name: basename, kind: arrayT, t: base)
 
@@ -575,13 +614,16 @@ proc arrayFn (argument: Module): Module =
   ]
 
   items.addfn("len", mksig(@[tp], @[intT])):
-    args[0].i = args[1].arr.items.len
+    let r = args[0].arr.items.len
+    args.ret Value(kind: intV, i: r)
 
-  return Module(
+
+  result = Module(
     name: basename & "_module",
     kind: simpleM,
     items: items,
   )
+  array_modules[base] = result
 
 machine_modules.add(Module(name: "cobre.array", kind: functorM, fn: arrayFn))
 
@@ -590,7 +632,6 @@ machine_modules.add(Module(name: "cobre.array", kind: functorM, fn: arrayFn))
 #===                   cobre.function                   ===#
 #==========================================================#
 
-proc hash(t: Type): Hash = t.name.hash
 proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
 var function_modules = initTable[Signature, Module](32)
 

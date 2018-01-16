@@ -4,6 +4,9 @@
 /** File handle */
 type file;
 
+/** Halts execution with the given error code */
+void quit (int);
+
 /** Prints a line to standard output */
 void print (string);
 
