@@ -26,6 +26,8 @@ package object compiler {
     val constants = mutable.Map[String, ConstItem]()
     val aliases = mutable.Map[String, Item]()
 
+    val methods = mutable.Map[(program.Type, String), program.Function]()
+
     case class TypeItem (tp: program.Type) extends Item
     case class RutItem (rut: program.Function) extends Item
     case class ConstItem (cns: program.Static, tp: program.Type) extends Item
@@ -239,8 +241,8 @@ package object compiler {
         val ruts  = mutable.Buffer[(Module, Ast.ImportRut)]()
 
         for (stmt@Ast.Import(names, params, alias, defs) <- stmts) {
-          val modname = names mkString "."//"\u001f"
-          val hname = names mkString "."
+          val modname = names// mkString "."//"\u001f"
+          val hname = names// mkString "."
           val module = modules find { module: Module =>
             (module.name == modname) && (module.params == params)
           } match {
@@ -261,7 +263,7 @@ package object compiler {
         }
       }
 
-      for (( module, Ast.ImportType(name, alias) ) <- mods.types) {
+      for (( module, Ast.ImportType(name, _, alias) ) <- mods.types) {
         val tp = module.types(name)
         alias match {
           case Some(alias) => aliases(alias) = TypeItem(tp)
@@ -272,6 +274,7 @@ package object compiler {
       for (stmt@ Ast.Struct(name, fields) <- stmts)
         stmt.error("Structs not yet supported")
 
+
       for (( module, node@Ast.ImportRut(outs, name, ins, alias) ) <- mods.ruts) {
         module.rutines(name) = Proto(
           ins map {tp: Ast.Type => getType(tp)},
@@ -280,6 +283,24 @@ package object compiler {
         alias match {
           case Some(alias) => aliases(alias) = RutItem(module.rutines(name).get)
           case _ =>
+        }
+      }
+
+      // Methods
+      for (( module, node@Ast.ImportType(tpname, methods, _) ) <- mods.types) {
+        for (Ast.ImportRut(outs, rutname, _ins, alias) <- methods) {
+          val tp = module.types(tpname)
+          val ins = tp +: _ins.map{tp: Ast.Type => getType(tp)}
+          val name = if (tpname == "") rutname
+                     else rutname + ":" + tpname // \u001c
+          module.rutines(name) = Proto( ins,
+            outs map {tp: Ast.Type => getType(tp)}
+          )
+          val methname = alias match {
+            case Some(alias) => alias
+            case _ => rutname
+          }
+          this.methods((tp, methname)) = module.rutines(name).get
         }
       }
 
@@ -321,6 +342,7 @@ package object compiler {
     import rdef.Reg
 
     case class RegItem(reg: Reg, tp: program.program.Type) extends Item
+    case class MethodItem(reg: Reg, fn: program.program.Function) extends Item
 
     object srcinfo {
       import mutable.ArrayBuffer
@@ -380,13 +402,19 @@ package object compiler {
 
       def SubScope = new SubScope(this)
 
-      def getRutine (node: Ast.Expr, nargs: Int = -1): program.program.Function =
-        %%(node) match {
-          case program.RutItem(rut) =>
-            if (nargs >= 0 && nargs != rut.ins.size)
-              node.error(s"Expected ${rut.ins.size} arguments, found $nargs")
-            rut
-          case _ => node.error("Not a function")
+      def makeCall (fnode: Ast.Expr, args: Seq[Ast.Expr]): (rdef.Call, Seq[program.program.Type]) =
+        %%(fnode) match {
+          case program.RutItem(fn) =>
+            if (args.size != fn.ins.size)
+              node.error(s"Expected ${fn.ins.size} arguments, found ${args.size}")
+            val regargs = args map (%%!(_).reg)
+            (rdef.Call(fn, regargs), fn.outs)
+          case MethodItem(self, fn) =>
+            if (args.size != fn.ins.size-1)
+              node.error(s"Expected ${fn.ins.size-1} arguments, found ${args.size}")
+            val regargs = args map (%%!(_).reg)
+            (rdef.Call(fn, self +: regargs), fn.outs)
+          case _ => node.error("Not a function or method")
         }
 
       def %% (node: Ast.Expr): Item = node match {
@@ -398,14 +426,17 @@ package object compiler {
               mod.get(field) getOrElse node.error(
                 s"$field not found in ${mod.name}"
               )
+            case RegItem(reg, tp) =>
+              program.methods.get(tp, field) match {
+                case Some(fn) => MethodItem(reg, fn)
+                case None => node.error(s"$field method not found")
+              }
           }
         case Ast.Call(rutexpr, args) =>
-          val rutine = getRutine(rutexpr)
-          if (rutine.outs.size < 1) node.error("Expresions cannot be void")
-          val call = rdef.Call(rutine, args map (%%!(_).reg))
-          val reg = call.regs(0)
+          val (call, outs) = makeCall(rutexpr, args)
+          if (outs.size < 1) node.error("Expresions cannot be void")
           srcinfo.insts(call) = (node.line, node.column)
-          RegItem(reg, rutine.outs(0))
+          RegItem(call.regs(0), outs(0))
         case Ast.Binop(op, _a, _b) =>
           import program.default._
           val a = %%!(_a)
@@ -468,9 +499,7 @@ package object compiler {
             srcinfo.vars(item.reg) = (node.line, node.column, nm)
           }
         case Ast.Call(rutexpr, args) =>
-          val rutine = getRutine(rutexpr, args.size)
-          val regargs = args map (%%!(_).reg)
-          var call = rdef.Call(rutine, regargs)
+          var (call, _) = makeCall(rutexpr, args)
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Assign(nm, expr) =>
           val reg = get(nm) match {
@@ -481,14 +510,14 @@ package object compiler {
           val inst = rdef.Set(reg, result.reg)
           srcinfo.insts(inst) = (node.line, node.column)
         case Ast.Multi(_ls, Ast.Call(rutexpr, args)) =>
-          val rutine = getRutine(rutexpr, args.size)
+          val (call, outs) = makeCall(rutexpr, args)
+          if (_ls.size != outs.size)
+            node.error(s"Expected ${_ls.size} results, got ${outs.size}")
           val ls = _ls map {nm => get(nm) match {
             case Some(RegItem(reg, _)) => reg
             case _ => node.error(s"$nm is not a variable")
           } }
-          val rs = args map (%%!(_).reg)
-          var call = rdef.Call(rutine, rs)
-          for (i <- 0 until rutine.outs.size)
+          for (i <- 0 until outs.size)
             rdef.Set(ls(i), call.regs(i))
           srcinfo.insts(call) = (node.line, node.column)
         case Ast.Multi(_, _) =>

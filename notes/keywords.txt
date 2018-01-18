@@ -5,107 +5,144 @@ Lista de posibles palabras claves, y en qué lenguajes importantes aparecen. Los
 <=: Todos lo usan
 
 asm       +
-abstract  J#
+abstract  J#D
+alias     D
+align     D
 as        #
-auto      C+
+asm       D
+assert    D
+auto      C+D
 assert    +
 base      #
-bool      +#
+body      D
+bool      +#D
 boolean   J
-break     **** <=
-byte      J#
-case      **** <=
-catch     J+#
-char      **** <=
+break     ***** <=
+byte      J#D
+case      ***** <=
+cast      D
+catch     J+#D <=
+cdouble   D
+cent      D
+cfloat    D
+char      ***** <=
 checked   #
-class     J+#
-const     C+#
-continue  **** <=
+class     J+#D <=
+const     C+#D <=
+continue  ***** <=
+creal     D
+dchar     D
+debug     D
 decimal   #
-default   **** <=
-delegate  #
+default   ***** <=
+delegate  #D
 delete    +
-do        **** <=
-double    **** <=
-else      **** <=
-enum      **** <=
+deprecated D
+do        ***** <=
+double    ***** <=
+else      ***** <=
+enum      ***** <=
 event     #
 explicit  +#
-export    +
+export    +D
 extends   J
-extern    C+#
-false     J+#
-final     J
-finally   J#
+extern    C+#D <=
+false     J+#D <=
+final     JD
+finally   J#D
 fixed     #
-float     **** <=
-for       **** <=
-foreach   #
+float     ***** <=
+for       ***** <=
+foreach   #D
 friend    +
-goto      C+#
-if        **** <=
+function  D
+goto      C+#D <=
+idouble   D
+if        ***** <=
+ifloat    D
+immutable D
 implements J
 implicit  #
-import    J
-in        #
+import    JD
+in        #D
+inout     D
 inline    C+
-int       **** <=
-interface J#
+int       ***** <=
+interface J#D
 internal  #
-is        #
+invariant D
+ireal     D
+is        #D
+lazy      D
 lock      #
-long      **** <=
+long      ***** <=
+mixin     D
+module    D
 mutable   +
 namespace +#
 native    J
-new       J+#
-null      J#
+new       J+#D <=
+nothrow   D
+null      J#D
 object    #
 operator  +#
-private   J+#
-package   J
-protected J+#
-public    J+#
+out       D
+override  D
+package   JD
+pragma    D
+private   J+#D <=
+protected J+#D <=
+public    J+#D <=
+pure      D
 readonly  #
-ref       #
+real      D
+ref       #D
 register  C+
-return    **** <=
+return    ***** <=
 sbyte     #
+scope     D
 sealed    #
-short     **** <=
+shared    D
+short     ***** <=
 signed    C+
 sizeof    C+#
-static    **** <=
+static    ***** <=
 string    #
-struct    C+#
-super     J
-switch    **** <=
-template  +
-this      J+#
-throw     J+#
+struct    C+#D <=
+super     JD
+switch    ***** <=
+template  +D
+this      J+#D <=
+throw     J+#D <=
 throws    J
-true      J+#
+true      J+#D <=
 transient J
-try       J+#
-typedef   C+
-typeid    +
+try       J+#D <=
+typedef   C+D
+typeid    +D
 typename  +
-typeof    #
-uint      #
-ulong     #
+typeof    #D
+ubyte     D
+ucent     D
+uint      #D
+ulong     #D
 unchecked #
-union     C+
+union     C+D
+unittest  D
 unsafe    #
 unsigned  C+
-ushort    #
+ushort    #D
 using     +#
 var       #
+version   D
 virtual   +#
-void      **** <=
-volatile  **** <=
-while     **** <=
+void      ***** <=
+volatile  ***** <=
+wchar     D
+while     ***** <=
+with      D
 
-Keywords usados por todos:
+Keywords usados por todos los 5:
 
 char
 double
@@ -132,6 +169,24 @@ static
 volatile
      
 return
+
+Keywords usados por 4:
+catch
+class
+const
+extern
+false
+goto
+new
+private
+protected
+public
+struct
+this
+throw
+true
+try
+
 
 # Keywords en Cu
 

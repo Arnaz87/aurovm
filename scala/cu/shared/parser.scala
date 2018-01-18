@@ -273,10 +273,18 @@ class Parser (text: String) {
     val proc = P(procType ~ Lexical.name ~ params ~/ Statements.block)
     .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
 
+    val itemname = P(Lexical.name
+      .rep(sep=".",min=1).map(_ mkString ".")
+      .rep(sep=":",min=1).map(_ mkString ":")
+    )
     val importstmt = {
       val alias = (Kw("as") ~/ Lexical.name).?
-      val tpdef = P(Kw("type") ~/ Lexical.name ~ alias ~ ";") map Ast.ImportType.tupled
-      val rut = P(procType ~ Lexical.name ~ "(" ~/ etype.rep(sep=",") ~ ")" ~ alias ~ ";") map Ast.ImportRut.tupled
+      val rut = P(procType ~ itemname ~ "(" ~/ etype.rep(sep=",") ~ ")" ~ alias ~ ";") map Ast.ImportRut.tupled
+      val methods = P(("{" ~ IP(rut).rep(min = 1) ~ "}").? map {
+        case Some(sq) => sq
+        case None => Nil
+      })
+      val tpdef = P(Kw("type") ~/ itemname ~ methods ~ alias ~ ";") map Ast.ImportType.tupled
 
       val defs = P(
         ("{" ~ IP(tpdef | rut).rep(min=1) ~ "}")
@@ -285,7 +293,7 @@ class Parser (text: String) {
       val params = P("(" ~/ expr.rep(sep=",") ~ ")").? map (_ getOrElse Nil)
 
       P(Kw("import") ~/
-        Lexical.name.rep(sep=".", min=1) ~
+        itemname ~
         params ~ alias ~ defs
       ) map Ast.Import.tupled
     }

@@ -68,10 +68,10 @@ object Ast {
   ) extends Toplevel
 
   sealed abstract class ImportDef extends Node
-  case class ImportType(name: String, alias: Option[String]) extends ImportDef
+  case class ImportType(name: String, methods: Seq[ImportRut], alias: Option[String]) extends ImportDef
   case class ImportRut(outs: Seq[Type], name: String, ins: Seq[Type], alias: Option[String]) extends ImportDef
   case class Import (
-    module: Seq[String],
+    module: String,
     params: Seq[Expr],
     alias: Option[String],
     defs: Seq[ImportDef]
