@@ -617,6 +617,9 @@ proc arrayFn (argument: Module): Module =
     let r = args[0].arr.items.len
     args.ret Value(kind: intV, i: r)
 
+  items.addfn("push", mksig(@[tp, base], @[])):
+    args[0].arr.items.add args[1]
+
 
   result = Module(
     name: basename & "_module",

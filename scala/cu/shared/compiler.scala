@@ -27,6 +27,8 @@ package object compiler {
     val aliases = mutable.Map[String, Item]()
 
     val methods = mutable.Map[(program.Type, String), program.Function]()
+    val getters = mutable.Map[(program.Type, String), program.Function]()
+    val setters = mutable.Map[(program.Type, String), program.Function]()
 
     case class TypeItem (tp: program.Type) extends Item
     case class RutItem (rut: program.Function) extends Item
@@ -237,8 +239,8 @@ package object compiler {
       // las anteriores estén definidas
 
       object mods {
-        val types = mutable.Buffer[(Module, Ast.ImportType)]()
-        val ruts  = mutable.Buffer[(Module, Ast.ImportRut)]()
+        val types = mutable.Buffer[(Module, Ast.Typedef)]()
+        val funcs = mutable.Buffer[(Module, Ast.Function)]()
 
         for (stmt@Ast.Import(names, params, alias, defs) <- stmts) {
           val modname = names// mkString "."//"\u001f"
@@ -257,13 +259,16 @@ package object compiler {
           else module.alias = alias.get
 
           defs foreach {
-            case df: Ast.ImportType => types += ((module, df))
-            case df: Ast.ImportRut  => ruts  += ((module, df))
+            case node: Ast.Typedef   => types += ((module, node))
+            case node: Ast.Function  => funcs += ((module, node))
           }
         }
       }
 
-      for (( module, Ast.ImportType(name, _, alias) ) <- mods.types) {
+      // Imported types
+      for (( module, node@Ast.Typedef(name, base, alias, body) ) <- mods.types) {
+        if (!base.isEmpty) node.error("Imported types cannot have base types")
+
         val tp = module.types(name)
         alias match {
           case Some(alias) => aliases(alias) = TypeItem(tp)
@@ -271,13 +276,20 @@ package object compiler {
         }
       }
 
+      for (node@Ast.Typedef(name, base, alias, body) <- stmts) {
+        node.error("Types not yet supported")
+      }
+
       for (stmt@ Ast.Struct(name, fields) <- stmts)
         stmt.error("Structs not yet supported")
 
 
-      for (( module, node@Ast.ImportRut(outs, name, ins, alias) ) <- mods.ruts) {
+      // Imported functions
+      for (( module, node@Ast.Function(outs, name, ins, alias, body) ) <- mods.funcs) {
+        if (!body.isEmpty) node.error("Imported functions cannot have bodies")
+
         module.rutines(name) = Proto(
-          ins map {tp: Ast.Type => getType(tp)},
+          ins map {case (tp: Ast.Type, nm: String) => getType(tp)},
           outs map {tp: Ast.Type => getType(tp)}
         )
         alias match {
@@ -286,9 +298,35 @@ package object compiler {
         }
       }
 
-      // Methods
-      for (( module, node@Ast.ImportType(tpname, methods, _) ) <- mods.types) {
-        for (Ast.ImportRut(outs, rutname, _ins, alias) <- methods) {
+      // Imported Methods
+      for (( module, Ast.Typedef(tpname, _, _, Some(body)) ) <- mods.types) {
+
+        val tp = module.types(tpname)
+
+        def getnames (basename: String, alias: Option[String]): (String, String) = (
+          alias getOrElse basename.split(":")(0),
+          basename + (if (tpname == "") "" else s"+$tpname")
+        )
+
+        for (node <- body) node match {
+          case Ast.Function(outs, basename, _ins, alias, body) =>
+            if (!body.isEmpty) node.error("Imported functions cannot have bodies")
+            val ins = tp +: (_ins map {case (tp, _) => getType(tp)})
+            val (here, there) = getnames(basename, alias)
+            module.rutines(there) = Proto( ins,
+              outs map {tp: Ast.Type => getType(tp)}
+            )
+            val rut = module.rutines(there).get
+
+            if (there.contains(":get:"))
+              this.getters((tp, here)) = rut
+            else if (there.contains(":set:"))
+              this.setters((tp, here)) = rut
+            else
+              this.methods((tp, here)) = rut
+          case _: Ast.FieldMember => node.error("Fields not yet supported")
+        }
+        /*for (Ast.ImportRut(outs, rutname, _ins, alias) <- methods) {
           val tp = module.types(tpname)
           val ins = tp +: _ins.map{tp: Ast.Type => getType(tp)}
           val name = if (tpname == "") rutname
@@ -301,11 +339,11 @@ package object compiler {
             case _ => rutname
           }
           this.methods((tp, methname)) = module.rutines(name).get
-        }
+        }*/
       }
 
       rutines ++= stmts collect {
-        case node: Ast.Proc =>
+        case node: Ast.Function =>
           new Rutine(this, node)
       }
 
@@ -329,12 +367,14 @@ package object compiler {
     }
   }
 
-  class Rutine [P <: Program] (val program: P, val node: Ast.Proc) {
+  class Rutine [P <: Program] (val program: P, val node: Ast.Function) {
     val name = node.name
 
+    if (node.body.isEmpty) node.error("Function needs a body")
+
     val rdef = program.program.FunctionDef(
-      for ((tp, _) <- node.params) yield program.getType(tp),
-      for (tp <- node.returns) yield program.getType(tp)
+      for ((tp, _) <- node.ins) yield program.getType(tp),
+      for (tp <- node.outs) yield program.getType(tp)
     )
 
     program.program.export(name, rdef)
@@ -556,7 +596,7 @@ package object compiler {
         case Ast.Label(name) => label(name).create()
         case Ast.Goto(name) => rdef.Jmp(label(name))
         case Ast.Return(exprs) =>
-          val retcount = Rutine.this.node.returns.size
+          val retcount = Rutine.this.node.outs.size
           if (exprs.size != retcount) node.error(
             s"Expected ${retcount} return values, found ${exprs.size}"
           )
@@ -567,15 +607,15 @@ package object compiler {
 
     val topScope = new Scope
 
-    for (i <- 0 until node.params.size)
-      topScope(node.params(i)._2) = RegItem(rdef.inregs(i), rdef.ins(i))
+    for (i <- 0 until node.ins.size)
+      topScope(node.ins(i)._2) = RegItem(rdef.inregs(i), rdef.ins(i))
 
     def compile () {
-      node.body.stmts map (topScope %% _)
+      node.body.get.stmts map (topScope %% _)
       srcinfo.compile()
 
       // Implicit return for void functions
-      if (node.returns.size == 0)
+      if (node.outs.size == 0)
         rdef.End(Nil)
 
       //println(rdef.regs mkString " ")

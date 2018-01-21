@@ -17,24 +17,110 @@ Lexically Cu is the same as C with the following remarks:
 - Default types are not keywords but implicitly imported types:
   + bool, int, float, string
 
+Note: the code snippets are marked as C to take advantage of the syntax highlighter in sublime text, but it's actually Culang code.
 
-# Import statement
 
-Is marked with the `import` keyword, followed by the global module name, optionally followed by the keyword `as` and an alias for the module, followed by the imported items, enclosed in brackets and separated by semicolons. An imported item can be:
+# Imports
 
-- a type, indicated by the `type` keyword followed by the name with which the type was exported
-- a function, indicated by the return types separated by commas, or void if it doesn't return anything, followed by the name with which the function was exported, and the parameter type list, enclosed in parenthesis and separated with commas
-- a constant, indicated by the type of the constant followed by the name with which the constant was exported
+~~~c
+// Imports the module "a.b", where '.' is replaced with the field separator
+import a.b {
+  // Imports the function "f" from the module, and makes
+  // it accessible in the rest of the code as "f"
+  void f (int);
 
-Items can optionally be aliased if they are followed by the keyword `as` and an identifier. Every imported item must finish with a semicolon, the alias must precede it.
+  // The same as above, the argument names are ignored
+  void f (int arg0);
 
-If the entire module is aliased, none of it's items can be used directly, they have to be preceded by the module alias and `.`.
+  // The same but the function is instead refered with "ff"
+  void f (int) as ff;
 
-If the compiler has access to the imported module, the imported item list can be omitted and the statement must end with a semicolon. In that case, unless the import is aliased, all items are imported.
+  // arguments and return types work as with regular functions
+  int, char f2 (int, int);
 
-# Type statement
+  // Unlike non imported functions, the names can also have field
+  // separatos like modules, and also metanames can be indicated
+  // separated with ':', but they have to be aliased because regular
+  // identifiers can't use those features.
+  void f3.a:b () as f3;
 
-Declares an external type.
+  // This can be used with f4 as no other function has the same main name
+  void f4:a ();
+
+  // Imports the type t and is used with "t"
+  type t;
+
+  // Identifiers and aliases work like with imported functions
+  type t2.a:b as t2;
+
+  // Types can have bodies, alias is optional, cannot end in ';'
+  type t as tt {
+    // Functions imported inside type bodies are accessed as methods,
+    // they are equivalent to a function imported normally but
+    // with the type name added as a metaname:
+    // void f1:t ();
+    void f1 ();
+
+    // Methods with the "get" and "set" metanames are accessed as fields,
+    // they need not be aliased, if aliased they are used as methods.
+    int x1:get ();
+    void x1:set (int);
+
+    // All methods, including fields are inferred to have a first argument
+    // of type t, and is automatically named "this".
+  }}
+~~~
+
+# Structs
+
+~~~c
+// Equivalent to:
+// import cobre.record (A, B) { type `` as T; }
+struct T {
+  // A field. Imports from that same module the functions
+  // get0 and set0, as if they were named a:get and a:set,
+  // and if non private, they are exported as a:T:get and a:T:set
+  A a;
+
+  // The same as above, but because it is the second argument, the type B
+  // is passed second in the module arguments, and the getters and
+  // setters are get1 and set1 (index of the fields is 0 based)
+  B b;
+
+  // A method, receives an implicit first argument of type T named this,
+  // and if exported, is exported with an aditional metaname "T"
+  void f () {}
+
+  // Setters and getters methods can act like fileds of that name
+  int c:get () {return 1;}
+  void c:set (int c) {}
+
+  // All of these functions work with any struct declared in any other
+  // module with the same types in the same order
+}
+~~~
+
+# Types
+
+~~~c
+// The same as a struct, but creates a separate type not compatible with
+// other equivalent structs or types. It's equivalent to:
+// import cobre.record (A, B) { type `` as _T; }
+// import cobre.typeshell (_T) { type `` as T; }
+type T {
+  // Fields and methods work the same as with structs
+}
+
+// A type with a base, creates a type MyInt that is not compatible with int
+type MyInt (int) {
+  // Fields do not work, only methods, including getters and setters
+  int f:get () {
+    // The as operator can convert a value of MyInt to an int.
+    int x = this as int;
+    return x;
+  }
+}
+~~~
 
 # Function statement
 

@@ -262,50 +262,50 @@ class Parser (text: String) {
   }
 
   object Toplevel {
-    val moduleName = P(CharIn('a' to 'z', 'A' to 'Z').rep.!)
-
-    private val param = P(etype ~ Lexical.name)
-    private val params = P("(" ~ param.rep(sep = ",")  ~ ")")
-
-    private val procType: P[Seq[Ast.Type]] =
-      P(Kw("void").map(_ => Nil) | etype.rep(sep=",", min=1))
-
-    val proc = P(procType ~ Lexical.name ~ params ~/ Statements.block)
-    .map {case (tps, nm, pms, body) => Ast.Proc(nm, pms, tps, body)}
-
     val itemname = P(Lexical.name
       .rep(sep=".",min=1).map(_ mkString ".")
       .rep(sep=":",min=1).map(_ mkString ":")
     )
-    val importstmt = {
-      val alias = (Kw("as") ~/ Lexical.name).?
-      val rut = P(procType ~ itemname ~ "(" ~/ etype.rep(sep=",") ~ ")" ~ alias ~ ";") map Ast.ImportRut.tupled
-      val methods = P(("{" ~ IP(rut).rep(min = 1) ~ "}").? map {
-        case Some(sq) => sq
-        case None => Nil
-      })
-      val tpdef = P(Kw("type") ~/ itemname ~ methods ~ alias ~ ";") map Ast.ImportType.tupled
 
-      val defs = P(
-        ("{" ~ IP(tpdef | rut).rep(min=1) ~ "}")
+    private val param = P(etype ~ Lexical.name.?.map(_ getOrElse ""))
+    private val params = P("(" ~/ param.rep(sep = ",")  ~ ")")
+
+    private val fntype: P[Seq[Ast.Type]] =
+      P(Kw("void").map(_ => Nil) | etype.rep(sep=",", min=1))
+
+    val alias = (Kw("as") ~/ Lexical.name).?
+
+    val fnbody: P[Option[Ast.Block]] = P(
+      P(";").map(_ => None) |
+      Statements.block.map(b => Some(b))
+    )
+
+    val function = P(fntype ~ Lexical.name ~ params ~/ alias ~ fnbody) map Ast.Function.tupled
+
+    val tpbody = P(P(";").map(_ => None))
+    val typedef = P(Kw("type") ~/ itemname ~ ("(" ~ etype ~ ")").? ~ alias ~ tpbody)
+      .map(Ast.Typedef.tupled)
+
+    val struct = P(Kw("struct") ~/ itemname ~ tpbody) map Ast.Struct.tupled
+
+    val importstmt = {
+      val field = P(etype ~ itemname ~ ";") map Ast.FieldMember.tupled
+
+      val items: P[Seq[Ast.Imported]] = P(
+        ("{" ~/ IP(typedef | function).rep(min=1) ~ "}")
         | P(";").map(_ => Nil)
       )
       val params = P("(" ~/ expr.rep(sep=",") ~ ")").? map (_ getOrElse Nil)
 
       P(Kw("import") ~/
         itemname ~
-        params ~ alias ~ defs
+        params ~ alias ~ items
       ) map Ast.Import.tupled
     }
 
-    val struct = P(
-      Kw("struct") ~/ Lexical.name ~ "{" ~
-      (etype ~ Lexical.name ~ ";").rep
-      ~ "}") map Ast.Struct.tupled
-
     val constant = P(etype ~ Lexical.name ~ "=" ~/ expr ~ ";") map Ast.Const.tupled
 
-    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | proc | constant)
+    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | function | constant)
 
     // El espacio en blanco solo sale en ~ y rep, por eso están los Pass, para
     // poder seguirlos con ~ y aceptar espacios al inicio y final

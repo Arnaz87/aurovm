@@ -13,6 +13,9 @@ object Ast {
   sealed trait Toplevel extends Node
   sealed trait Literal extends Expr
 
+  sealed trait Imported extends Node
+  sealed trait Member extends Node
+
   sealed abstract class Op
   case object Add extends Op
   case object Sub extends Op
@@ -59,6 +62,30 @@ object Ast {
   case object Continue extends Stmt
 
   case class Const (tp: Type, name: String, value: Expr) extends Toplevel
+
+  case class FieldMember (tp: Type, name: String) extends Member
+
+  case class Function (
+    outs: Seq[Type],
+    name: String,
+    ins: Seq[(Type, String)],
+    alias: Option[String],
+    body: Option[Block]
+  ) extends Toplevel with Imported with Member
+
+  case class Typedef (
+    name: String,
+    base: Option[Type],
+    alias: Option[String],
+    body: Option[Seq[Member]],
+  ) extends Toplevel with Imported
+
+  case class Struct (
+    name: String,
+    body: Option[Seq[Member]],
+  ) extends Toplevel
+
+  /*case class Method (outs: Seq[Type], name: String, )
   case class Struct (name: String, fields: Seq[(Type, String)]) extends Toplevel
   case class Proc (
     name: String,
@@ -69,12 +96,13 @@ object Ast {
 
   sealed abstract class ImportDef extends Node
   case class ImportType(name: String, methods: Seq[ImportRut], alias: Option[String]) extends ImportDef
-  case class ImportRut(outs: Seq[Type], name: String, ins: Seq[Type], alias: Option[String]) extends ImportDef
+  case class ImportRut(outs: Seq[Type], name: String, ins: Seq[Type], alias: Option[String]) extends ImportDef*/
+
   case class Import (
     module: String,
     params: Seq[Expr],
     alias: Option[String],
-    defs: Seq[ImportDef]
+    defs: Seq[Imported]
   ) extends Toplevel
 
   case class Program (stmts: Seq[Toplevel])
