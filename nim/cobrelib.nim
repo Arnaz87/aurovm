@@ -3,13 +3,13 @@ import machine
 
 import hashes
 import tables
+import options
 
 from times import cpuTime
 
 import osproc
 
 proc retn* (sq: var seq[Value], vs: openarray[Value]) =
-  sq.setLen(vs.len)
   for i in 0 .. vs.high:
     sq[i] = vs[i]
 
@@ -530,6 +530,21 @@ proc nullFn (argument: Module): Module =
 
   var items = @[ Item(kind: tItem, name: "", t: tp) ]
 
+  items.addfn("null", mksig(@[], @[tp])):
+    args.ret Value(kind: nilV)
+
+  items.addfn("new", mksig(@[base], @[tp])):
+    args.ret args[0]
+
+  items.addfn("get", mksig(@[tp], @[base])):
+    if args[0].kind == nilV:
+      raise newException(Exception, "Value is null")
+    args.ret args[0]
+
+  items.addfn("isnull", mksig(@[tp], @[boolT])):
+    let r = args[0].kind == nilV
+    args.ret Value(kind: boolV, b: r)
+
   return Module(
     name: basename & "_module",
     kind: simpleM,
@@ -575,9 +590,6 @@ proc arrayFn (argument: Module): Module =
 
   proc setProc (args: var seq[Value]) =
     args[0].arr.items[args[1].i] = args[2]
-
-  #proc lenProc (args: var seq[Value]) =
-  #  args[0].arr.items[args[1].i] = args[2]
 
   var items = @[
     Item(kind: tItem, name: "array", t: tp),
@@ -689,3 +701,77 @@ proc functionFn (argument: Module): Module =
   function_modules[sig] = result
 
 machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))
+
+
+#==========================================================#
+#===                   cobre.typeshell                  ===#
+#==========================================================#
+
+proc shellFn (argument: Module): Module =
+
+  #[ This is a problem, I cannot check right away if the argument is a type
+  # because I would need to evaluate it, nor can I get the type name
+  var argitem = argument["0"]
+  if argitem.kind != tItem:
+    raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
+  var base = argitem.t
+  let basename = "shell(" & base.name & ")"
+  ]#
+
+  let basename = "typeshell"
+
+  proc getbase (): Type =
+    let argitem = argument["0"]
+    if argitem.kind != tItem:
+      raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
+    return argitem.t
+
+  let tp = Type(name: basename, kind: nativeT)
+  let tpitem = Item(kind: tItem, name: "", t: tp)
+
+  # Just returns the argument as is, as this type is just a box
+  proc idProc (args: var seq[Value]) = args.ret args[0]
+
+  # These items cannot be created yet because I need their signatures,
+  # and the signatures need the type, which cannot be evaluated yet
+  var newitem = none(Item)
+  var getitem = none(Item)
+
+  proc getter (key: string): Item =
+    case key
+    of "": tpitem
+    of "new":
+      if newitem.isNone:
+        newitem = some(Item(
+          name: "new",
+          kind: fItem,
+          f: Function(
+            name: basename & ".new",
+            sig: mksig(@[getbase()], @[tp]),
+            kind: procF,
+            prc: idProc
+          )
+        ))
+      newitem.get
+    of "get":
+      if getitem.isNone:
+        getitem = some(Item(
+          name: "get",
+          kind: fItem,
+          f: Function(
+            name: basename & ".get",
+            sig: mksig(@[tp], @[getbase()]),
+            kind: procF,
+            prc: idProc
+          )
+        ))
+      getitem.get
+    else: Item(kind: nilItem)
+
+  return Module(
+    name: basename & "_module",
+    kind: lazyM,
+    getter: getter,
+  )
+
+machine_modules.add(Module(name: "cobre.typeshell", kind: functorM, fn: shellFn))

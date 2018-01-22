@@ -34,7 +34,7 @@ type
     nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV, ptrV
   Value* = object
     case kind*: ValueKind
-    of nilV: t*: Type
+    of nilV: discard
     of boolV: b*: bool
     of intV: i*: int
     of fltV: f*: float
@@ -103,7 +103,7 @@ type
       v*: Value
     of nilItem: discard
 
-  ModuleKind* = enum functorM, simpleM
+  ModuleKind* = enum functorM, simpleM, lazyM
   Module* = ref object
     name*: string
     deprecated*: bool
@@ -112,6 +112,8 @@ type
       items*: seq[Item]
     of functorM:
       fn*: proc(arg: Module): Module
+    of lazyM:
+      getter*: proc(key: string): Item
 
   CobreError* = object of Exception
     srcpos*: SrcPos
@@ -169,13 +171,17 @@ proc `[]=`* (m: var Module, k: string, f: Function) =
   m.items.add(Item(name: k, kind: fItem, f: f))
 proc `[]=`* (m: var Module, k: string, t: Type) =
   m.items.add(Item(name: k, kind: tItem, t: t))
-proc `[]`* (m: Module, k: string): Item =
-  if m.kind != simpleM:
+proc `[]`* (m: Module, key: string): Item =
+  case m.kind
+  of simpleM:
+    for item in m.items:
+      if item.name == key:
+        return item
     return Item(kind: nilItem)
-  for item in m.items:
-    if item.name == k:
-      return item
-  return Item(kind: nilItem)
+  of lazyM:
+    return m.getter(key)
+  else:
+    return Item(kind: nilItem)
 
 proc name* (sig: Signature): string =
   let ins = sig.ins.map(proc (t: Type): string = t.name)
@@ -281,8 +287,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
       # xs is var to avoid copying it
-      proc getArgs (xs: var seq[int]) {.inline.} =
-        args.setLen(xs.len)
+      proc getArgs (xs: var seq[int], outlen: int = 0) {.inline.} =
+        args.setLen max(xs.len, outlen)
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
 
@@ -320,11 +326,12 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         else:
           st.regs[inst.dest] = st.regs[inst.src]
       of callI:
-        getArgs(inst.args)
+        let outlen = inst.f.sig.outs.len
+        getArgs(inst.args, outlen)
         case inst.f.kind:
         of procF:
           inst.f.prc(args)
-          for i in 0 ..< inst.f.sig.outs.len:
+          for i in 0 ..< outlen:
             st.regs[i + inst.ret] = args[i]
         of codeF:
           st.retpos = inst.ret

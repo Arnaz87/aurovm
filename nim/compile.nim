@@ -15,6 +15,7 @@ type
   Module = machine.Module
   Type = machine.Type
   Function = machine.Function
+  Item = machine.Item
 
 type
   Data[T] = object
@@ -66,12 +67,31 @@ proc getModule (self: State, index: int): Module =
     if result.isNil:
       raise newException(CompileError, "Module " & data.name & " not found")
   of P.mDefine:
-    result = newModule("<anonymous>")
-    for item in data.items:
-      case item.kind
-      of P.tItem: result[item.name] = self.getType(item.index) #self.types[item.index]
-      of P.fItem: result[item.name] = self.funcs[item.index]
-      else: raise newException(UnsupportedError, "Non function/type items not supported")
+    var promises = repeat(none(Item), data.items.len)
+
+    proc getter(key: string): Item =
+      for i in 0..< data.items.len:
+        let item = data.items[i]
+        if item.name == key:
+          if promises[i].isSome:
+            return promises[i].get
+          case item.kind
+          of P.tItem: result = Item(
+            name: key,
+            kind: machine.tItem,
+            t: self.getType(item.index)
+          )
+          of P.fItem: result = Item(
+            name: key,
+            kind: machine.fItem,
+            f: self.funcs[item.index]
+          )
+          else: raise newException(UnsupportedError, "Non function/type items not supported")
+          promises[i] = some(result)
+          return result
+      return Item(kind: machine.nilItem)
+
+    result = Module(kind: lazyM, getter: getter)
   of P.mBuild:
     var base = self.getModule(data.module)
     if base.kind != functorM:

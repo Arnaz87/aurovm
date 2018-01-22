@@ -245,10 +245,123 @@ suite "Full Tests":
     #let result = function.run(@[])
     #check(result == @[Value(kind: intV, i: 5)])
 
-  test "Int Linked List":
+  test "Linked List":
+    # Use typeshells to break type recursion, the type won't be evaluated
+    # until the functions are used
 
-    # TODO: Convertir este ejemplo a typeshells para que funcione
-    # Por ahora, el feature es un crash por tipo recursivo
+    #[ Features
+      Product type and operations
+      Nullable type
+      Shell type
+      Recursive types
+    ]#
+
+    let data = bin(
+      "Cobre ~4", 0,
+      12,
+        #0 is the argument module
+        1, 1, #1 Define (exports)
+          2, 1, $"main",
+        0, $"cobre.int", #2 Import
+
+        1, 2, #3 Define (arguments for cobre.tuple)
+          1, 0, $"0", # type_0 (int)
+          1, 2, $"1", # type_2 (nullable tuple)
+        2, $"cobre.tuple", #4 Import functor
+        4, 4, 3, #5 Build cobre.tuple
+
+        1, 1, #6 Define(arguments for cobre.null)
+          1, 3, $"0", # type_1 (typeshell)
+        2, $"cobre.null", #7 Import functor
+        4, 7, 6, #8 Build cobre.null
+
+        1, 1, #9 Define(arguments for cobre.typeshell)
+          1, 1, $"0", # type_1 (tuple)
+        2, $"cobre.typeshell", #10 Import functor
+        4, 10, 9, #11 Build cobre.null
+
+        0, $"cobre.core", #12 Import
+      5, # Types
+        1, 2, $"int", #0
+        1, 5, $"", #1 tuple(int, #2)
+        1, 8, $"", #2 nullable(#3)
+        1, 11, $"", #3 typeshell(#1)
+        1, 12, $"bool", #4 typeshell(#1)
+      11, # Functions
+        2, #0 Defined Function (second)
+          1, 1, # 1 ins: tuple
+          1, 0, # 1 outs: int
+        2, #1 Defined Function (main)
+          0,
+          1, 0,
+        1, 5, $"get0", #2 value
+          1, 1,
+          1, 0,
+        1, 5, $"get1", #3 next
+          1, 1,
+          1, 2,
+        1, 5, $"new", #4 new tuple
+          2, 0, 2,
+          1, 1,
+        1, 11, $"new", #5 new typeshell
+          1, 1,
+          1, 3,
+        1, 11, $"get", #6 get from typeshell
+          1, 3,
+          1, 1,
+        1, 8, $"null", #7 null() -> null
+          0, 1, 2,
+        1, 8, $"new", #8 null.new(shell) -> null
+          1, 3,
+          1, 2,
+        1, 8, $"get", #9 null.get(null) -> shell
+          1, 2,
+          1, 3,
+        1, 8, $"isnull", #10 null.isnull(shell) -> bool
+          1, 2,
+          1, 4,
+      4, # Statics
+        2, $4, # int 4
+        2, $5, # int 5
+        2, $6, # int 6
+        2, $0,
+      5, # Block for #0 (second)
+        #0 = arg_0: tuple (first)
+        (16 + 3), 0, #1 = #0.next: null(shell(tuple))
+        (16 + 9), 1, #2 = #1.get: shell(tuple)
+        (16 + 6), 2, #3 = #2.get: tuple (second)
+        (16 + 2), 3, #4 = #3.value
+        0, 4,
+      13, # Block for #1 (main)
+        4, 2, #0 = const_2 (6)
+        (16 + 7), #1 = null()
+        (16 + 4), 0, 1, #2 = type_1(#0, #1)
+        (16 + 5), 2, #3 = shell(#2)
+
+        4, 1, #4 = const_1 (5)
+        (16 + 8), 3, #5 = null(#3)
+        (16 + 4), 4, 5, #6 = type_1(#4, #5)
+        (16 + 5), 6, #7 = shell(#6)
+
+        4, 0, #8 = const_0 (4)
+        (16 + 8), 7, #9 = null(#7)
+        (16 + 4), 8, 9, #10 = type_1(#8, #9)
+        
+        (16 + 0), 10, #11 = second(#10)
+        0, 11, #return #11
+      1, 0, # Static Block
+      0, # No metadata
+    )
+
+    let parsed = parseData(data)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("main")
+
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: 5)])
+
+  test "Recursive Type":
+    # The linked list test without typeshells crashes
 
     #[ Features
       Product type and operations
@@ -323,12 +436,9 @@ suite "Full Tests":
       0, # No metadata
     )
 
-    let parsed = parseData(data)
-    let compiled = compile(parsed)
-    let function = compiled.get_function("main")
-
-    let result = function.run(@[])
-    check(result == @[Value(kind: intV, i: 5)])
+    expect CompileError:
+      let parsed = parseData(data)
+      let compiled = compile(parsed)
 
   test "Function Object":
 
