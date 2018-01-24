@@ -43,11 +43,11 @@ object Ast {
   case class Call (func: Expr, args: Seq[Expr]) extends Expr with Stmt
 
   case class Array (tp: Expr) extends Expr
-  case class New (tp: Expr, vals: Seq[Expr]) extends Expr
+  case class New (tp: Type, args: Seq[Expr]) extends Expr
 
   case class DeclPart (nm: String, vl: Option[Expr])
   case class Decl (tp: Type, ps: Seq[DeclPart]) extends Stmt
-  case class Assign (nm: String, vl: Expr) extends Stmt
+  case class Assign (left: Expr, vl: Expr) extends Stmt
   case class Multi (ls: Seq[String], vl: Expr) extends Stmt
 
   case class Block (stmts: Seq[Stmt]) extends Stmt
@@ -64,6 +64,7 @@ object Ast {
   case class Const (tp: Type, name: String, value: Expr) extends Toplevel
 
   case class FieldMember (tp: Type, name: String) extends Member
+  case class Constructor (ins: Seq[Type]) extends Member
 
   case class Function (
     outs: Seq[Type],

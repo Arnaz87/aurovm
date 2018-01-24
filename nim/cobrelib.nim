@@ -592,7 +592,7 @@ proc arrayFn (argument: Module): Module =
     args[0].arr.items[args[1].i] = args[2]
 
   var items = @[
-    Item(kind: tItem, name: "array", t: tp),
+    Item(kind: tItem, name: "", t: tp),
     Item(
       name: "new",
       kind: fItem,

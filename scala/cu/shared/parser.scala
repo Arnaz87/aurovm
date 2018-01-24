@@ -93,7 +93,7 @@ class Parser (text: String) {
     )
 
     val keywords: Set[String] =
-      "true false null if else while return continue break goto import type void as".
+      "true false null if else while return continue break goto import type void as new".
       split(' ').toSet
 
     val namechar = CharIn('a' to 'z', 'A' to 'Z', '0' to '9', "_")
@@ -204,28 +204,26 @@ class Parser (text: String) {
         case class Field (i: Int, nm: String) extends Op
         case class Index (i: Int, field: Ast.Expr) extends Op
         case class Call (i: Int, args: Seq[Ast.Expr]) extends Op
-        case class New (i: Int, vals: Seq[Ast.Expr]) extends Op
       }
 
       val field = P(Index ~ "." ~/ Lexical.name) map Op.Field.tupled
       val index = P(Index ~ "[" ~/ expr ~ "]") map Op.Index.tupled
       val call = P(Index ~ "(" ~/ expr.rep(sep=",") ~ ")") map Op.Call.tupled
-      val `new` = P(Index ~ "{" ~/ expr.rep(sep=",") ~ "}") map Op.New.tupled
 
       P(IP(Lexical.name.map(Ast.Var)) ~ (field | index | call | `new`).rep ) map {
         case (expr, ops) => ops.foldLeft[Ast.Expr](expr) {
           case (expr, Op.Field(i, nm)) => Ast.Field(expr, nm).setSrcPos(i)
           case (expr, Op.Index(i, field)) => Ast.Index(expr, field).setSrcPos(i)
           case (expr, Op.Call(i, args)) => Ast.Call(expr, args).setSrcPos(i)
-          case (expr, Op.New(i, vals)) => Ast.New(expr, vals).setSrcPos(i)
         }
       }
     }
+    val `type` = Lexical.name.map(Ast.Var).map(Ast.Type)
 
     val const = P(Lexical.number | Lexical.const | Lexical.string)
     val inparen = P("(" ~/ expr ~ ")")
-    val expr: P[Ast.Expr] = Ops.expr(IP(const | inparen | atom))
-    val `type` = expr map Ast.Type
+    val `new` = P(Kw("new") ~/ `type` ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.New.tupled
+    val expr: P[Ast.Expr] = Ops.expr(IP(const | inparen | atom | `new`))
   }
 
   import Expressions.{`type` => etype, expr}
@@ -238,11 +236,11 @@ class Parser (text: String) {
       .map(_.asInstanceOf[Ast.Call])
 
     val decl = P(NoCut(etype) ~ declpart.rep(sep=",", min=1) ~ ";") map Ast.Decl.tupled
-    val assign = P(Lexical.name ~ "=" ~/ expr ~ ";").map(Ast.Assign.tupled)
+    val assign = P(expr ~ "=" ~/ expr ~ ";").map(Ast.Assign.tupled)
     val multi = P(Lexical.name.rep(sep=",", min=2) ~ "=" ~/ $call ~ ";") map Ast.Multi.tupled
     val call = $call ~ ";"
 
-    val block = P("{" ~ stmt.rep ~ "}").map(Ast.Block)
+    val block = P("{" ~/ stmt.rep ~ "}").map(Ast.Block)
 
     val cond = P("(" ~ expr ~ ")")
 
@@ -280,9 +278,14 @@ class Parser (text: String) {
       Statements.block.map(b => Some(b))
     )
 
-    val function = P(fntype ~ Lexical.name ~ params ~/ alias ~ fnbody) map Ast.Function.tupled
+    val function = P(fntype ~ itemname ~ params ~/ alias ~ fnbody) map Ast.Function.tupled
 
-    val tpbody = P(P(";").map(_ => None))
+    val field = P(etype ~ Lexical.name ~ ";") map Ast.FieldMember.tupled
+    val constructor = P(Kw("new") ~/ "(" ~ etype.rep(sep=",") ~ ")" ~ ";") map Ast.Constructor
+    val tpbody = P(
+      P(";").map(_ => None) |
+      "{" ~/  (function | field | constructor).rep.map(Some(_)) ~ "}"
+    )
     val typedef = P(Kw("type") ~/ itemname ~ ("(" ~ etype ~ ")").? ~ alias ~ tpbody)
       .map(Ast.Typedef.tupled)
 

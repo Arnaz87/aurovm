@@ -265,6 +265,41 @@ package object compiler {
         }
       }
 
+      // First of all, internal types
+      for (node@Ast.Typedef(name, base, alias, body) <- stmts) {
+        node.error("Types not yet supported")
+      }
+
+      for (stmt@ Ast.Struct(name, somefields) <- stmts) {
+        if (somefields.isEmpty) stmt.error("Struct fields are required")
+        val fields = somefields.get
+
+        val params = for (Ast.FieldMember(Ast.Type(expr), nm) <- fields) yield expr
+        val module = Module("cobre.record", params)
+
+        val tp = module.types("")
+
+        program.export(name, tp)
+
+        aliases(name) = TypeItem(tp)
+
+        for ((Ast.FieldMember(tpexpr, nm), i) <- fields.zipWithIndex) {
+          val tpfield = getType(tpexpr)
+          module.rutines("get" + i) = Proto(Array(tp), Array(tpfield))
+          module.rutines("set" + i) = Proto(Array(tp, tpfield), Nil)
+          val getter = module.rutines("get" + i).get
+          val setter = module.rutines("set" + i).get
+          this.getters((tp, nm)) = getter
+          this.setters((tp, nm)) = setter
+          program.export(s"$nm:get:$name", getter)
+          program.export(s"$nm:set:$name", setter)
+        }
+
+        val args = for (Ast.FieldMember(tp, _) <- fields) yield getType(tp)
+        module.rutines("new") = Proto(args, Array(tp))
+        this.methods((tp, "new")) = module.rutines("new").get
+      }
+
       // Imported types
       for (( module, node@Ast.Typedef(name, base, alias, body) ) <- mods.types) {
         if (!base.isEmpty) node.error("Imported types cannot have base types")
@@ -275,13 +310,6 @@ package object compiler {
           case _ =>
         }
       }
-
-      for (node@Ast.Typedef(name, base, alias, body) <- stmts) {
-        node.error("Types not yet supported")
-      }
-
-      for (stmt@ Ast.Struct(name, fields) <- stmts)
-        stmt.error("Structs not yet supported")
 
 
       // Imported functions
@@ -302,10 +330,11 @@ package object compiler {
       for (( module, Ast.Typedef(tpname, _, _, Some(body)) ) <- mods.types) {
 
         val tp = module.types(tpname)
+        val suffix = if (tpname == "") "" else s":$tpname"
 
         def getnames (basename: String, alias: Option[String]): (String, String) = (
           alias getOrElse basename.split(":")(0),
-          basename + (if (tpname == "") "" else s"+$tpname")
+          basename + suffix
         )
 
         for (node <- body) node match {
@@ -324,22 +353,18 @@ package object compiler {
               this.setters((tp, here)) = rut
             else
               this.methods((tp, here)) = rut
-          case _: Ast.FieldMember => node.error("Fields not yet supported")
+          case Ast.FieldMember(tpexpr, here) =>
+            val tpfield = getType(tpexpr)
+            val getnm = s"$here:get$suffix"
+            val setnm = s"$here:set$suffix"
+            module.rutines(getnm) = Proto(Array(tpfield), Array(tp))
+            module.rutines(setnm) = Proto(Nil, Array(tp, tpfield))
+            this.getters((tp, here)) = module.rutines(getnm).get
+            this.setters((tp, here)) = module.rutines(setnm).get
+          case Ast.Constructor(args) =>
+            module.rutines("new"+suffix) = Proto(args map (getType(_)), Array(tp))
+            this.methods((tp, "new")) = module.rutines("new"+suffix).get
         }
-        /*for (Ast.ImportRut(outs, rutname, _ins, alias) <- methods) {
-          val tp = module.types(tpname)
-          val ins = tp +: _ins.map{tp: Ast.Type => getType(tp)}
-          val name = if (tpname == "") rutname
-                     else rutname + ":" + tpname // \u001c
-          module.rutines(name) = Proto( ins,
-            outs map {tp: Ast.Type => getType(tp)}
-          )
-          val methname = alias match {
-            case Some(alias) => alias
-            case _ => rutname
-          }
-          this.methods((tp, methname)) = module.rutines(name).get
-        }*/
       }
 
       rutines ++= stmts collect {
@@ -467,10 +492,34 @@ package object compiler {
                 s"$field not found in ${mod.name}"
               )
             case RegItem(reg, tp) =>
-              program.methods.get(tp, field) match {
-                case Some(fn) => MethodItem(reg, fn)
-                case None => node.error(s"$field method not found")
+              program.getters.get(tp, field) match {
+                case Some(fn) =>
+                  val call = rdef.Call(fn, Array(reg))
+                  RegItem(call.regs(0), fn.outs(0))
+                case None =>
+                  program.methods.get(tp, field) match {
+                    case Some(fn) => MethodItem(reg, fn)
+                    case None => node.error(s"$field method/getter not found")
+                  }
               }
+            case _ => node.error("Expression is neither a module, method or field")
+          }
+        case Ast.Index(basexp, iexpr) =>
+          var index = %%!(iexpr)
+          var base = %%!(basexp)
+          program.methods.get(base.tp, "get") match {
+            case Some(fn) =>
+              val call = rdef.Call(fn, Array(base.reg, index.reg))
+              RegItem(call.regs(0), fn.outs(0))
+            case None => basexp.error("get method not found")
+          }
+        case Ast.New(expr, args) =>
+          val tp = program.getType(expr)
+          program.methods.get(tp, "new") match {
+            case Some(fn) =>
+              val call = rdef.Call(fn, args map (%%!(_).reg))
+              RegItem(call.regs(0), fn.outs(0))
+            case None => node.error("new method not found")
           }
         case Ast.Call(rutexpr, args) =>
           val (call, outs) = makeCall(rutexpr, args)
@@ -541,14 +590,36 @@ package object compiler {
         case Ast.Call(rutexpr, args) =>
           var (call, _) = makeCall(rutexpr, args)
           srcinfo.insts(call) = (node.line, node.column)
-        case Ast.Assign(nm, expr) =>
-          val reg = get(nm) match {
-            case Some(RegItem(reg, _)) => reg
-            case _ => node.error(s"$nm is not a variable")
-          }
+        case Ast.Assign(left, expr) =>
           val result = %%!(expr)
-          val inst = rdef.Set(reg, result.reg)
-          srcinfo.insts(inst) = (node.line, node.column)
+          left match {
+            case Ast.Field(basexp, field) =>
+              %%!(basexp) match {
+                case RegItem(reg, tp) =>
+                  program.setters.get(tp, field) match {
+                    case Some(fn) =>
+                      val call = rdef.Call(fn, Array(reg, result.reg))
+                      srcinfo.insts(call) = (node.line, node.column)
+                    case None => node.error(s"$field setter not found")
+                  }
+              }
+            case Ast.Index(basexp, iexpr) =>
+              val index = %%!(iexpr)
+              val base = %%!(basexp)
+              program.methods.get(base.tp, "set") match {
+                case Some(fn) =>
+                  val call = rdef.Call(fn, Array(base.reg, index.reg, result.reg))
+                  srcinfo.insts(call) = (node.line, node.column)
+                case None => basexp.error("set method not found")
+              }
+            case Ast.Var(nm) =>
+              val reg = get(nm) match {
+                case Some(RegItem(reg, _)) => reg
+                case _ => node.error(s"$nm is not a variable")
+              }
+              val inst = rdef.Set(reg, result.reg)
+              srcinfo.insts(inst) = (node.line, node.column)
+          }
         case Ast.Multi(_ls, Ast.Call(rutexpr, args)) =>
           val (call, outs) = makeCall(rutexpr, args)
           if (_ls.size != outs.size)
