@@ -223,7 +223,15 @@ class Parser (text: String) {
     val const = P(Lexical.number | Lexical.const | Lexical.string)
     val inparen = P("(" ~/ expr ~ ")")
     val `new` = P(Kw("new") ~/ `type` ~ "(" ~ expr.rep(sep=",") ~ ")") map Ast.New.tupled
-    val expr: P[Ast.Expr] = Ops.expr(IP(const | inparen | atom | `new`))
+
+    val base = IP(const | inparen | atom | `new`)
+    val casted = P(base ~ (Index ~ Kw("as") ~/ `type`).?) map {
+      case (base, Some((i, tpexpr))) =>
+        Ast.Cast(base, tpexpr).setSrcPos(i)
+      case (base, None) => base
+    }
+
+    val expr: P[Ast.Expr] = Ops.expr(casted)
   }
 
   import Expressions.{`type` => etype, expr}
@@ -284,7 +292,7 @@ class Parser (text: String) {
     val constructor = P(Kw("new") ~/ "(" ~ etype.rep(sep=",") ~ ")" ~ ";") map Ast.Constructor
     val tpbody = P(
       P(";").map(_ => None) |
-      "{" ~/  (function | field | constructor).rep.map(Some(_)) ~ "}"
+      "{" ~/  IP(function | field | constructor).rep.map(Some(_)) ~ "}"
     )
     val typedef = P(Kw("type") ~/ itemname ~ ("(" ~ etype ~ ")").? ~ alias ~ tpbody)
       .map(Ast.Typedef.tupled)
@@ -308,7 +316,7 @@ class Parser (text: String) {
 
     val constant = P(etype ~ Lexical.name ~ "=" ~/ expr ~ ";") map Ast.Const.tupled
 
-    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | function | constant)
+    val toplevel: P[Ast.Toplevel] = IP(importstmt | struct | function | constant | typedef)
 
     // El espacio en blanco solo sale en ~ y rep, por eso están los Pass, para
     // poder seguirlos con ~ y aceptar espacios al inicio y final

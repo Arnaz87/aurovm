@@ -629,8 +629,19 @@ proc arrayFn (argument: Module): Module =
     let r = args[0].arr.items.len
     args.ret Value(kind: intV, i: r)
 
+  # These two are temporary, until other array types are introduced
+
   items.addfn("push", mksig(@[tp, base], @[])):
     args[0].arr.items.add args[1]
+
+  items.addfn("empty", mksig(@[], @[tp])):
+    args.ret Value(
+      kind: arrayV,
+      arr: Array(
+        tp: tp,
+        items: @[]
+      )
+    )
 
 
   result = Module(

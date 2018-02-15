@@ -22,17 +22,28 @@ package object compiler {
     val program = new cobre.Program()
     val modules = mutable.Set[Module]()
     val rutines = mutable.Set[Rutine]()
-    val types = mutable.Map[String, program.Type]()
+    //val types = mutable.Map[String, program.Type]()
     val constants = mutable.Map[String, ConstItem]()
     val aliases = mutable.Map[String, Item]()
 
     val methods = mutable.Map[(program.Type, String), program.Function]()
     val getters = mutable.Map[(program.Type, String), program.Function]()
     val setters = mutable.Map[(program.Type, String), program.Function]()
+    val casts = mutable.Map[(program.Type, program.Type), program.Function]()
 
-    case class TypeItem (tp: program.Type) extends Item
+    sealed abstract class TypeItem extends Item { def tp: program.Type }
+    case class RawTypeItem (tp: program.Type) extends TypeItem
+    class ModTypeItem (module: Module, name: String) extends TypeItem {
+      def tp: program.Type = module.types(name)
+    }
+    object TypeItem {
+      def apply (tp: program.Type): TypeItem = RawTypeItem(tp)
+      def unapply (item: TypeItem): Option[program.Type] = Some(item.tp)
+    }
+
     case class RutItem (rut: program.Function) extends Item
     case class ConstItem (cns: program.Static, tp: program.Type) extends Item
+    //abstract class PromiseItem extends Item { def get(): Item }
 
     case class Proto(ins: Seq[program.Type], outs: Seq[program.Type])
 
@@ -130,7 +141,7 @@ package object compiler {
         "char" -> charType,
       )
 
-      def apply(nm: String) = types.get(nm) map TypeItem
+      def apply(nm: String) = types.get(nm) map (TypeItem(_))
     }
 
     object meta {
@@ -148,7 +159,7 @@ package object compiler {
       lazy val items = for (
         mod <- modules if mod.inScope;
         item <- {
-          def tp = mod.types.get(name).map(TypeItem)
+          def tp = mod.types.get(name).map(TypeItem(_))
           def rut = mod.rutines(name).map(RutItem)
           tp orElse rut
         }
@@ -158,7 +169,7 @@ package object compiler {
         rutines. // Rutinas de este módulo
           find(_.name == name).
           map(_.rdef).map(RutItem) orElse
-        types.get(name).map(TypeItem) orElse // tipos de este módulo
+        //types.get(name).map(TypeItem) orElse // tipos de este módulo
         aliases.get(name) orElse // rutinas o tipos con alias
         items.headOption orElse // rutinas o tipos en otros módulos
         modules.find(_.alias == name) orElse // modulos con el nombre
@@ -265,10 +276,70 @@ package object compiler {
         }
       }
 
-      // First of all, internal types
-      for (node@Ast.Typedef(name, base, alias, body) <- stmts) {
-        node.error("Types not yet supported")
+      val meths = mutable.Buffer[Rutine]()
+      val tps = mutable.Buffer[(Module, Ast.Node)]()
+
+      /*final class Unbased (
+        basemod: Module,
+        shellmod: Module,
+        fields: Seq[Ast.Member],
+        name: String
+      ) {
+        def compile () {
+          val tp = shellmod.types("")
+          program.export(name, tp)
+
+          val base = basemod.types("")
+
+          var i = 0
+          for (Ast.FieldMember(tpexpr, nm) <- fields) {
+            val tpfield = getType(tpexpr)
+            module.rutines("get" + i) = Proto(Array(base), Array(tpfield))
+            module.rutines("set" + i) = Proto(Array(base, tpfield), Nil)
+            val getter = module.rutines("get" + i).get
+            val setter = module.rutines("set" + i).get
+            this.getters((base, nm)) = getter
+            this.setters((base, nm)) = setter
+            program.export(s"$nm:get:$name", getter)
+            program.export(s"$nm:set:$name", setter)
+            i += 1
+          }
+
+          for (node <- fields) {
+            node match {
+              case node:Ast.Function =>
+                val rut = new Rutine(this, node, true)
+                meths += rut
+                this.methods((tp, node.name)) = rut.rdef
+                program.export(s"${node.name}:$name", rut.rdef)
+              case _ =>
+            }
+          }
+
+          val args = for (Ast.FieldMember(tp, _) <- fields) yield getType(tp)
+          module.rutines("new") = Proto(args, Array(tp))
+          this.methods((tp, "new")) = module.rutines("new").get
+        }
       }
+      val unbased = mutable.Buffer[Unbased]*/
+
+      // First of all, internal types
+      for (stmt@ Ast.Typedef(name, base, alias, somefields) <- stmts) {
+        if (base.isEmpty && somefields.isEmpty) stmt.error("Unbased-type fields are required")
+
+        base match {
+          case Some(base) =>
+            val params = Array(base.expr)
+            val module = Module("cobre.typeshell", params)
+
+            val tItem = new ModTypeItem(module, "")
+            aliases(name) = tItem
+
+            tps += ((module, stmt))
+          case None => stmt.error("Unbased-types not yet supported")
+        }
+      }
+
 
       for (stmt@ Ast.Struct(name, somefields) <- stmts) {
         if (somefields.isEmpty) stmt.error("Struct fields are required")
@@ -277,37 +348,69 @@ package object compiler {
         val params = for (Ast.FieldMember(Ast.Type(expr), nm) <- fields) yield expr
         val module = Module("cobre.record", params)
 
-        val tp = module.types("")
+        val tItem = new ModTypeItem(module, "")
+        aliases(name) = tItem
 
-        program.export(name, tp)
-
-        aliases(name) = TypeItem(tp)
-
-        for ((Ast.FieldMember(tpexpr, nm), i) <- fields.zipWithIndex) {
-          val tpfield = getType(tpexpr)
-          module.rutines("get" + i) = Proto(Array(tp), Array(tpfield))
-          module.rutines("set" + i) = Proto(Array(tp, tpfield), Nil)
-          val getter = module.rutines("get" + i).get
-          val setter = module.rutines("set" + i).get
-          this.getters((tp, nm)) = getter
-          this.setters((tp, nm)) = setter
-          program.export(s"$nm:get:$name", getter)
-          program.export(s"$nm:set:$name", setter)
-        }
-
-        val args = for (Ast.FieldMember(tp, _) <- fields) yield getType(tp)
-        module.rutines("new") = Proto(args, Array(tp))
-        this.methods((tp, "new")) = module.rutines("new").get
+        tps += ((module, stmt))
       }
 
       // Imported types
       for (( module, node@Ast.Typedef(name, base, alias, body) ) <- mods.types) {
         if (!base.isEmpty) node.error("Imported types cannot have base types")
 
-        val tp = module.types(name)
         alias match {
-          case Some(alias) => aliases(alias) = TypeItem(tp)
-          case _ =>
+          case Some(alias) => aliases(alias) = new ModTypeItem(module, name)
+          case None =>
+        }
+      }
+
+      // Compile internal types
+      for ((module, stmt) <- tps) {
+        stmt match {
+          case Ast.Struct(name, Some(fields)) =>
+            val tp = module.types("")
+            program.export(name, tp)
+
+            var i = 0
+            for (Ast.FieldMember(tpexpr, nm) <- fields) {
+              val tpfield = getType(tpexpr)
+              module.rutines("get" + i) = Proto(Array(tp), Array(tpfield))
+              module.rutines("set" + i) = Proto(Array(tp, tpfield), Nil)
+              val getter = module.rutines("get" + i).get
+              val setter = module.rutines("set" + i).get
+              this.getters((tp, nm)) = getter
+              this.setters((tp, nm)) = setter
+              program.export(s"$nm:get:$name", getter)
+              program.export(s"$nm:set:$name", setter)
+              i += 1
+            }
+
+            for (node <- fields) {
+              node match {
+                case node:Ast.Function =>
+                  val rut = new Rutine(this, node, true)
+                  meths += rut
+                  this.methods((tp, node.name)) = rut.rdef
+                  program.export(s"${node.name}:$name", rut.rdef)
+                case _ =>
+              }
+            }
+
+            val args = for (Ast.FieldMember(tp, _) <- fields) yield getType(tp)
+            module.rutines("new") = Proto(args, Array(tp))
+            this.methods((tp, "new")) = module.rutines("new").get
+          case Ast.Typedef(name, Some(base), alias, somefields) =>
+            val baseT = getType(base)
+            val tp = module.types("")
+
+            module.rutines("new") = Proto(Array(baseT), Array(tp))
+            module.rutines("get") = Proto(Array(tp), Array(baseT))
+            this.casts((baseT, tp)) = module.rutines("new").get
+            this.casts((tp, baseT)) = module.rutines("get").get
+
+            if (!somefields.isEmpty)
+              stmt.error("Based-type fields not yet supported")
+          case _ => ???
         }
       }
 
@@ -380,11 +483,12 @@ package object compiler {
         constants(name) = ConstItem(%%!(expr), tp)
       }
 
-      //modules foreach (_.computeParams)
+      modules foreach (_.computeArguments)
 
       // Solo compilar las rutinas después de haber creado todos los
       // items de alto nivel
       rutines foreach (_.compile)
+      meths foreach (_.compile)
 
       program.StaticCode.End(Nil)
 
@@ -392,7 +496,7 @@ package object compiler {
     }
   }
 
-  class Rutine [P <: Program] (val program: P, val node: Ast.Function) {
+  class Rutine [P <: Program] (val program: P, val node: Ast.Function, val priv:Boolean = false) {
     val name = node.name
 
     if (node.body.isEmpty) node.error("Function needs a body")
@@ -402,7 +506,7 @@ package object compiler {
       for (tp <- node.outs) yield program.getType(tp)
     )
 
-    program.program.export(name, rdef)
+    if (!priv) program.program.export(name, rdef)
 
     import rdef.Reg
 
@@ -495,6 +599,7 @@ package object compiler {
               program.getters.get(tp, field) match {
                 case Some(fn) =>
                   val call = rdef.Call(fn, Array(reg))
+                  srcinfo.insts(call) = (node.line, node.column)
                   RegItem(call.regs(0), fn.outs(0))
                 case None =>
                   program.methods.get(tp, field) match {
@@ -504,12 +609,23 @@ package object compiler {
               }
             case _ => node.error("Expression is neither a module, method or field")
           }
+        case Ast.Cast(_expr, tpexpr) =>
+          val expr = %%!(_expr)
+          val source = expr.tp
+          val target = program.getType(tpexpr)
+          program.casts.get(source, target) match {
+            case Some(fn) =>
+              val call = rdef.Call(fn, Array(expr.reg))
+              srcinfo.insts(call) = (node.line, node.column)
+              RegItem(call.regs(0), target)
+          }
         case Ast.Index(basexp, iexpr) =>
           var index = %%!(iexpr)
           var base = %%!(basexp)
           program.methods.get(base.tp, "get") match {
             case Some(fn) =>
               val call = rdef.Call(fn, Array(base.reg, index.reg))
+              srcinfo.insts(call) = (node.line, node.column)
               RegItem(call.regs(0), fn.outs(0))
             case None => basexp.error("get method not found")
           }
@@ -518,6 +634,7 @@ package object compiler {
           program.methods.get(tp, "new") match {
             case Some(fn) =>
               val call = rdef.Call(fn, args map (%%!(_).reg))
+              srcinfo.insts(call) = (node.line, node.column)
               RegItem(call.regs(0), fn.outs(0))
             case None => node.error("new method not found")
           }
@@ -706,18 +823,14 @@ package object compiler {
     var alias = ""
     var inScope = false
 
+    var argument: Option[prg.ModuleDef] = None
+
     lazy val module = {
       val base = prg.Import(name, params.size > 0)
       if (params.size > 0) {
-        var items = mutable.Map[String, prg.Item]()
-        for (i <- 0 until params.size)
-          items(i.toString) = (program %% params(i)) match {
-            case program.TypeItem(tp) => tp
-            case program.RutItem(fn) => fn
-            case program.ConstItem(cns, tp) => cns
-          }
-        val argument = prg.ModuleDef(items.toMap)
-        prg.ModuleBuild(base, argument)
+        val arg = prg.ModuleDef(Map())
+        argument = Some(arg)
+        prg.ModuleBuild(base, arg)
       } else base
     }
 
@@ -759,11 +872,22 @@ package object compiler {
 
     def get (k: String): Option[Item] =
       rutines(k).map(program.RutItem) orElse
-      types.get(k).map(program.TypeItem)
+      types.get(k).map(program.TypeItem(_))
 
-    /*def computeParams () {
-      for (p <- params) module.params += program %%! p
-    }*/
+    def computeArguments () {
+      argument match {
+        case Some(arg) =>
+          var items = mutable.Map[String, prg.Item]()
+          for (i <- 0 until params.size)
+            items(i.toString) = (program %% params(i)) match {
+              case program.TypeItem(tp) => tp
+              case program.RutItem(fn) => fn
+              case program.ConstItem(cns, tp) => cns
+            }
+          arg.items = items.toMap
+        case None =>
+      }
+    }
   }
 
   def compile (prg: Ast.Program, filename: String): cobre.Program = {

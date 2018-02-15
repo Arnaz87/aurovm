@@ -44,6 +44,7 @@ object Ast {
 
   case class Array (tp: Expr) extends Expr
   case class New (tp: Type, args: Seq[Expr]) extends Expr
+  case class Cast (expr: Expr, tp: Type) extends Expr
 
   case class DeclPart (nm: String, vl: Option[Expr])
   case class Decl (tp: Type, ps: Seq[DeclPart]) extends Stmt
