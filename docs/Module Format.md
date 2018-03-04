@@ -143,7 +143,7 @@ Binary data, the value has type `cobre.core.bin`.
 
 ## Null
 
-Any kind greater than 15 represents an uninitialized static, the type is the one with index `kind - 15`. If the type is nullable the value is a valid null, otherwise the value must be set statically. If there is at least one control path in the static code in which a non-nullable null static isn't set, the whole module is invalid.
+Any kind greater than 15 represents an uninitialized static, the type is the one with index `kind - 16`. If the type is nullable the value is a valid null, otherwise the value must be set statically. If there is at least one control path in the static code in which a non-nullable null static isn't set, the whole module is invalid.
 
     kind > 15
 

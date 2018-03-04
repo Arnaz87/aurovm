@@ -11,7 +11,7 @@ type Module = machine.Module
 proc help () =
   # getAppFilename() me da el nombre completo del ejecutable,
   # paramStr(0) solo me da el comando usado (en linux al menos).
-  echo "Usage: " & paramStr(0) & " [options] module"
+  echo "Usage: " & paramStr(0) & " [options] module {args}"
   echo()
   echo "  Runs the specified cobre module. The module is searched in the current"
   echo "  directory as a file that matches the module name, failing that it's searched"
@@ -30,13 +30,17 @@ type Mode = enum run_mode, install_mode, remove_mode
 var mode = run_mode
 var main_module_name: string = nil
 for p in commandLineParams():
-  if p == "--help" or p == "-h": help()
-  elif p == "--install": mode = install_mode
-  elif p == "--remove": mode = remove_mode
-  elif p[0] == '-':
-    echo "Unknown option " & p
-    quit(QuitFailure)
-  else: main_module_name = p
+  if cobreargs.len < 1:
+    if p == "--help" or p == "-h": help()
+    elif p == "--install": mode = install_mode
+    elif p == "--remove": mode = remove_mode
+    elif p[0] == '-':
+      echo "Unknown option " & p
+      quit(QuitFailure)
+    else:
+      main_module_name = p
+      cobreargs.add(paramStr(0) & " " & p)
+  else: cobreargs.add(p)
 
 let mod_path = getEnv("HOME") & "/.cobre/modules"
 

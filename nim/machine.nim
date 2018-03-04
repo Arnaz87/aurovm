@@ -129,6 +129,8 @@ proc cobreRaise*[T](msg: string, srcpos: Srcpos = SrcPos()) =
 
 var machine_modules* = newSeq[Module]()
 
+var cobreargs* = newSeq[string]()
+
 type ModLoader = proc(name: string): Module
 proc default_loader (name: string): Module = nil
 var module_loader: ModLoader = default_loader

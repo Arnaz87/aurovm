@@ -6,7 +6,6 @@ import tables
 import options
 
 from times import cpuTime
-
 import osproc
 
 proc retn* (sq: var seq[Value], vs: openarray[Value]) =
@@ -393,6 +392,12 @@ block:
     let written = file.writeBytes([b], 0, 1)
     if written != 1:
       raise newException(Exception, "Couldn't write file")
+
+  items.addfn("argc", mksig([], [intT])):
+    args.ret Value(kind: intV, i: cobreargs.len)
+
+  items.addfn("args", mksig([intT], [strT])):
+    args.ret Value(kind: strV, s: cobreargs[args[0].i])
 
   machine_modules.add Module(
     name: "cobre.system",

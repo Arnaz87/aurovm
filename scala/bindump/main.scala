@@ -277,7 +277,7 @@ class Reader (_content: Iterator[Int]) {
     }
     def useReg = useRegs(1)
 
-    for (i <- 1 to count) {
+    for (i <- 0 until count) {
       val inst = readInt()
 
       val desc = inst match {

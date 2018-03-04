@@ -26,6 +26,8 @@ I want to develop in any platform, in any language I want, with the libraries I 
 
 To install cobre, you need the Nim language. Run `make install` as the superuser, then you can run any cobre module with `cobre <module_name>`, the module has to be in the working directory or installed in the system. To install a cobre module run `cobre --install <file>`, the file has to have the module name.
 
+**Note**: The following uses sbt, which is very slow and memory heavy, the preferred way now is to use the [culang compiler](https://github.com/Arnaz87/culang).
+
 To compile a Cu language source file into a Cobre module, you need scala and sbt. Eenter the *scala* directory and run
 `sbt "cuJVM/run -f ../tests/pimontecarlo.cu -o out"`, which compiles the source code at *tests/pimontecarlo.cu* into a cobre module named *out* in the scala directory.
 
@@ -33,9 +35,7 @@ To execute that, exit the scala directory and run `cobre out`. You should see so
 
 `2000 samples, PI=3.144 in 7.575521s`
 
-If you want to see the contents of a module instead of just runing it, enter the scala directory and run `sbt "bindump/run ../out"`.
-
-**Warning**: Sbt is very slow and memory heavy.
+If you want to see the contents of a module instead of just runing it, enter the scala directory and run `sbt "bindump/run ../out"`, there is no alternative to this.
 
 # Project structure
 
@@ -91,7 +91,6 @@ Compiles Cobre modules to Javascript, so it can run in browsers.
 
 Things that need to be done
 
-- Load multiple modules
 - Finish the standard library. It must have:
   + Structs
   + Arrays
@@ -109,6 +108,8 @@ Things that need to be done
   + Lua library in Cu
   + Lua compiler in Lua
 - Full support for cobre modules in Culang
+- Cobre to JS compiler
+- Figure out concurrency and memory safety, in Cobre ~5 (or 0.5)
 
 # Wishlist
 

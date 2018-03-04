@@ -364,56 +364,6 @@ package object compiler {
         }
       }
 
-      // Compile internal types
-      for ((module, stmt) <- tps) {
-        stmt match {
-          case Ast.Struct(name, Some(fields)) =>
-            val tp = module.types("")
-            program.export(name, tp)
-
-            var i = 0
-            for (Ast.FieldMember(tpexpr, nm) <- fields) {
-              val tpfield = getType(tpexpr)
-              module.rutines("get" + i) = Proto(Array(tp), Array(tpfield))
-              module.rutines("set" + i) = Proto(Array(tp, tpfield), Nil)
-              val getter = module.rutines("get" + i).get
-              val setter = module.rutines("set" + i).get
-              this.getters((tp, nm)) = getter
-              this.setters((tp, nm)) = setter
-              program.export(s"$nm:get:$name", getter)
-              program.export(s"$nm:set:$name", setter)
-              i += 1
-            }
-
-            for (node <- fields) {
-              node match {
-                case node:Ast.Function =>
-                  val rut = new Rutine(this, node, true)
-                  meths += rut
-                  this.methods((tp, node.name)) = rut.rdef
-                  program.export(s"${node.name}:$name", rut.rdef)
-                case _ =>
-              }
-            }
-
-            val args = for (Ast.FieldMember(tp, _) <- fields) yield getType(tp)
-            module.rutines("new") = Proto(args, Array(tp))
-            this.methods((tp, "new")) = module.rutines("new").get
-          case Ast.Typedef(name, Some(base), alias, somefields) =>
-            val baseT = getType(base)
-            val tp = module.types("")
-
-            module.rutines("new") = Proto(Array(baseT), Array(tp))
-            module.rutines("get") = Proto(Array(tp), Array(baseT))
-            this.casts((baseT, tp)) = module.rutines("new").get
-            this.casts((tp, baseT)) = module.rutines("get").get
-
-            if (!somefields.isEmpty)
-              stmt.error("Based-type fields not yet supported")
-          case _ => ???
-        }
-      }
-
 
       // Imported functions
       for (( module, node@Ast.Function(outs, name, ins, alias, body) ) <- mods.funcs) {
@@ -460,13 +410,63 @@ package object compiler {
             val tpfield = getType(tpexpr)
             val getnm = s"$here:get$suffix"
             val setnm = s"$here:set$suffix"
-            module.rutines(getnm) = Proto(Array(tpfield), Array(tp))
-            module.rutines(setnm) = Proto(Nil, Array(tp, tpfield))
+            module.rutines(getnm) = Proto(Array(tp), Array(tpfield))
+            module.rutines(setnm) = Proto(Array(tp, tpfield), Nil)
             this.getters((tp, here)) = module.rutines(getnm).get
             this.setters((tp, here)) = module.rutines(setnm).get
           case Ast.Constructor(args) =>
             module.rutines("new"+suffix) = Proto(args map (getType(_)), Array(tp))
             this.methods((tp, "new")) = module.rutines("new"+suffix).get
+        }
+      }
+
+      // Compile internal methods
+      for ((module, stmt) <- tps) {
+        stmt match {
+          case Ast.Struct(tpname, Some(fields)) =>
+            val tp = module.types("")
+            program.export(tpname, tp)
+
+            var i = 0
+            for (Ast.FieldMember(tpexpr, nm) <- fields) {
+              val tpfield = getType(tpexpr)
+              module.rutines("get" + i) = Proto(Array(tp), Array(tpfield))
+              module.rutines("set" + i) = Proto(Array(tp, tpfield), Nil)
+              val getter = module.rutines("get" + i).get
+              val setter = module.rutines("set" + i).get
+              this.getters((tp, nm)) = getter
+              this.setters((tp, nm)) = setter
+              program.export(s"$nm:get:$tpname", getter)
+              program.export(s"$nm:set:$tpname", setter)
+              i += 1
+            }
+
+            for (node <- fields) {
+              node match {
+                case node:Ast.Function =>
+                  val rut = new Rutine(this, node, true)
+                  meths += rut
+                  this.methods((tp, node.name)) = rut.rdef
+                  program.export(s"${node.name}:$tpname", rut.rdef)
+                case _ =>
+              }
+            }
+
+            val args = for (Ast.FieldMember(tp, _) <- fields) yield getType(tp)
+            module.rutines("new") = Proto(args, Array(tp))
+            this.methods((tp, "new")) = module.rutines("new").get
+          case Ast.Typedef(name, Some(base), alias, somefields) =>
+            val baseT = getType(base)
+            val tp = module.types("")
+
+            module.rutines("new") = Proto(Array(baseT), Array(tp))
+            module.rutines("get") = Proto(Array(tp), Array(baseT))
+            this.casts((baseT, tp)) = module.rutines("new").get
+            this.casts((tp, baseT)) = module.rutines("get").get
+
+            if (!somefields.isEmpty)
+              stmt.error("Based-type fields not yet supported")
+          case _ => ???
         }
       }
 
