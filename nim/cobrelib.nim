@@ -47,15 +47,16 @@ template addfn* (
 
 let binT*: Type = Type(kind: nativeT, name: "bin")
 let boolT*: Type = Type(kind: nativeT, name: "bool")
+let anyT*: Type = Type(kind: nativeT, name: "any")
 
 discard newModule(
   name = "cobre.core",
-  types = @{ "bool": boolT, "bin": binT }
+  types = @{ "bool": boolT, "bin": binT, "any": anyT }
 )
 
 
 #==========================================================#
-#===                     cobre.int                     ===#
+#===                     cobre.int                      ===#
 #==========================================================#
 
 let intT*: Type = Type(kind: nativeT, name: "int")
@@ -398,6 +399,9 @@ block:
 
   items.addfn("args", mksig([intT], [strT])):
     args.ret Value(kind: strV, s: cobreargs[args[0].i])
+
+  items.addfn("error", mksig([strT], [])):
+    raise newException(Exception, args[0].s)
 
   machine_modules.add Module(
     name: "cobre.system",
@@ -791,3 +795,50 @@ proc shellFn (argument: Module): Module =
   )
 
 machine_modules.add(Module(name: "cobre.typeshell", kind: functorM, fn: shellFn))
+
+
+#==========================================================#
+#===                     cobre.any                      ===#
+#==========================================================#
+
+var any_modules = initTable[Type, Module](32)
+
+type AnyVal = ref object of RootObj
+  tp: Type
+  v: Value
+
+proc anyFn (argument: Module): Module =
+  var argitem = argument["0"]
+  if argitem.kind != tItem:
+    raise newException(Exception, "argument 0 for cobre.any is not a type")
+  var base = argitem.t
+
+  if array_modules.hasKey(base):
+    return array_modules[base]
+
+  let basename = "any(" & base.name & ")"
+
+  var items = newSeq[Item]()
+
+  items.addfn("new", mksig(@[base], @[anyT])):
+    let val = AnyVal(tp: base, v: args[0])
+    args.ret Value(kind: objV, obj: val)
+
+  items.addfn("get", mksig(@[anyT], @[base])):
+    let val = AnyVal(args[0].obj)
+    if val.tp != base:
+      raise newException(Exception, "Any type was " & val.tp.name)
+    args.ret val.v
+
+  items.addfn("test", mksig(@[anyT], @[boolT])):
+    let val = AnyVal(args[0].obj)
+    args.ret Value(kind: boolV, b: val.tp == base)
+
+  result = Module(
+    name: basename & "_module",
+    kind: simpleM,
+    items: items,
+  )
+  array_modules[base] = result
+
+machine_modules.add(Module(name: "cobre.any", kind: functorM, fn: anyFn))

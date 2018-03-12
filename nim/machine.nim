@@ -31,7 +31,7 @@ type
     items*: seq[Value]
 
   ValueKind* = enum
-    nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV, ptrV
+    nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV, objV, ptrV
   Value* = object
     case kind*: ValueKind
     of nilV: discard
@@ -43,6 +43,7 @@ type
     of productV: p*: Product
     of functionV: fn*: Function
     of arrayV: arr*: Array
+    of objV: obj*: ref RootObj
     of ptrV: pt*: pointer
 
   FunctionKind* = enum procF, codeF, applyF
@@ -395,6 +396,7 @@ proc `==`* (a: Value, b: Value): bool =
   of productV: a.p == b.p
   of functionV: a.fn == b.fn
   of arrayV: a.arr == b.arr
+  of objV: a.obj == b.obj
   of ptrV: a.pt == b.pt
 
 when defined(test):
