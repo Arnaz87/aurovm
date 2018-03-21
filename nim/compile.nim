@@ -300,7 +300,7 @@ proc compile* (parser: P.Parser): Module =
     let codeinfo = self.sourcemap.getFunction(index)
 
     if data.internal:
-      let name = "<function#" & $index & ">"
+      let name = $codeinfo
       self.funcs[index] = Function(name: name, kind: codeF, sig: sig)
       self.funcs[index].statics.shallowCopy(self.statics)
       self.funcs[index].codeinfo = codeinfo

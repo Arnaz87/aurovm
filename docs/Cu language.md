@@ -68,7 +68,8 @@ import a.b {
 
     // All methods, including fields are inferred to have a first argument
     // of type t, and is automatically named "this".
-  }}
+  }
+}
 ~~~
 
 # Structs

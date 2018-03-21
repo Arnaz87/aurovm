@@ -56,6 +56,22 @@ discard newModule(
 
 
 #==========================================================#
+#===                     cobre.unit                     ===#
+#==========================================================#
+
+let unitT*: Type = Type(kind: nativeT, name: "unit")
+
+block:
+  var items = @[Item(name: "", kind: tItem, t: unitT)]
+  items.addfn("new", [unitT], []): args.ret Value(kind: nilV)
+  machine_modules.add Module(
+    name: "cobre.unit",
+    kind: simpleM,
+    items: items,
+  )
+
+
+#==========================================================#
 #===                     cobre.int                      ===#
 #==========================================================#
 
@@ -842,3 +858,67 @@ proc anyFn (argument: Module): Module =
   array_modules[base] = result
 
 machine_modules.add(Module(name: "cobre.any", kind: functorM, fn: anyFn))
+
+
+#==========================================================#
+#===                   cobre.closure                    ===#
+#==========================================================#
+
+#[
+block:
+  type ClosureArg = tuple[ins: seq[Type], outs: seq[Type]]
+  proc hash(arg: ClosureArg): Hash = !$(arg.ins.hash !& arg.outs.hash)
+  var function_modules = initTable[ClosureArg, Module](32)
+
+  proc functionFn (argument: Module): Module =
+    var ins:  seq[Type] = @[]
+    var outs: seq[Type] = @[]
+    var n = 0
+    var nitem = argument["in" & $n]
+    while nitem.kind == tItem:
+      ins.add(nitem.t)
+      n += 1
+      nitem = argument["in" & $n]
+    n = 0
+    nitem = argument["out" & $n]
+    while nitem.kind == tItem:
+      outs.add(nitem.t)
+      n += 1
+      nitem = argument["out" & $n]
+
+    var sig = Signature(ins: ins, outs: outs)
+    if function_modules.hasKey(sig):
+      return function_modules[sig]
+
+    let basename = sig.name
+
+    var tp = Type(name: basename, kind: functionT, sig: sig)
+    var items = @[ Item(name: "", kind: tItem, t: tp) ]
+
+    var applyIns = @[tp]
+    applyIns.add(ins)
+
+    let applySig = Signature(ins: applyIns, outs: outs)
+
+    # apply Functions get treated specially by the machine,
+    # to keep the stack organized
+
+    items.add(Item(
+      name: "apply",
+      kind: fItem,
+      f: Function(
+        name: basename & ".apply",
+        sig: applySig,
+        kind: applyF,
+      )
+    ))
+
+    result = Module(
+      name: basename & "_module",
+      kind: simpleM,
+      items: items,
+    )
+    function_modules[sig] = result
+
+  machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))
+]#

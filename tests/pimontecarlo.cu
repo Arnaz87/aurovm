@@ -41,3 +41,4 @@ void main () {
 
 // 2000 samples, PI=3.144 in 7.418378s
 // 3x slower than lua's 2.46s. Good enough for me.
+// 4x slower than python's 1.88s.

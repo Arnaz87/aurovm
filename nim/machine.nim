@@ -371,15 +371,18 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     for i in 0 ..< stack.high:
       let st = stack[i]
       # (pc - 1) porque pc se incrementa después del call
-      errline("  " & st.f.name & " (" & $(st.pc - 1) & ")")
+      let instinfo = st.f.codeinfo.getInst(st.pc - 1)
+      errline("  " & $instinfo)
+      #errline("  " & st.f.name & " (" & $(st.pc - 1) & ")")
 
     if stack.len > 0:
       let st = stack[stack.high]
-      errline("> " & st.f.name & " (" & $st.pc & ")")
-      errline("Code: ")
+      let instinfo = st.f.codeinfo.getInst(st.pc)
+      errline("> " & $instinfo)
+      errline("Code [pc: " & $st.pc & "]:")
       for i, inst in st.f.code.pairs:
         errline("  " & $i & ": " & $inst)
-      errline("Regs: ")
+      errline("Registers: ")
       for i, reg in st.regs.pairs:
         errline("  " & $i & ": " & $reg)
     raise e

@@ -113,6 +113,10 @@ proc `$`*(self: InstInfo): string =
   if self.line.isSome: result &= " (" & self.getPosStr & ")"
   else: result &= ": instruction #" & $self.index
 
+proc `$`*(self: CodeInfo): string =
+  result = self.getFuncName
+  if self.line.isSome: result &= " (" & self.getPosStr & ")"
+
 
 
 

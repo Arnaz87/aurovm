@@ -34,5 +34,6 @@ pi = 4.0 * inside / count
 
 puts "#{count} samples, PI=#{pi} in #{time}s"
 
-# 2000 samples, PI=3.144 in 2.460937s
+# 2000 samples, PI=3.144 in 0.359121647s
+# Stupidly fast, 5x python and almost 7x lua
 
