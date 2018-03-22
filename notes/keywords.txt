@@ -1,6 +1,9 @@
 # Keywords
 
-Lista de posibles palabras claves, y en qué lenguajes importantes aparecen. Los lenguajes listados son C, Java(J), C++(+) y C#(#)
+Lista de posibles palabras claves, y en qué lenguajes importantes aparecen.
+Los lenguajes listados son C, Java(J), C++(+), C#(#), D
+
+Count: C 33, Java 46, C++ 58, D 97(!)
 
 <=: Todos lo usan
 
@@ -186,12 +189,3 @@ this
 throw
 true
 try
-
-
-# Keywords en Cu
-
-
-
-
-     
-

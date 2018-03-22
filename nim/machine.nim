@@ -295,6 +295,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
 
+      if st.pc >= st.f.code.len:
+        raise newException(RuntimeError, "Function does not return")
       let inst_ptr = st.f.code[st.pc].addr
       template inst: untyped = inst_ptr[]
 
@@ -368,22 +370,19 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
     proc errline (str: string) =
       e.msg &= str & "\n"
     errline("Machine stack (oldest first):")
-    for i in 0 ..< stack.high:
-      let st = stack[i]
+    for i in 0 .. stack.high:
       # (pc - 1) porque pc se incrementa después del call
-      let instinfo = st.f.codeinfo.getInst(st.pc - 1)
+      let instinfo = stack[i].f.codeinfo.getInst(stack[i].pc - 1)
       errline("  " & $instinfo)
-      #errline("  " & st.f.name & " (" & $(st.pc - 1) & ")")
 
     if stack.len > 0:
-      let st = stack[stack.high]
-      let instinfo = st.f.codeinfo.getInst(st.pc)
+      let instinfo = top.f.codeinfo.getInst(top.pc)
       errline("> " & $instinfo)
-      errline("Code [pc: " & $st.pc & "]:")
-      for i, inst in st.f.code.pairs:
+      errline("Code [pc: " & $top.pc & "]:")
+      for i, inst in top.f.code.pairs:
         errline("  " & $i & ": " & $inst)
       errline("Registers: ")
-      for i, reg in st.regs.pairs:
+      for i, reg in top.regs.pairs:
         errline("  " & $i & ": " & $reg)
     raise e
 

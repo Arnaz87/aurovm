@@ -458,7 +458,7 @@ proc tplFn (argument: Module): Module =
         let field = v.p.fields[index]
         args.ret(field)
       else:
-        let msg = "Runtime type mismatch, expected " & tp.name
+        let msg = "Runtime type mismatch, expected a " & tp.name & ", given " & $v
         raise newException(Exception, msg)
     let sig = Signature(ins: @[tp], outs: @[types[index]])
     return Function(
@@ -611,10 +611,16 @@ proc arrayFn (argument: Module): Module =
     )
 
   proc getProc (args: var seq[Value]) =
-    args.ret args[0].arr.items[args[1].i]
+    let i = args[1].i
+    if i > args[0].arr.items.high:
+      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $args[0].arr.items.len & ")")
+    args.ret args[0].arr.items[i]
 
   proc setProc (args: var seq[Value]) =
-    args[0].arr.items[args[1].i] = args[2]
+    let i = args[1].i
+    if i > args[0].arr.items.high:
+      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $args[0].arr.items.len & ")")
+    args[0].arr.items[i] = args[2]
 
   var items = @[
     Item(kind: tItem, name: "", t: tp),
