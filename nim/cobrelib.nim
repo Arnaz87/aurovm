@@ -91,7 +91,7 @@ block:
     args.ret Value(kind: intV, i: r)
 
   proc divf (args: var seq[Value]) =
-    let r: int = (int) (args[0].i / args[1].i)
+    let r = int(args[0].i / args[1].i)
     args.ret Value(kind: intV, i: r)
 
   proc eqf (args: var seq[Value]) =

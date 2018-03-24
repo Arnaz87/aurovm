@@ -261,14 +261,14 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
   var stack = newSeq[State](0)
   var top: State
 
-  proc buildTop (fn: Function) {.inline.} =
+  proc buildTop (fn: Function) =
     top.pc = 0
     top.f = fn
     top.regs = newSeq[Value](fn.regcount)
     top.regs.shallow()
     for i, v in args.pairs: top.regs[i] = v
 
-  proc pushState (fn: Function) {.inline.} =
+  template pushFn (fn: Function) =
     if stack.len > max_stack_depth:
       raise newException(StackOverflowError, "Stack size is greater than " & $max_stack_depth)
     stack.add(top)
@@ -289,8 +289,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       #if st.counter > max_instruction_count:
       #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
-      # xs is var to avoid copying it
-      proc getArgs (xs: var seq[int], outlen: int = 0) {.inline.} =
+      proc fill (args: var seq[Value], xs: var seq[int], outlen: int = 0) {.inline.} =
         args.setLen max(xs.len, outlen)
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
@@ -332,7 +331,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
           st.regs[inst.dest] = st.regs[inst.src]
       of callI:
         let outlen = inst.f.sig.outs.len
-        getArgs(inst.args, outlen)
+        #args.fill(inst.args, outlen)
         case inst.f.kind:
         of procF:
           inst.f.prc(args)
@@ -340,7 +339,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
             st.regs[i + inst.ret] = args[i]
         of codeF:
           st.retpos = inst.ret
-          pushState(inst.f)
+          pushFn(inst.f)
           # avoid advancing to 2nd instruction of child state,
           # at the end of that state this one will advance
           advance = false
@@ -348,10 +347,10 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
           let fn = args[0].fn
           st.retpos = inst.ret
           args.delete(0) # Remove the function off the arguments
-          pushState(fn)
+          pushFn(fn)
           advance = false # Same as above
       of endI:
-        getArgs(inst.args)
+        #args.fill(inst.args)
 
         if stack.len > 0:
           top = stack.pop
