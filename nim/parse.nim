@@ -12,7 +12,7 @@ const print_parsed = false
 #=== Types ===#
 
 type
-  ItemKind* = enum mItem, tItem, fItem, vItem
+  ItemKind* = enum mItem, tItem, fItem
   Item* = object of RootObj
     kind*: ItemKind
     name*: string
@@ -45,11 +45,12 @@ type
     outs*: seq[int]
     code*: seq[Inst]
 
-  StaticKind* = enum intStatic, binStatic, typeStatic, funStatic, nullStatic
-  Static* = object of RootObj
-    kind*: StaticKind
+  ConstantKind* = enum intConst, binConst, callConst
+  Constant* = object of RootObj
+    kind*: ConstantKind
     bytes*: seq[uint8]
     value*: int
+    args*: seq[int]
 
   Parser* = ref object of RootObj
     read_proc: proc(): uint8
@@ -58,8 +59,7 @@ type
     modules*: seq[Module]
     types*: seq[Type]
     functions*: seq[Function]
-    statics*: seq[Static]
-    static_code*: seq[Inst]
+    constants*: seq[Constant]
 
     metadata*: Node
 
@@ -120,10 +120,9 @@ proc checkFormat (parser: Parser) =
       printable = false
       break
 
-  if not printable:
-    raise newException(InvalidModuleError, "Expected a printable ASCII signature")
-  elif sig != "Cobre ~4":
-    let msg = "Expected signature \"Cobre ~4\" but found \"" & sig & "\""
+  if sig != "Cobre 0.5":
+    var msg = "Expected signature \"Cobre 0.5\""
+    if printable: msg &= ", but found \"" & sig & "\""
     raise newException(InvalidModuleError, msg)
 
 proc parseItem (p: Parser): Item =
@@ -150,77 +149,69 @@ proc parseModule (p: Parser): Module =
 
 proc parseType (p: Parser): Type =
   let k = p.readInt
-  case k
-  of 0: raise newException(NullKindError, "Null type")
-  of 1:
-    result.module = p.readInt
-    result.name = p.readStr
-  else:
-    parseRaise[InvalidKindError](p, "Invalid type kind " & $k)
+  if k == 0: raise newException(NullKindError, "Null type")
+  result.module = k-1
+  result.name = p.readStr
 
 proc parseFunction (p: Parser): Function =
   let k = p.readInt
-  case k
-  of 0: raise newException(NullKindError, "Null function")
-  of 1: # import
-    result.internal = false
-    result.module = p.readInt
-    result.name = p.readStr
-  of 2: # code
-    result.internal = true
-  else: parseRaise[InvalidKindError](p, "Invalid function kind " & $k)
-
   result.ins.buildSeq(p.readInt) do -> int: p.readInt
   result.outs.buildSeq(p.readInt) do -> int: p.readInt
+  if k == 0: raise newException(NullKindError, "Null function")
+  if k == 1: result.internal = true
+  else:
+    result.internal = false
+    result.module = k-2
+    result.name = p.readStr
 
-proc parseStatic (p: Parser): Static =
+proc parseConstant (p: Parser): Constant =
   let k = p.readInt
   case k
-  of 0: raise newException(NullKindError, "Null static")
-  of 1: raise newException(UnsupportedError, "Unsupported import static kind")
+  of 1:
+    result.kind = intConst
+    result.value = p.readInt
   of 2:
-    result.kind = intStatic
-    result.value = p.readInt
-  of 3:
-    result.kind = binStatic
+    result.kind = binConst
     result.bytes.buildSeq(p.readInt) do -> uint8: p.read
-  of 4:
-    result.kind = typeStatic
-    result.value = p.readInt
-  of 5:
-    result.kind = funStatic
-    result.value = p.readInt
   else:
-    if k < 16:
-      parseRaise[InvalidKindError](p, "Invalid static kind " & $k)
-    result.kind = nullStatic
-    result.value = k-16
+    if k < 16: parseRaise[InvalidKindError](p, "Invalid constant kind " & $k)
+    result.kind = callConst
+    let index = k-16
+    result.value = index
+    let f = p.functions[index]
+    let arg_count = f.ins.len
+    result.args.buildSeq(arg_count) do -> int: p.readInt
 
 proc parseCode (p: Parser, sq: var seq[Inst], out_count: int) =
 
-  const instKinds = [
-    endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI
-  ]
+  const instKinds = [endI, hltI, varI, dupI, setI, jmpI, jifI, nifI]
 
   sq.buildSeq(p.readInt) do -> Inst:
     let k = p.readInt
     if k < instKinds.len:
       result.kind = instKinds[k]
       case result.kind
-      of varI, callI: discard
-      of dupI, sgtI, jmpI:
+      of hltI, varI: discard
+      of dupI, jmpI:
         result.a = p.readInt
-      of setI, sstI, jifI, nifI, anyI:
+      of setI, jifI, nifI:
         result.a = p.readInt
         result.b = p.readInt
       of endI:
         result.args.buildSeq(out_count) do -> int: p.readInt
+      else: discard
     elif k >= 16:
       result.kind = callI
       let index = k-16
       result.a = index
-      let f = p.functions[index]
-      let arg_count = f.ins.len
+      let arg_count = if index < p.functions.len:
+        let f = p.functions[index]
+        f.ins.len
+      else:
+        let c_index = index - p.functions.len
+        if c_index >= p.constants.len:
+          parseRaise[ReadError](p, "Function index " & $index & " out of bounds (" & $(p.functions.len + p.constants.len) & " total functions)")
+        0
       result.args.buildSeq(arg_count) do -> int: p.readInt
     else:
       parseRaise[InvalidKindError](p, "Unknown instruction " & $k)
@@ -255,15 +246,13 @@ proc parse* (read_proc: proc(): uint8): Parser =
     p.modules.buildSeq(p.readInt) do -> Module: p.parseModule
     p.types.buildSeq(p.readInt) do -> Type: p.parseType
     p.functions.buildSeq(p.readInt) do -> Function: p.parseFunction
-    p.statics.buildSeq(p.readInt) do -> Static: p.parseStatic
+    p.constants.buildSeq(p.readInt) do -> Constant: p.parseConstant
 
     for i in 0 .. p.functions.high:
       var f = p.functions[i]
       if f.internal:
         p.parseCode(p.functions[i].code, f.outs.len)
 
-    p.static_code = @[]
-    p.parseCode(p.static_code, 0)
     p.metadata = p.parseNode
 
   finally:
@@ -296,13 +285,9 @@ proc parse* (read_proc: proc(): uint8): Parser =
           for inst in f.code:
             echo "      ", inst
 
-      echo "Statics:"
-      for st in p.statics:
+      echo "Constants:"
+      for st in p.constants:
         echo "  ", st
-
-      echo "Static Code: "
-      for inst in p.static_code:
-        echo "  ", inst
 
 #=== Interface ===#
 

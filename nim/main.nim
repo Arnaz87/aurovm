@@ -19,6 +19,7 @@ proc help () =
   echo()
   echo "Options:"
   echo "  -h  --help    prints this help"
+  echo "  -v --version  prints the version information"
   echo "  --install     install the file module on the system"
   echo "  --remove      removes a module from system"
   quit(QuitSuccess)
@@ -32,6 +33,9 @@ var main_module_name: string = nil
 for p in commandLineParams():
   if cobreargs.len < 1:
     if p == "--help" or p == "-h": help()
+    if p == "--version" or p == "-v":
+      echo "Cobre 0.5"
+      quit(QuitSuccess)
     elif p == "--install": mode = install_mode
     elif p == "--remove": mode = remove_mode
     elif p[0] == '-':

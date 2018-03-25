@@ -23,15 +23,22 @@ type
     srcpos: SrcPos
     pending: bool
 
+  FnKind = enum readyFn, cnsFn, codeFn
+  FnData = object
+    case kind: FnKind
+    of readyFn:
+      f: Function
+    of cnsFn, codeFn:
+      index: int
+
   State = ref object of RootObj
     parser: P.Parser
     sourcemap: SourceMap
     modules: seq[Module]
     types: seq[Data[Type]]
-    funcs: seq[Function]
+    funcs: seq[FnData]
     statics: seq[Value]
     static_types: seq[Type]
-    static_function: Function
 
   UnsupportedError* = object of Exception
 
@@ -53,6 +60,8 @@ type
     instinfo*: InstInfo
 
 proc getType(self: State, i: int): Type
+proc getFunction(self: State, i: int): Function
+proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst])
 
 proc getModule (self: State, index: int): Module =
   if index > self.modules.high:
@@ -84,7 +93,7 @@ proc getModule (self: State, index: int): Module =
           of P.fItem: result = Item(
             name: key,
             kind: machine.fItem,
-            f: self.funcs[item.index]
+            f: self.getFunction(item.index)
           )
           else: raise newException(UnsupportedError, "Non function/type items not supported")
           promises[i] = some(result)
@@ -130,6 +139,76 @@ proc getType (self: State, i: int): Type =
   self.types[i].pending = false
   return item.t
 
+proc getFunction(self: State, i: int): Function =
+  if i >= self.funcs.len:
+    raise newException(CompileError, "Function index out of bounds")
+
+  template fndata: untyped = self.funcs[i]
+  case fndata.kind
+  of readyFn: return fndata.f
+  of cnsFn:
+    let data = self.parser.constants[fndata.index]
+    case data.kind
+    of intConst:
+      let n = data.value
+      let v = Value(kind: intV, i: n)
+      let sig = Signature(ins:  @[], outs: @[findModule("cobre.int")["int"].t])
+      result = Function(name: $n, kind: constF, sig: sig, value: v)
+      fndata = FnData(kind: readyFn, f: result)
+    of binConst:
+      let v = Value(kind: binV, bytes: data.bytes)
+      let sig = Signature(ins:  @[], outs: @[findModule("cobre.core")["bin"].t])
+      result = Function(name: "binary", kind: constF, sig: sig, value: v)
+      fndata = FnData(kind: readyFn, f: result)
+    of callConst:
+      let f = self.getFunction(data.value)
+      if f.sig.outs.len != 1:
+        raise newException(CompileError, "Constant function calls must have exactly 1 return value")
+      assert(data.args.len == f.sig.ins.len)
+
+      var args = newSeq[Value](data.args.len)
+      for j in 0 .. args.high:
+        let x = data.args[j]
+        let af = self.getFunction(x)
+        if af.sig.ins.len != 0 or af.sig.outs.len != 1:
+          let msg = "Constant arguments must have exactly 0 arguments and 1 return value"
+          raise newException(CompileError, msg)
+        if af.sig.outs[0] != f.sig.ins[j]:
+          raise newException(CompileError, "Type mismatch in call constant")
+        args[j] = af.run(@[])[0]
+
+      let v = f.run(args)[0]
+      let sig = Signature(ins: @[], outs: @[f.sig.outs[0]])
+      result = Function(name: "", kind: constF, sig: sig, value: v)
+      fndata = FnData(kind: readyFn, f: result)
+  of codeFn:
+    let index = i
+    let data = self.parser.functions[index]
+    let sig = Signature(
+      ins:  data.ins.map(proc (x: int): Type = self.getType(x)),
+      outs: data.outs.map(proc (x: int): Type = self.getType(x))
+    )
+    let codeinfo = self.sourcemap.getFunction(index)
+
+    if data.internal:
+      let name = $codeinfo
+      result = Function(name: name, kind: codeF, sig: sig, codeinfo: codeinfo)
+      fndata = FnData(kind: readyFn, f: result)
+      self.compileCode(result, data.ins.len, data.code)
+    else:
+      let module = self.getModule(data.module)
+      let item = module[data.name]
+      if item.kind != machine.fItem:
+        raise newException(CompileError, "Function " & data.name & " not found in " & module.name)
+
+      if item.f.sig != sig:
+        let msg = item.f.name & " is " & item.f.sig.name & ", but expected " & sig.name
+        var e = newException(IncorrectSignatureError, msg)
+        e.codeinfo = codeinfo
+        raise e
+      result = item.f
+      fndata = FnData(kind: readyFn, f: result)
+
 proc typeCheck(self: State, fn: Function) =
 
   proc check(t1: Type, t2: Type, index: int) =
@@ -163,8 +242,8 @@ proc typeCheck(self: State, fn: Function) =
       # Wether to cancel this instruction transfer
       var cancel = false
       case inst.kind
-      of varI: discard # Nothing to do
-      of dupI, anyI:
+      of varI, hltI: discard # Nothing to do
+      of dupI:
         if regs[inst.src].isNil:
           regs[inst.dest] = regs[inst.src]
         else: cancel = true
@@ -175,12 +254,6 @@ proc typeCheck(self: State, fn: Function) =
             regs[inst.dest] = regs[inst.src]
           else:
             check(regs[inst.src], regs[inst.dest], index)
-        else: cancel = true
-      of sgtI:
-        regs[inst.dest] = self.static_types[inst.src]
-      of sstI:
-        if not regs[inst.src].isNil:
-          check(regs[inst.src], self.static_types[inst.dest], index)
         else: cancel = true
       of jmpI: discard
       of jifI, nifI:
@@ -223,35 +296,30 @@ proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
 
     var inst = machine.Inst(kind: data.kind)
     case inst.kind
+    of hltI: discard
     of varI:
       reg_count += 1
-    of dupI, sgtI:
+    of dupI:
       inst.src = data.a
       inst.dest = reg_count
       reg_count += 1
-    of setI, sstI:
+    of setI:
       inst.dest = data.a
       inst.src = data.b
     of jmpI:
       inst.inst = data.a
-    of jifI, nifI, anyI:
+    of jifI, nifI:
       inst.inst = data.a
       inst.src = data.b
-      if inst.kind == anyI:
-        inst.dest = reg_count
-        reg_count += 1
     of endI:
       inst.args = data.args
     of callI:
       if data.a > self.funcs.high:
         raise newException(CompileError, "Function index out of bounds")
-      let fd = self.parser.functions[data.a]
-      let result_count = fd.outs.len
-
-      inst.f = self.funcs[data.a]
+      inst.f = self.getFunction(data.a)
       inst.args = data.args
       inst.ret = reg_count
-      reg_count += result_count
+      reg_count += inst.f.sig.outs.len
 
     fn.code[i] = inst
 
@@ -260,10 +328,8 @@ proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
   self.typeCheck(fn)
 
 proc compile* (parser: P.Parser): Module =
-
   var self = State(parser: parser)
   let p = self.parser
-
 
   if parser.metadata.children.len > 0:
     for topnode in parser.metadata.children:
@@ -274,98 +340,21 @@ proc compile* (parser: P.Parser): Module =
 
   # modules[0] is the argument. For now it doesn't exist
   self.modules = newSeq[Module](p.modules.len+1)
-  #for i in 0 .. p.modules.high:
-  #  self.modules[i+1] = ModProm(data: p.modules[i], m: nil)
 
   self.types = newSeq[Data[Type]](p.types.len)
 
+  let fcount = p.functions.len
 
-  # First create the statics so that functions can use them
-  # This must always be assigned with shallowCopy
-  self.statics = newSeq[Value](p.statics.len)
-
-  # This is to be used only here
-  self.static_types = newSeq[Type](p.statics.len)
-
-  # First iteration to have all the functions available
-  self.funcs = newSeq[Function](p.functions.len)
-  for index in 0 .. self.funcs.high:
-    let data = p.functions[index]
-
-    let sig = Signature(
-      ins:  data.ins.map(proc (x: int): Type = self.getType(x)),
-      outs: data.outs.map(proc (x: int): Type = self.getType(x))
-    )
-
-    let codeinfo = self.sourcemap.getFunction(index)
-
-    if data.internal:
-      let name = $codeinfo
-      self.funcs[index] = Function(name: name, kind: codeF, sig: sig)
-      self.funcs[index].statics.shallowCopy(self.statics)
-      self.funcs[index].codeinfo = codeinfo
-    else:
-      let module = self.getModule(data.module)
-      let item = module[data.name]
-      if item.kind != machine.fItem:
-        raise newException(CompileError, "Function " & data.name & " not found in " & module.name)
-
-      if item.f.sig != sig:
-        let msg = item.f.name & " is " & item.f.sig.name & ", but expected " & sig.name
-        var e = newException(IncorrectSignatureError, msg)
-        e.codeinfo = codeinfo
-        raise e
-      self.funcs[index] = item.f
-
-  self.static_function = Function(name: "<static>", kind: codeF)
-  self.static_function.statics.shallowCopy(self.statics)
-
-  # Ceate all the statics
-  for i in 0 .. p.statics.high:
-    let data = p.statics[i]
-    case data.kind
-    of intStatic:
-      self.statics[i] = Value(kind: intV, i: data.value)
-      self.static_types[i] = findModule("cobre.int")["int"].t
-    of binStatic:
-      self.statics[i] = Value(kind: binV, bytes: data.bytes)
-      self.static_types[i] = findModule("cobre.core")["bin"].t
-    of funStatic:
-      let f = self.funcs[data.value]
-      self.statics[i] = Value(kind: functionV, fn: f)
-      let functor = findModule("cobre.function")
-      var items = newSeq[machine.Item](0)
-
-      for i in 0 .. f.sig.ins.high:
-        items.add(machine.Item(name: "in" & $i, kind: machine.tItem, t: f.sig.ins[i]))
-      for i in 0 .. f.sig.outs.high:
-        items.add(machine.Item(name: "out" & $i, kind: machine.tItem, t: f.sig.outs[i]))
-
-      let argument = Module(kind: simpleM, items: items)
-      let module = functor.fn(argument)
-      self.static_types[i] = module[""].t
-    of nullStatic:
-      self.statics[i] = Value(kind: nilV)
-      self.static_types[i] = self.getType(data.value)
-    else:
-      raise newException(UnsupportedError, "Unsupported static kind " & $data.kind)
-
-  # Static must be created before the code,
-  # because typechecking needs the statics' types
-
-  # Second iteration to create the code, having all the functions
+  self.funcs = newSeq[FnData](fcount + p.constants.len)
   for i in 0 .. self.funcs.high:
-    let data = p.functions[i]
-    if not data.internal: continue
-    self.compileCode(self.funcs[i], data.ins.len, data.code)
-  self.compileCode(self.static_function, 0, p.static_code)
+    self.funcs[i] = FnData(kind: codeFn, index: i)
+
+  for i in 0 .. p.constants.high:
+    self.funcs[fcount + i] = FnData(kind: cnsFn, index: i)
 
   # Force all unused types, to trigger full module validation
   for i in 0 .. self.types.high:
     discard self.getType(i)
-
-  # Run static code
-  discard self.static_function.run(@[])
 
   # Main Module
   result = self.getModule(1)

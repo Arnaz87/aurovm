@@ -106,29 +106,30 @@ suite "Full Tests":
       static ints
     ]#
     let code = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       2, # Modules
         # module #0 is the argument
         1, 1, #1 Define (exports)
           2, 1, $"myadd",
-        0, $"cobre.prim", #2 Import
+        0, $"cobre.int", #2 Import
       1, # Types
-        1, 2, $"int", #0 import "int" from module 2
+        (2+1), $"int", #0 import "int" from module 2
       2, # Functions
-        1, 2, $"add", #0 import "add" from module 2
-          2, 0, 0, 1, 0,
-        2, #1 Defined Function (myadd)
-          0, # 0 ins
-          1, 0, # 1 outs: int
-      2, # Statics
-        2, $4, #0 int 4
-        2, $5, #1 int 5
+        (2+2), #0 from module 2
+          2, 0, 0, # 2 inputs: int int
+          1, 0, # 1 outputs: int
+          $"add",
+        1, #1 Defined Function (myadd)
+          0, # 0 inputs
+          1, 0, # 1 outputs: int
+      2, # Constants
+        1, $4, #2 int 4
+        1, $5, #3 int 5
       4, # Block for #1 (myadd)
-        4, 0, #0 = const_0 (4)
-        4, 1, #1 = const_1 (5)
-        (16 + 0), 0, 1, #2 c = add(#0, #1)
+        (16 + 2), #0 = const 4
+        (16 + 3), #1 = const 5
+        (16 + 0), 0, 1, #2 = add(#0, #1)
         0, 2, #return #2
-      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -144,45 +145,48 @@ suite "Full Tests":
       recursive function call
     ]#
     let data = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       3,
         #0 is the argument module
         1, 1, #1 Define (exports)
           2, 1, $"factorial",
-        0, $"cobre.prim", #2 Import cobre.prim
+        0, $"cobre.int", #2 Import cobre.int
         0, $"cobre.core", #3 import cobre.core
       2, # Types
-        1, 2, $"int",
-        1, 3, $"bool",
+        (2+1), $"int",
+        (3+1), $"bool",
       5, # Functions
-        1, 2, $"add", #0 import module[0].add
+        (2+2), #0 import module[0].add
           2, 0, 0, # 2 ins: int int
           1, 0, # 1 outs: int
-        2, #1 Defined Function (factorial)
+          $"add",
+        1, #1 Defined Function (factorial)
           1, 0, # 1 ins: int
           1, 0, # 1 outs: int
-        1, 2, $"gt", #2
+        (2+2), #2
           2, 0, 0, # 2 ins: int int
           1, 1, # 1 outs: bool
-        1, 2, $"dec", #3
+          $"gt",
+        (2+2), #3
           1, 0, 1, 0,
-        1, 2, $"mul", #4
+          $"dec",
+        (2+2), #4
           2, 0, 0, 1, 0,
+          $"mul",
       2, # Statics
-        2, $0, # int 0
-        2, $1, # int 1
+        1, $0, #5 int 0
+        1, $1, #6 int 1
       9, # Block for #1
         #0 = ins[0]
-        4, 0, #1 = const_0 (0)
-        4, 1, #2 = const_1 (1)
+        (16 + 5), #1 = const_5 (0)
+        (16 + 6), #2 = const_6 (1)
         (16 + 2), 0, 1, #3 = gt(#0, #1)
-        7, 5, 3, # goto 5 if #3
+        6, 5, 3, # goto 5 if #3
         0, 2, # return #2 (1)
         (16 + 3), 0, #4 = dec(#0)
         (16 + 1), 4, #5 = factorial(#4)
         (16 + 4), 0, 5, #6 = #0 * #5
         0, 6, # return #6
-      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -191,6 +195,43 @@ suite "Full Tests":
     let function = compiled.get_function("factorial")
     let result = function.run(@[Value(kind: intV, i: 5)])
     check(result == @[Value(kind: intV, i: 120)])
+
+  test "Constant Call":
+    #[ Features
+      constant function calls
+    ]#
+    let code = bin(
+      "Cobre 0.5", 0,
+      2, # Modules
+        # module #0 is the argument
+        1, 1, #1 Define (exports)
+          2, 1, $"main",
+        0, $"cobre.int", #2 Import
+      1, # Types
+        (2+1), $"int", #0 import "int" from module 2
+      2, # Functions
+        (2+2), #0 from module 2
+          1, 0, # 2 inputs: int int
+          1, 0, # 1 outputs: int
+          $"neg",
+        1, #1 Defined Function (myadd)
+          0, # 0 inputs
+          1, 0, # 1 outputs: int
+      2, # Constants
+        1, $4, #2 int 4
+        (16 + 0), 2, #3 cobre.int.neg(const_2 (4))
+      2, # Block for #1 (myadd)
+        (16 + 3), #0 = const_3 (-4)
+        0, 0, #return #0
+      0, # No metadata
+    )
+
+    let parsed = parseData(code)
+    let compiled = compile(parsed)
+    let function = compiled.get_function("main")
+
+    let result = function.run(@[])
+    check(result == @[Value(kind: intV, i: -4)])
 
   test "Simple Pair":
 

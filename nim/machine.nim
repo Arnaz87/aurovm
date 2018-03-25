@@ -46,7 +46,7 @@ type
     of objV: obj*: ref RootObj
     of ptrV: pt*: pointer
 
-  FunctionKind* = enum procF, codeF, applyF
+  FunctionKind* = enum procF, codeF, applyF, constF
   Function* = ref object of RootObj
     name*: string
     sig*: Signature
@@ -57,18 +57,19 @@ type
     of codeF:
       code*: seq[Inst]
       regcount*: int
-      statics*: seq[Value]
+    of constF:
+      value*: Value
     of applyF: discard
 
-  InstKind* = enum endI, varI, dupI, setI, sgtI, sstI, jmpI, jifI, nifI, anyI, callI
+  InstKind* = enum endI, hltI, varI, dupI, setI, jmpI, jifI, nifI, callI
   Inst* = object
     case kind*: InstKind
-    of varI: discard
+    of varI, hltI: discard
     of endI, callI:
       f*: Function
       args*: seq[int]
       ret*: int
-    of setI, sgtI, sstI, dupI, jmpI, jifI, nifI, anyI:
+    of setI, dupI, jmpI, jifI, nifI:
       src*: int
       dest*: int
       inst*: int
@@ -238,8 +239,6 @@ proc makeCode* (
   regcount: int) =
   f.kind = codeF
   f.code = code
-  f.statics = statics
-  shallow(f.statics) # So that functions can change it
   f.regcount = regcount
 
 proc run* (fn: Function, ins: seq[Value]): seq[Value] =
@@ -248,6 +247,8 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
   if fn.kind == procF:
     fn.prc(args)
     return args
+  if fn.kind == constF:
+    return @[fn.value]
 
   # I tried making one single stack for everything, but it's slower.
   # First i made a type View that holds a pointer to it's first item
@@ -289,7 +290,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       #if st.counter > max_instruction_count:
       #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
-      proc fill (args: var seq[Value], xs: var seq[int], outlen: int = 0) {.inline.} =
+      proc fill (args: var seq[Value], xs: var seq[int], outlen: int = 0) =
         args.setLen max(xs.len, outlen)
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
@@ -305,13 +306,10 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
 
       case inst.kind
       of varI: discard # noop
+      of hltI: raise newException(RuntimeError, "Function halted")
       of setI, dupI:
         st.regs[inst.dest] = st.regs[inst.src]
         debug: echo "  [", inst.dest, "]:", st.regs[inst.dest]
-      of sgtI:
-        st.regs[inst.dest] = st.f.statics[inst.src]
-        debug: echo "  [", inst.dest, "]:", st.regs[inst.dest]
-      of sstI: st.f.statics[inst.dest] = st.regs[inst.src]
       of jmpI:
         st.pc = inst.inst
         advance = false
@@ -323,15 +321,9 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         if not st.regs[inst.src].b:
           st.pc = inst.inst
           advance = false
-      of anyI:
-        if st.regs[inst.src].kind == nilV:
-          st.pc = inst.inst
-          advance = false
-        else:
-          st.regs[inst.dest] = st.regs[inst.src]
       of callI:
         let outlen = inst.f.sig.outs.len
-        #args.fill(inst.args, outlen)
+        args.fill(inst.args, outlen)
         case inst.f.kind:
         of procF:
           inst.f.prc(args)
@@ -349,8 +341,10 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
           args.delete(0) # Remove the function off the arguments
           pushFn(fn)
           advance = false # Same as above
+        of constF:
+          st.regs[inst.ret] = inst.f.value
       of endI:
-        #args.fill(inst.args)
+        args.fill(inst.args)
 
         if stack.len > 0:
           top = stack.pop
@@ -400,5 +394,5 @@ proc `==`* (a: Value, b: Value): bool =
   of objV: a.obj == b.obj
   of ptrV: a.pt == b.pt
 
-when defined(test):
+when defined(test) and false:
   include test_machine

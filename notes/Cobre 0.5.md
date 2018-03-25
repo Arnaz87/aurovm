@@ -111,9 +111,7 @@ Any item with kind > 15 is a function call, formated exactly like a regular func
 
 # Code
 
-Each one of the blocks is linked to the code function declared with the same index, relative to the other code functions. Code has no kind, and no count as it's implicit by the number of code functions declared.
-
-Appart from the implicit blocks for each code-kind function, there is the static block that's added at the end.
+Each one of the blocks is linked to the code function declared with the same index, relative to the other code functions. The number of code items is implicit, counting the function items of kind Code.
 
 ## Bytecode
 
