@@ -173,7 +173,7 @@ suite "Full Tests":
         (2+2), #4
           2, 0, 0, 1, 0,
           $"mul",
-      2, # Statics
+      2, # Constants
         1, $0, #5 int 0
         1, $1, #6 int 1
       9, # Block for #1
@@ -240,7 +240,7 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       5,
         #0 is the argument module
         1, 1, #1 Define (exports)
@@ -253,28 +253,29 @@ suite "Full Tests":
         2, $"cobre.tuple", #4 Import functor
         4, 4, 3, #5 Build cobre.tuple
       2, # Types
-        1, 2, $"int", #0
-        1, 5, $"", #1 tuple(int, #2)
+        (2+1), $"int", #0
+        (5+1), $"", #1 tuple(int, #2)
       3, # Functions
-        2, #0 Defined Function (main)
+        1, #0 Defined Function (main)
           0,
           1, 1,
-        1, 5, $"get1", #1 cobre.tuple.get1
+        (5+2), #1 cobre.tuple.get1
           1, 1,
           1, 2,
-        1, 5, $"new",  #2 cobre.tuple.new
+          $"get1",
+        (5+2),  #2 cobre.tuple.new
           2, 0, 2,
           1, 1,
-      2, # Statics
-        2, $4, #0 int 4
-        2, $5, #1 int 5
+          $"new",
+      2, # Constants
+        1, $4, #3 int 4
+        1, $5, #4 int 5
       5, # Block for #1 (main)
-        4, 0, #0 = const_0 (4)
-        4, 1, #1 = const_1 (5)
+        (16+3), #0 = const_3 (4)
+        (16+4), #1 = const_4 (5)
         (16 + 2), 2, 1, #2 = tuple.new(#0, #1)
         (16 + 1), 2, #3 = tuple.get1(#2)
         0, 3, #return #3
-      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -298,7 +299,7 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       12,
         #0 is the argument module
         1, 1, #1 Define (exports)
@@ -308,8 +309,8 @@ suite "Full Tests":
         1, 2, #3 Define (arguments for cobre.tuple)
           1, 0, $"0", # type_0 (int)
           1, 2, $"1", # type_2 (nullable tuple)
-        2, $"cobre.tuple", #4 Import functor
-        4, 4, 3, #5 Build cobre.tuple
+        2, $"cobre.record", #4 Import functor
+        4, 4, 3, #5 Build cobre.record
 
         1, 1, #6 Define(arguments for cobre.null)
           1, 3, $"0", # type_1 (typeshell)
@@ -323,49 +324,58 @@ suite "Full Tests":
 
         0, $"cobre.core", #12 Import
       5, # Types
-        1, 2, $"int", #0
-        1, 5, $"", #1 tuple(int, #2)
-        1, 8, $"", #2 nullable(#3)
-        1, 11, $"", #3 typeshell(#1)
-        1, 12, $"bool", #4 typeshell(#1)
+        (2+1), $"int", #0
+        (5+1), $"", #1 tuple(int, #2)
+        (8+1), $"", #2 nullable(#3)
+        (11+1), $"", #3 typeshell(#1)
+        (12+1), $"bool", #4 typeshell(#1)
       11, # Functions
-        2, #0 Defined Function (second)
+        1, #0 Defined Function (second)
           1, 1, # 1 ins: tuple
           1, 0, # 1 outs: int
-        2, #1 Defined Function (main)
+        1, #1 Defined Function (main)
           0,
           1, 0,
-        1, 5, $"get0", #2 value
+        (5+2), #2 value
           1, 1,
           1, 0,
-        1, 5, $"get1", #3 next
+          $"get0",
+        (5+2), #3 next
           1, 1,
           1, 2,
-        1, 5, $"new", #4 new tuple
+          $"get1",
+        (5+2), #4 new tuple
           2, 0, 2,
           1, 1,
-        1, 11, $"new", #5 new typeshell
+          $"new",
+        (11+2), #5 new typeshell
           1, 1,
           1, 3,
-        1, 11, $"get", #6 get from typeshell
+          $"new",
+        (11+2), #6 get from typeshell
           1, 3,
           1, 1,
-        1, 8, $"null", #7 null() -> null
+          $"get",
+        (8+2), #7 null() -> null
           0, 1, 2,
-        1, 8, $"new", #8 null.new(shell) -> null
+          $"null",
+        (8+2), #8 null.new(shell) -> null
           1, 3,
           1, 2,
-        1, 8, $"get", #9 null.get(null) -> shell
+          $"new",
+        (8+2), #9 null.get(null) -> shell
           1, 2,
           1, 3,
-        1, 8, $"isnull", #10 null.isnull(shell) -> bool
+          $"get",
+        (8+2), #10 null.isnull(shell) -> bool
           1, 2,
           1, 4,
-      4, # Statics
-        2, $4, # int 4
-        2, $5, # int 5
-        2, $6, # int 6
-        2, $0,
+          $"isnull",
+      4, # Constants
+        1, $4, #11 int 4
+        1, $5, #12 int 5
+        1, $6, #13 int 6
+        1, $0, #14 int 0
       5, # Block for #0 (second)
         #0 = arg_0: tuple (first)
         (16 + 3), 0, #1 = #0.next: null(shell(tuple))
@@ -374,23 +384,22 @@ suite "Full Tests":
         (16 + 2), 3, #4 = #3.value
         0, 4,
       13, # Block for #1 (main)
-        4, 2, #0 = const_2 (6)
+        (16+13), #0 = const_2 (6)
         (16 + 7), #1 = null()
         (16 + 4), 0, 1, #2 = type_1(#0, #1)
         (16 + 5), 2, #3 = shell(#2)
 
-        4, 1, #4 = const_1 (5)
+        (16+12), #4 = const_1 (5)
         (16 + 8), 3, #5 = null(#3)
         (16 + 4), 4, 5, #6 = type_1(#4, #5)
         (16 + 5), 6, #7 = shell(#6)
 
-        4, 0, #8 = const_0 (4)
+        (16+11), #8 = const_0 (4)
         (16 + 8), 7, #9 = null(#7)
         (16 + 4), 8, 9, #10 = type_1(#8, #9)
         
         (16 + 0), 10, #11 = second(#10)
         0, 11, #return #11
-      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -412,17 +421,17 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       8,
         #0 is the argument module
         1, 1, #1 Define (exports)
           2, 1, $"main",
-        0, $"cobre.prim", #2 Import
+        0, $"cobre.int", #2 Import
 
         1, 2, #3 Define (arguments for cobre.tuple)
           1, 0, $"0", # type_0 (int)
           1, 2, $"1", # type_2 (nullable tuple)
-        2, $"cobre.tuple", #4 Import functor
+        2, $"cobre.record", #4 Import functor
         4, 4, 3, #5 Build cobre.tuple
 
         1, 1, #6 Define(arguments for cobre.null)
@@ -430,50 +439,52 @@ suite "Full Tests":
         2, $"cobre.null", #7 Import functor
         4, 7, 6, #8 Build cobre.null
       3, # Types
-        1, 2, $"int", #0
-        1, 5, $"", #1 tuple(int, #2)
-        1, 8, $"", #2 nullable(#1)
+        (2+1), $"int", #0
+        (5+1), $"", #1 tuple(int, #2)
+        (8+1), $"", #2 nullable(#1)
       5, # Functions
-        2, #0 Defined Function (second)
+        1, #0 Defined Function (second)
           1, 2, # 1 ins: type_2
           1, 0, # 1 outs: int
-        2, #1 Defined Function (main)
+        1, #1 Defined Function (main)
           0,
           1, 1,
-        1, 5, $"get0",
+        (5+2), #2
           1, 1,
           1, 0,
-        1, 5, $"get1",
+          $"get0",
+        (5+2), #3
           1, 1,
           1, 2,
-        1, 5, $"new",
+          $"get1",
+        (5+2), #4
           2, 0, 2,
           1, 1,
+          $"new",
       4, # Statics
-        2, $4, # int 4
-        2, $5, # int 5
-        2, $6, # int 6
-        2, $0,
-      7, # Block for #0 (second)
+        1, $4, #5 int 4
+        1, $5, #6 int 5
+        1, $6, #7 int 6
+        1, $0, #8 int 0
+      5, # Block for #0 (second)
         #0 = arg_0
-        9, 5, 0, #1 = #0 or goto 5
+        #9, 5, 0, #1 = #0 or goto 5
         (16 + 3), 1, #2 = get_1(#1)
-        9, 5, 2, #3 = #2 or goto 5
+        #9, 5, 2, #3 = #2 or goto 5
         (16 + 2), 3, #4 = get_0(#3)
         0, 4, #return #4
-        4, 3, #5 = const_3 (0)
+        (16+8), #5 = const_3 (0)
         0, 5, #return #5
       9, # Block for #1 (main)
         1, #0 = null
-        4, 2, #1 = const_2 (6)
+        (16+7), #1 = const_2 (6)
         (16 + 4), 1, 0, #2 = type_1(#1, #0)
-        4, 1, #3 = const_1 (5)
+        (16+6), #3 = const_1 (5)
         (16 + 4), 3, 2, #4 = type_1(#3, #2)
-        4, 0, #5 = const_0 (4)
+        (16+5), #5 = const_0 (4)
         (16 + 4), 5, 4, #6 = type_1(#5, #4)
         (16 + 0), 6, #7 = second(#6)
         0, 7, #return #7
-      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -489,55 +500,62 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre ~4", 0,
-      5,
+      "Cobre 0.5", 0,
+      8,
         #0 is the argument module
         1, 1, #1 Define (exports)
           2, 4, $"main",
-        0, $"cobre.prim", #2
+        0, $"cobre.int", #2
 
         2, $"cobre.function", #3 Import functor
         1, 2, #4 Define (argument)
           1, 0, $"in0",
           1, 0, $"out0",
         4, 3, 4, #5 Build cobre.function with #4 (int -> int)
+
+        3, 5, $"new", #6 Import functor cobre.function.new
+        1, 1, #7 Define module
+          2, 1, $"0", # 0: function_1 (add4)
+        4, 6, 7, #8 build cobre.function.new(add4 as `0`)
       2, # Types
-        1, 2, $"int", #0 import cobre.prim.int
-        1, 5, $"", #1 type of function(int -> int)
-      5, # Functions
-        1, 2, $"add", #0
-          2, 0, 0, 1, 0,
-        2, #1 Defined add4
+        (2+1), $"int", #0 import cobre.int.int
+        (5+1), $"", #1 type of function(int -> int)
+      6, # Functions
+        (2+2), #0
+          2, 0, 0, 1, 0, $"add",
+        1, #1 Defined add4
           1, 0, # 1 ins: int
           1, 0, # 1 out: int
-        2, #2 Defined apply5
+        1, #2 Defined apply5
           1, 1, # 1 in:  (int -> int)
           1, 0, # 1 out: int
-        1, 5, $"apply", #3 Apply to ( int -> int )
+        (5+2), #3 Apply to ( int -> int )
           2, 1, 0, # 2 ins: (int->int) int
           1, 0, # 1 out: int
-        2, #4 Defined main
+          $"apply",
+        1, #4 Defined main
           0, # 0 ins
           1, 0, # 1 outs: int
-      3, # Statics
-        2, $4, # int 4
-        2, $5, # int 5
-        5, 1, # function_1 (add4)
+        (8+2), #5 cobre.function.new(add4).``
+          0, 1, 1, # void -> (int->int)
+          $"",
+      2, # Statics
+        1, $4, #6 int 4
+        1, $5, #7 int 5
       3, # Block for #1 (add4)
         #0 = arg_0
-        4, 0, #1 = const_0 (4)
+        (16+6), #1 = const_6 (4)
         (16 + 0), 0, 1, #2 c = add(#0, #1)
         0, 2, #return #2
       3, # Block for #2 (apply5)
         #0 = arg_0
-        4, 1, #1 = const_1 (5)
+        (16+7), #1 = const_7 (5)
         (16 + 3), 0, 1, #2 = apply(#0, #1)
         0, 2,
       3, # Block for #4 (main)
-        4, 2, #0 = const_2 (add4)
+        (16+5), #0 = add4
         (16 + 2), 0, #1 = apply5(#0)
         0, 1,
-      1, 0, # Static Block
       0, # No metadata
     )
 
@@ -556,16 +574,15 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       2, # Modules
         # module #0 is the argument
         1, 0, #1 Define (exports)
         0, $"cobre.core", #2 Import
       1, # Types
-        1, 2, $"string", #0 import "string" from cobre.core, should fail
+        (2+1), $"string", #0 import "string" from cobre.core, should fail
       0, # Functions
-      0, # Statics
-      1, 0, # Static Block
+      0, # Constants
       (1 shl 2), # Metadata, 1 toplevel node
         (4 shl 2), # 3 nodes (+ header)
           (10 shl 2 or 2), "source map",
@@ -619,28 +636,28 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       4, # Modules
         # module #0 is the argument
         1, 1, #1 Define (exports)
           2, 1, $"main",
-        0, $"cobre.prim", #2
+        0, $"cobre.int", #2
         0, $"cobre.string", #3
         0, $"cobre.system", #4
       2, # Types
-        1, 2, $"int",    #0 from cobre.core import int
-        1, 3, $"string", #1 from cobre.core import string
+        (2+1), $"int",    #0 from cobre.core import int
+        (3+1), $"string", #1 from cobre.core import string
       2, # Functions
-        1, 4, $"print", #0 from cobre.system
+        (4+2), #0 from cobre.system
           1, 1, 0,      #  void print(string)
-        2, 0, 0,        #1 void main ()
-      1, # Statics
-        2, 42, #0 int 42
+          $"print",
+        1, 0, 0,        #1 void main ()
+      1, # Constants
+        1, 42, #2 int 42
       3, # Block for #1 (main)
-        4, 0, #0 sgt #0 (42)
+        (16+2), #0 const_2 (42)
         (16 + 0), 0, # print #0 (Shouldn't typecheck)
         0,
-      1, 0, # Static Block
       (1 shl 2), # Metadata, 1 toplevel node
         (3 shl 2), # 2 nodes (+ header)
           (10 shl 2 or 2), "source map",
@@ -670,6 +687,7 @@ suite "Full Tests":
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed)
+      let fn = compiled.get_function("main")
 
       checkpoint("Expected TypeError")
       fail()
@@ -688,17 +706,18 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre ~4", 0,
+      "Cobre 0.5", 0,
       2, # Modules
         # module #0 is the argument
-        1, 0, #1 Define (exports)
+        1, 1, #1 Define (exports)
+          2, 0, $"print",
         0, $"cobre.system", #2 Import
       0, # Types
       1, # Functions
-        1, 2, $"print", #0 from cobre.system import string
+        (2+2), #0 from cobre.system import string
           0, 0, #  void print () (wrong, it really is void print(string))
-      0, # Statics
-      1, 0, # Static Block
+          $"print",
+      0, # Constants
       (1 shl 2), # Metadata, 1 toplevel node
         (4 shl 2), # 3 nodes (+ header)
           (10 shl 2 or 2), "source map",
@@ -728,6 +747,7 @@ suite "Full Tests":
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed)
+      let fn = compiled.get_function("print")
 
       checkpoint("Expected Incorrect Signature Error")
       fail()

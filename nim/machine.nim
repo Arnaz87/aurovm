@@ -94,15 +94,13 @@ type
     of functionT:
       sig*: Signature
 
-  ItemKind* = enum nilItem, fItem, tItem, vItem
+  ItemKind* = enum nilItem, fItem, tItem, mItem
   Item* = object
     name*: string
     case kind*: ItemKind
     of fItem: f*: Function
     of tItem: t*: Type
-    of vItem:
-      vt*: Type # Values don't store their own types
-      v*: Value
+    of mItem: m*: Module
     of nilItem: discard
 
   ModuleKind* = enum functorM, simpleM, lazyM
@@ -145,7 +143,7 @@ proc `$`* (i: Item): string =
   $i.kind & "(" & i.name & ", " & (case i.kind
     of fItem: $i.f[]
     of tItem: $i.t[]
-    of vItem: $i.v & ":" & i.t.name
+    of mItem: i.m.name
     else: ""
   ) & ")"
 proc `$`* (m: Module): string =
@@ -393,6 +391,3 @@ proc `==`* (a: Value, b: Value): bool =
   of arrayV: a.arr == b.arr
   of objV: a.obj == b.obj
   of ptrV: a.pt == b.pt
-
-when defined(test) and false:
-  include test_machine

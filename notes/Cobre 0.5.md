@@ -1,4 +1,4 @@
-# Cobre ~4
+# Cobre 0.5
 
 *[2018-03-23 05:23]*
 
@@ -103,7 +103,7 @@ A value of type cobre.int (only positive numbers).
     size: int
     data: byte[size]
 
-A fvalue of type cobre.core.bin.
+A value of type cobre.core.bin.
 
 ## Call
 

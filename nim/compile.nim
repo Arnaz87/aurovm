@@ -102,11 +102,18 @@ proc getModule (self: State, index: int): Module =
 
     result = Module(kind: lazyM, getter: getter)
   of P.mBuild:
-    var base = self.getModule(data.module)
+    let base = self.getModule(data.module)
     if base.kind != functorM:
       raise newException(CompileError, "Module " & base.name & " is not a functor")
-    var argument = self.getModule(data.argument)
+    let argument = self.getModule(data.argument)
     result = base.fn(argument)
+  of P.mUse:
+    let base = self.getModule(data.module)
+    let item = base[data.name]
+    if item.kind != machine.mItem:
+      let msg = "Module " & data.name & " not found in " & base.name
+      raise newException(ModuleNotFoundError, msg)
+    result = item.m
   else:
     raise newException(UnsupportedError, "Module kind " & $data.kind & " not yet supported")
 

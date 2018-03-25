@@ -1,4 +1,4 @@
-# Cobre ~4
+# Module Format
 
 *[2017-12-11 08:08]*
 
@@ -78,7 +78,7 @@ A type defined as an item of one of the modules.
 
 # Functions
 
-All functions item kinds define the form of the function:
+All functions kinds define the form of the function at the end:
     
     in_count: int
     in_types: type_index[in_count]
@@ -143,7 +143,7 @@ Binary data, the value has type `cobre.core.bin`.
 
 ## Null
 
-Any kind greater than 15 represents an uninitialized static, the type is the one with index `kind - 15`. If the type is nullable the value is a valid null, otherwise the value must be set statically. If there is at least one control path in the static code in which a non-nullable null static isn't set, the whole module is invalid.
+Any kind greater than 15 represents an uninitialized static, the type is the one with index `kind - 16`. If the type is nullable the value is a valid null, otherwise the value must be set statically. If there is at least one control path in the static code in which a non-nullable null static isn't set, the whole module is invalid.
 
     kind > 15
 
@@ -172,10 +172,18 @@ The builtin instructions are:
 
 # Metadata
 
-The metadata is structured like s-expressions with a custom binary encoding. Each element starts with a varint, the first bit indicates if the item is a list (0) or a string (1), and the rest of the bits indicate the number of subelements for lists or the number of characters for strings. The list bit is 0 so that the byte 0 represents an empty list, the closest value to nil.
+The metadata is structured like s-expressions with a custom binary encoding. Each element starts with a varint, the first bit indicates if the item is an int (1) or other (0). For an int, the value is in the remaining bits shifted one bit to the right. Otherwise, the second bit indicates a list (0) or a string (1), and the remaining bits indicate the number of subelements for lists or the number of characters for strings.
+
+With this scheme, for example, the byte 0 represents an empty list, a byte 1 is the number 0, 2 encodes an empty string, and 3 means the number 1.
 
 # Core modules
 
-Module `cobre.type` has operations to build types. Built types are aliases to other types but expanded with certain characteristics, like interfaces, which are functions bound to the types, and casts, which allow to convert types to other types at runtime.
+Module `cobre.type` has operations to build types. Built types are aliases to another types but expanded with certain characteristics, like interfaces, which are functions bound to the types, and casts, which allow to convert types to other types at runtime.
 
 Module `cobre.module` has tools to create and manipulate modules at runtime, which allow module files to compute modules at load time by setting their module #1 to a constructed module.
+
+# Type shells
+
+To build a functor, the implementation needs all the items in the argument that will be used defined, so a type (java syntax) `B<A>` cannot be created until `A` is completed, and recursive types like `B<B>` cannot be created, in most cases it doesn't make sense. Shell types however can be recursed, as a shell type internally is defined in a module that takes type arguments, but the type exported by the module doesn't depend on any of it's arguments and it's always different, only the functions on the shell type depend on the arguments.
+
+Type shells are constructed in the module `cobre.type`. 

@@ -735,6 +735,36 @@ proc functionFn (argument: Module): Module =
     )
   ))
 
+  proc newFunctorFn (argument: Module): Module =
+    let item = argument["0"]
+    if item.kind != fItem:
+      raise newException(Exception, "Argument `0` is not a function")
+    let f = item.f
+    if f.sig != sig:
+      raise newException(Exception, "Incorrect function signature")
+
+    let value = Value(kind: functionV, fn: f)
+
+    let cnsf = Function(
+      name: basename,
+      sig: Signature(ins: @[], outs: @[tp]),
+      kind: constF,
+      value: value
+    )
+
+    return Module(
+      name: basename & ".new",
+      kind: simpleM,
+      items: @[Item(
+        name: "",
+        kind: fItem,
+        f: cnsf
+      )]
+    )
+
+  let newFunctor = Module(name: basename & ".new", kind: functorM, fn: newFunctorFn)
+  items.add(Item(name: "new", kind: mItem, m: newFunctor))
+
   result = Module(
     name: basename & "_module",
     kind: simpleM,
