@@ -324,6 +324,10 @@ block:
     let r = args[0].s == args[1].s
     args.ret Value(kind: boolV, b: r)
 
+  items.addfn("newchar", [intT], [charT]):
+    let ch = cast[char](args[0].i)
+    args.ret Value(kind: strV, s: $ch)
+
   items.addfn("charat", [strT, intT], [charT, intT]):
     let i = args[1].i
     let str = $args[0].s[i]

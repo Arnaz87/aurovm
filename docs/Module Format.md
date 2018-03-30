@@ -39,11 +39,11 @@ Gets a module from the global module namespace constructed with an empty module 
 
 Creates a module with the specified items. Each item is defined by a section (a number indicating which of the module[0], type[1] or function[2] section is the item from), an index to an item of said section, and a name with which the item will be accessed from the module.
 
-## ImportFunctor [2]
+## ImportFunctor [2] \(Deprecated)
 
     name: string
 
-Gets a module from the global module namespace as a functor without constructing it.
+Gets a module from the global module namespace as a functor without constructing it. Exactly the same as simply Import
 
 ## Use [3]
 

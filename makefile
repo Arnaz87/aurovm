@@ -38,7 +38,7 @@ monitor-test:
 	while inotifywait -q -e close_write nim/; do make test; done
 
 install: bin/cobre
-	install bin/cobre $(BINDIR)/cobre
+	sudo install bin/cobre $(BINDIR)/cobre
 
 uninstall:
 	rm -f $(BINDIR)/cobre
