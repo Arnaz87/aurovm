@@ -8,6 +8,8 @@ import options
 from times import cpuTime
 import osproc
 
+import sequtils
+
 proc retn* (sq: var seq[Value], vs: openarray[Value]) =
   for i in 0 .. vs.high:
     sq[i] = vs[i]
@@ -769,6 +771,39 @@ proc functionFn (argument: Module): Module =
   let newFunctor = Module(name: basename & ".new", kind: functorM, fn: newFunctorFn)
   items.add(Item(name: "new", kind: mItem, m: newFunctor))
 
+  # A closure is like a normal function, but the base function has an
+  # additional parameter, which is bound to the function value
+  proc closureFunctorFn (argument: Module): Module =
+    let item = argument["0"]
+    if item.kind != fItem:
+      raise newException(Exception, "Argument `0` is not a function")
+    let f = item.f
+    if f.sig.outs != sig.outs or f.sig.ins.len != (sig.ins.len + 1):
+      raise newException(Exception, "Incorrect closure signature")
+
+    for p in zip(f.sig.ins, sig.ins):
+      if p.a != p.b:
+        raise newException(Exception, "Incorrect closure signature")
+
+    # Type of the bound value
+    let boundT = f.sig.ins[f.sig.ins.high]
+    let closurename = basename & ".closure(" & boundT.name & ")"
+    var items = newSeq[Item]()
+
+    items.addfn("new", mksig(@[boundT], @[tp])):
+      args.ret Value(kind: functionV, fn: Function(
+        kind: closureF,
+        name: closurename,
+        sig: f.sig,
+        fn: f,
+        bound: args[0]
+      ))
+
+    return Module(name: closurename, kind: simpleM, items: items)
+
+  let closureFunctor = Module(name: basename & ".closure", kind: functorM, fn: closureFunctorFn)
+  items.add(Item(name: "closure", kind: mItem, m: closureFunctor))
+
   result = Module(
     name: basename & "_module",
     kind: simpleM,
@@ -898,67 +933,3 @@ proc anyFn (argument: Module): Module =
   array_modules[base] = result
 
 machine_modules.add(Module(name: "cobre.any", kind: functorM, fn: anyFn))
-
-
-#==========================================================#
-#===                   cobre.closure                    ===#
-#==========================================================#
-
-#[
-block:
-  type ClosureArg = tuple[ins: seq[Type], outs: seq[Type]]
-  proc hash(arg: ClosureArg): Hash = !$(arg.ins.hash !& arg.outs.hash)
-  var function_modules = initTable[ClosureArg, Module](32)
-
-  proc functionFn (argument: Module): Module =
-    var ins:  seq[Type] = @[]
-    var outs: seq[Type] = @[]
-    var n = 0
-    var nitem = argument["in" & $n]
-    while nitem.kind == tItem:
-      ins.add(nitem.t)
-      n += 1
-      nitem = argument["in" & $n]
-    n = 0
-    nitem = argument["out" & $n]
-    while nitem.kind == tItem:
-      outs.add(nitem.t)
-      n += 1
-      nitem = argument["out" & $n]
-
-    var sig = Signature(ins: ins, outs: outs)
-    if function_modules.hasKey(sig):
-      return function_modules[sig]
-
-    let basename = sig.name
-
-    var tp = Type(name: basename, kind: functionT, sig: sig)
-    var items = @[ Item(name: "", kind: tItem, t: tp) ]
-
-    var applyIns = @[tp]
-    applyIns.add(ins)
-
-    let applySig = Signature(ins: applyIns, outs: outs)
-
-    # apply Functions get treated specially by the machine,
-    # to keep the stack organized
-
-    items.add(Item(
-      name: "apply",
-      kind: fItem,
-      f: Function(
-        name: basename & ".apply",
-        sig: applySig,
-        kind: applyF,
-      )
-    ))
-
-    result = Module(
-      name: basename & "_module",
-      kind: simpleM,
-      items: items,
-    )
-    function_modules[sig] = result
-
-  machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))
-]#

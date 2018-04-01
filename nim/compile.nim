@@ -95,6 +95,11 @@ proc getModule (self: State, index: int): Module =
             kind: machine.fItem,
             f: self.getFunction(item.index)
           )
+          of P.mItem: result = Item(
+            name: key,
+            kind: machine.mItem,
+            m: self.getModule(item.index)
+          )
           else: raise newException(UnsupportedError, "Non function/type items not supported")
           promises[i] = some(result)
           return result

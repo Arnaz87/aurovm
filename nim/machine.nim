@@ -46,7 +46,7 @@ type
     of objV: obj*: ref RootObj
     of ptrV: pt*: pointer
 
-  FunctionKind* = enum procF, codeF, applyF, constF
+  FunctionKind* = enum procF, codeF, applyF, constF, closureF
   Function* = ref object of RootObj
     name*: string
     sig*: Signature
@@ -59,6 +59,9 @@ type
       regcount*: int
     of constF:
       value*: Value
+    of closureF:
+      fn*: Function
+      bound*: Value
     of applyF: discard
 
   InstKind* = enum endI, hltI, varI, dupI, setI, jmpI, jifI, nifI, callI
@@ -293,6 +296,32 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         for i in 0 .. xs.high:
           args[i] = st.regs[ xs[i] ]
 
+      proc call (f: Function, ret: int) =
+        let outlen = f.sig.outs.len
+        case f.kind:
+        of procF:
+          f.prc(args)
+          for i in 0 ..< outlen:
+            st.regs[i + ret] = args[i]
+        of codeF:
+          st.retpos = ret
+          pushFn(f)
+          # avoid advancing to 2nd instruction of child state,
+          # at the end of that state this one will advance
+          advance = false
+        of applyF:
+          let fn = args[0].fn
+          st.retpos = ret
+          args.delete(0) # Remove the function off the arguments
+          call(fn, ret)
+        of closureF:
+          let fn = f.fn
+          st.retpos = ret
+          args.insert(f.bound, 0) # Add bound closure argument
+          call(fn, ret)
+        of constF:
+          st.regs[ret] = f.value
+
       if st.pc >= st.f.code.len:
         raise newException(RuntimeError, "Function does not return")
       let inst_ptr = st.f.code[st.pc].addr
@@ -320,27 +349,9 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
           st.pc = inst.inst
           advance = false
       of callI:
-        let outlen = inst.f.sig.outs.len
-        args.fill(inst.args, outlen)
-        case inst.f.kind:
-        of procF:
-          inst.f.prc(args)
-          for i in 0 ..< outlen:
-            st.regs[i + inst.ret] = args[i]
-        of codeF:
-          st.retpos = inst.ret
-          pushFn(inst.f)
-          # avoid advancing to 2nd instruction of child state,
-          # at the end of that state this one will advance
-          advance = false
-        of applyF:
-          let fn = args[0].fn
-          st.retpos = inst.ret
-          args.delete(0) # Remove the function off the arguments
-          pushFn(fn)
-          advance = false # Same as above
-        of constF:
-          st.regs[inst.ret] = inst.f.value
+        let f = inst.f
+        args.fill(inst.args, f.sig.outs.len)
+        call(f, inst.ret)
       of endI:
         args.fill(inst.args)
 
