@@ -256,7 +256,7 @@ proc typeCheck(self: State, fn: Function) =
       case inst.kind
       of varI, hltI: discard # Nothing to do
       of dupI:
-        if regs[inst.src].isNil:
+        if not regs[inst.src].isNil:
           regs[inst.dest] = regs[inst.src]
         else: cancel = true
       of setI:
