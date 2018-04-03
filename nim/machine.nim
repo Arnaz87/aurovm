@@ -317,7 +317,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
         of closureF:
           let fn = f.fn
           st.retpos = ret
-          args.insert(f.bound, 0) # Add bound closure argument
+          args.add(f.bound) # Add bound closure argument at the end
           call(fn, ret)
         of constF:
           st.regs[ret] = f.value
