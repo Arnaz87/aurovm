@@ -2,31 +2,17 @@
 PREFIX = $(DESTDIR)/usr/local
 BINDIR = $(PREFIX)/bin
 
-scalaprojects=bin/bindump bin/lua
+bin/cobre: src/*.nim
+	nim --checks:on -o:$@ c src/main.nim
 
-.PHONY: $(scalaprojects) test jstest monitor-test
+bin/cobre-release: src/*.nim
+	nim -d:release -o:$@ c src/main.nim
 
-#$(scalaprojects): bin/%:
-#	cd scala; sbt $*/package $*/start-script
-#	echo -e "#!/bin/sh\n$(realpath scala/$*/target/start) \$$@" > $@
-#	chmod +x $@
+bin/nimtest: src/*.nim
+	nim --checks:on -o:$@ -d:test c src/test.nim
 
-bin/cu:
-	cd scala; sbt cuJVM/package cuJVM/start-script
-	echo -e "#!/bin/sh\n$(realpath scala/cu/jvm/target/start) \$$@" > $@
-	chmod +x $@
-
-bin/cobre: nim/*.nim
-	nim --checks:on -o:$@ c nim/main.nim
-
-bin/cobre-release: nim/*.nim
-	nim -d:release -o:$@ c nim/main.nim
-
-bin/nimtest: nim/*.nim
-	nim --checks:on -o:$@ -d:test c nim/test.nim
-
-bin/nimtest.js: nim/*.nim
-	nim js -d:nodejs -d:test --checks:on -o:$@ nim/test.nim
+bin/nimtest.js: src/*.nim
+	nim js -d:nodejs -d:test --checks:on -o:$@ src/test.nim
 
 test: bin/nimtest
 	bin/nimtest
@@ -35,10 +21,10 @@ jstest: bin/nimtest.js
 	node bin/nimtest.js
 
 monitor-test:
-	while inotifywait -q -e close_write nim/; do make test; done
+	while inotifywait -q -e close_write src/; do make test; done
 
 install: bin/cobre
-	sudo install bin/cobre $(BINDIR)/cobre
+	install bin/cobre $(BINDIR)/cobre
 
 uninstall:
 	rm -f $(BINDIR)/cobre
