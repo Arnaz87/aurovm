@@ -505,11 +505,6 @@ proc tplFn (argument: Module): Module =
     ))
 
   proc newProc (args: var seq[Value]) =
-
-    if args.len != types.len:
-      let msg = "Expected " & $types.len & " arguments"
-      raise newException(Exception, msg)
-
     var vs = newSeq[Value](types.len)
     for i in 0..<types.len:
       vs[i] = args[i]

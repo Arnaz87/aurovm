@@ -1,5 +1,5 @@
-import cobre.system;
-import cobre.string;
+import cobre.system { void print (string); }
+import cobre.string { string itos (int); }
 
 // División con restas sucesivas.
 int, int division (int num, int denom) {
@@ -22,20 +22,10 @@ void main () {
 
   int resto, resul;
   resul, resto = division(num, denom);
-
-  print(concat(
-    concat(
-      concat(itos(num), "/"),
-      concat(itos(denom), " = ")
-    ), concat(
-      concat(itos(resul), "%"),
-      itos(resto)
-    )
-  ));
   
-  /* print(
+  print(
     itos(num) + "/" + itos(denom)
     + " = " +
     itos(resul) + "%" + itos(resto)
-  ); */
+  );
 }
