@@ -117,6 +117,7 @@ type
       fn*: proc(arg: Module): Module
     of lazyM:
       getter*: proc(key: string): Item
+      builder*: proc(arg: Module): Module
 
   CobreError* = object of Exception
     srcpos*: SrcPos
@@ -187,6 +188,13 @@ proc `[]`* (m: Module, key: string): Item =
     return m.getter(key)
   else:
     return Item(kind: nilItem)
+
+proc build* (self: Module, argument: Module): Module =
+  if self.kind == functorM:
+    return self.fn(argument)
+  if self.kind == lazyM and not self.builder.isNil:
+    return self.builder(argument)
+  raise newException(CobreError, "Module " & self.name & " is not a functor")
 
 proc name* (sig: Signature): string =
   let ins = sig.ins.map(proc (t: Type): string = t.name)

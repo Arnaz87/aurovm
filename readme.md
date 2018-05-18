@@ -24,7 +24,7 @@ I want to develop in any platform, in any language I want, with the libraries I 
 
 To install cobre, you need the Nim language. Run `make install` as the superuser, then you can run any cobre module with `cobre <module_name>`, the module has to be in the working directory or installed in the system. To install a cobre module run `cobre --install <file>`, the file has to have the module name.
 
-To execute a Cobre module, use `cobre <modulefile>`. To create module files, you can use [Culang](https://github.com/Arnaz87/culang) or [CuLua](https://github.com/Arnaz87/culua). To see the contents of a compiled module, you can use [Cobredump](https://github.com/Arnaz87/cobredump).
+To execute a Cobre module, use `cobre <modulefile>`. To create module files, you can use [Culang](https://github.com/Arnaz87/culang) or [CuLua](https://github.com/Arnaz87/culua). To see the contents of a compiled module, you can use [cobredump](https://github.com/Arnaz87/cobredump). You can also compile a Cobre module to Javascript with [cobreweb](https://github.com/Arnaz87/cobreweb).
 
 # Similar projects
 

@@ -108,10 +108,8 @@ proc getModule (self: State, index: int): Module =
     result = Module(kind: lazyM, getter: getter)
   of P.mBuild:
     let base = self.getModule(data.module)
-    if base.kind != functorM:
-      raise newException(CompileError, "Module " & base.name & " is not a functor")
     let argument = self.getModule(data.argument)
-    result = base.fn(argument)
+    result = base.build(argument)
   of P.mUse:
     let base = self.getModule(data.module)
     let item = base[data.name]
@@ -339,34 +337,92 @@ proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
 
   self.typeCheck(fn)
 
-proc compile* (parser: P.Parser): Module =
-  var self = State(parser: parser)
-  let p = self.parser
+proc compile* (parser: P.Parser, name: string): Module =
+
+  var sourcemap: SourceMap = nil
 
   if parser.metadata.children.len > 0:
     for topnode in parser.metadata.children:
       if topnode.isNamed("source map"):
-        self.sourcemap = newSourceMap(topnode)
-  if self.sourcemap.isNil:
-    self.sourcemap = newSourceMap()
+        sourcemap = newSourceMap(topnode)
+  if sourcemap.isNil:
+    sourcemap = newSourceMap()
 
-  # modules[0] is the argument. For now it doesn't exist
-  self.modules = newSeq[Module](p.modules.len+1)
+  var simpleArg = true
 
-  self.types = newSeq[Data[Type]](p.types.len)
+  for m in parser.modules.items:
+    case m.kind
+    of mBuild, mUse:
+      if m.module == 0:
+        # argument is used as functor
+        simpleArg = false
+    of mDefine:
+      for item in m.items.items:
+        if item.kind == P.mItem:
+          # argument contains a module item
+          simpleArg = false
+    else: discard
 
-  let fcount = p.functions.len
+  for f in parser.functions.items:
+    if not f.internal and f.module == 0:
+      # argument contains a function item
+      simpleArg = false
 
-  self.funcs = newSeq[FnData](fcount + p.constants.len)
-  for i in 0 .. self.funcs.high:
-    self.funcs[i] = FnData(kind: codeFn, index: i)
+  var typeKeys = newSeq[string]()
+  for t in parser.types.items:
+    if t.module == 0:
+      typeKeys.add(t.name)
 
-  for i in 0 .. p.constants.high:
-    self.funcs[fcount + i] = FnData(kind: cnsFn, index: i)
+  proc iseq (a: Module, b: Module): bool =
+    if not simpleArg: return false
+    for key in typeKeys.items:
+      let ta = a[key]
+      let tb = b[key]
+      if ta.kind == machine.tItem and tb.kind == machine.tItem:
+        if ta.t != tb.t: return false
+      else: return false
+    return true
 
-  # Force all unused types, to trigger full module validation
-  for i in 0 .. self.types.high:
-    discard self.getType(i)
+  type Pair = tuple[key: Module, val: Module]
+  type Table = seq[Pair]
+
+  let emptyArg = Module(
+    name: "argument",
+    kind: simpleM,
+    items: newSeq[machine.Item](0),
+  )
+
+  var table: Table = @{:}
+
+  proc buildModule (argument: Module): Module =
+    var self = State(parser: parser, sourcemap: sourcemap)
+    let p = parser
+
+    self.modules = newSeq[Module](p.modules.len+1)
+    self.modules[0] = argument
+
+    self.types = newSeq[Data[Type]](p.types.len)
+
+    let fcount = p.functions.len
+
+    self.funcs = newSeq[FnData](fcount + p.constants.len)
+    for i in 0 .. self.funcs.high:
+      self.funcs[i] = FnData(kind: codeFn, index: i)
+
+    for i in 0 .. p.constants.high:
+      self.funcs[fcount + i] = FnData(kind: cnsFn, index: i)
+
+    self.getModule(1)
+
+  proc getModule (argument: Module): Module =
+    for tpl in table:
+      if iseq(tpl.key, argument):
+        return tpl.val
+    let m = buildModule(argument)
+    table.add( (key: argument, val: m) )
+    return m
+
+  proc getter (key: string): Item = getModule(emptyArg)[key]
 
   # Main Module
-  result = self.getModule(1)
+  result = Module(name: name, kind: lazyM, getter: getter, builder: getModule)

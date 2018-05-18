@@ -69,7 +69,7 @@ proc compile_file (file: File, name: string): Module =
     if L != 1: raise newException(IOError, "cannot read byte")
   let parsed = parse(read_byte)
   try:
-    return compile(parsed)
+    return compile(parsed, name)
   except CompileError:
     echo "Error in module " & name
     echo getCurrentExceptionMsg()

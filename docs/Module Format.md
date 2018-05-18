@@ -16,9 +16,9 @@ A module file has two special module indices: the module at index 0 is the modul
 
 The module defined by a module file is put in the global module namespace by the implementation, and it's up to the implementation to decide what name to use, it may use file system information or metadata. I intend to define a standard mechanism to do determine the name of a module file in the global module namespace.
 
-Each module defines it's argument equivalence with other modules, if to the module eyes it's argument is equivalent to the argument of a previously built module, that module is returned instead. As most modules are defined by a module file, their arguments are by default equivalent if the items used from them are only types and they are equal, or if they don't use items from their arguments.
+Each module defines it's argument equivalence with other modules, if to the module judgement it's argument is equivalent to the argument of a previously built module, that module is returned instead. Modules defined by a file consider their arguments equivalent if the items only type items are used and they are equal, or if they don't use items from their arguments. Using items from a module defined by a file without passing it an argument is the same as building that module with an empty argument module.
 
-By convention, modules that don't use names in their arguments items expect those items to be named with their position in decimal notation starting at 0.
+By convention, modules that don't use names in their arguments items expect those items to be named with their position in decimal notation starting from 0.
 
 By convention, modules that have one main item export it with an empty string as the name, such as Java classes, Python modules or Java generic methods.
 
