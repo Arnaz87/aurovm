@@ -134,7 +134,7 @@ suite "Full Tests":
     )
 
     let parsed = parseData(code)
-    let compiled = compile(parsed)
+    let compiled = compile(parsed, "Simple add")
     let function = compiled.get_function("myadd")
 
     let result = function.run(@[])
@@ -191,7 +191,7 @@ suite "Full Tests":
     )
 
     let parsed = parseData(data)
-    let compiled = compile(parsed)
+    let compiled = compile(parsed, "Factorial")
     let function = compiled.get_function("factorial")
     let result = function.run(@[Value(kind: intV, i: 5)])
     check(result == @[Value(kind: intV, i: 120)])
@@ -227,7 +227,7 @@ suite "Full Tests":
     )
 
     let parsed = parseData(code)
-    let compiled = compile(parsed)
+    let compiled = compile(parsed, "Constant Call")
     let function = compiled.get_function("main")
 
     let result = function.run(@[])
@@ -404,7 +404,7 @@ suite "Full Tests":
     )
 
     let parsed = parseData(data)
-    let compiled = compile(parsed)
+    let compiled = compile(parsed, "Linked List")
     let function = compiled.get_function("main")
 
     let result = function.run(@[])
@@ -490,7 +490,7 @@ suite "Full Tests":
 
     expect CompileError:
       let parsed = parseData(data)
-      let compiled = compile(parsed)
+      let compiled = compile(parsed, "Recursive Type")
 
   test "Function Object":
 
@@ -560,7 +560,7 @@ suite "Full Tests":
     )
 
     let parsed = parseData(data)
-    let compiled = compile(parsed)
+    let compiled = compile(parsed, "Function Object")
     let function = compiled.get_function("main")
 
     let result = function.run(@[])
@@ -613,7 +613,7 @@ suite "Full Tests":
 
     try:
       let parsed = parseData(code)
-      let compiled = compile(parsed)
+      let compiled = compile(parsed, "Metadata fail 1")
 
       checkpoint("Expected TypeNotFoundError")
       fail()
@@ -686,7 +686,7 @@ suite "Full Tests":
 
     try:
       let parsed = parseData(code)
-      let compiled = compile(parsed)
+      let compiled = compile(parsed, "Typecheck fail")
       let fn = compiled.get_function("main")
 
       checkpoint("Expected TypeError")
@@ -746,7 +746,7 @@ suite "Full Tests":
 
     try:
       let parsed = parseData(code)
-      let compiled = compile(parsed)
+      let compiled = compile(parsed, "Incorrect Signature")
       let fn = compiled.get_function("print")
 
       checkpoint("Expected Incorrect Signature Error")
@@ -756,3 +756,99 @@ suite "Full Tests":
       let codeinfo = exception.codeinfo
       check(codeinfo.line == some(2))
       check(codeinfo.column == some(7))
+
+  test "Module Type Arguments":
+    #[ Features
+      type module argument
+    ]#
+
+    let code = bin(
+      "Cobre 0.5", 0,
+      4, # Modules
+        # module #0 is the argument
+        1, 1, #1 Define (exports)
+          1, 1, $"T",
+
+        1, 1, #2 Define(arguments for cobre.typeshell)
+          1, 0, $"0", # type_0 (T)
+        0, $"cobre.typeshell", #3 Import cobre.typeshell
+        4, 3, 2, #4 Build cobre.typeshell(T)
+
+      2, # Types
+        (0+1), $"T", #0 import "T" from module 0 (argument)
+        (4+1), $"", #1 import "" from typeshell(T)
+      0, # Functions
+      0, # Constants
+      0, # No metadata
+    )
+
+    let parsed = parseData(code)
+    let compiled = compile(parsed, "Simple add")
+
+    proc newArg (name: string, tp: machine.Type): machine.Module =
+      machine.Module(name: name, kind: simpleM, items: @[
+        machine.Item(name: "T", kind: machine.tItem, t: tp)
+      ])
+
+    let modint1 = compiled.build(newArg("int argument 1", cobrelib.intT))
+    let modint2 = compiled.build(newArg("int argument 1", cobrelib.intT))
+    let modstr = compiled.build(newArg("string argument 1", cobrelib.strT))
+
+    # Even though modint1 and modint2 are built with different arguments
+    # they return the same module because it's the same type used as argument
+    check(modint1["T"].t == modint2["T"].t)
+    check(modint1["T"].t != modstr["T"].t)
+
+  test "Other Module Arguments":
+    #[ Features
+      module argument
+      same module if arguments are equal (same types)
+    ]#
+
+    let code = bin(
+      "Cobre 0.5", 0,
+      5, # Modules
+        # module #0 is the argument
+        1, 1, #1 Define (exports)
+          1, 1, $"T",
+
+        1, 1, #2 Define(arguments for cobre.typeshell)
+          1, 0, $"0", # type_0 (T)
+        0, $"cobre.typeshell", #3 import
+        4, 3, 2, #4 Build cobre.typeshell(T)
+
+        0, $"cobre.int", #5 import
+
+      3, # Types
+        (0+1), $"T", #0 import "T" from module 0 (argument)
+        (4+1), $"", #1 import "" from typeshell(T)
+        (5+1), $"int", #2
+      1, # Functions
+        # HERE: A function from argument is used
+        (0+2), $"f", #0 import "f" from module 0 (argument)
+          1, 2, 0, # void f (int)
+      0, # Constants
+      0, # No metadata
+    )
+
+    let parsed = parseData(code)
+    let compiled = compile(parsed, "Simple add")
+
+    let argument =  machine.Module(
+      name: "int argument",
+      kind: simpleM,
+      items: @[
+        machine.Item(
+          name: "T",
+          kind: machine.tItem,
+          t: cobrelib.intT
+        )
+      ]
+    )
+
+    let modint1 = compiled.build(argument)
+    let modint2 = compiled.build(argument)
+
+    # Even if all the arguments are the same, the returned modules are
+    # different because one of the used arguments is not a type.
+    check(modint1["T"].t != modint2["T"].t)
