@@ -43,8 +43,9 @@ for p in commandLineParams():
       quit(QuitFailure)
     else:
       main_module_name = p
-      cobreargs.add(paramStr(0) & " " & p)
+      cobreargs.add(p)
   else: cobreargs.add(p)
+cobreexec = paramStr(0)
 
 let mod_path = getEnv("HOME") & "/.cobre/modules"
 

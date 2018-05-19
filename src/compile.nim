@@ -20,7 +20,6 @@ type
 type
   Data[T] = object
     value: Option[T]
-    srcpos: SrcPos
     pending: bool
 
   FnKind = enum readyFn, cnsFn, codeFn
@@ -41,21 +40,16 @@ type
     static_types: seq[Type]
 
   UnsupportedError* = object of Exception
-
   CompileError* = object of CobreError
-
   NotFoundError* = object of CompileError
-
   ModuleNotFoundError* = object of NotFoundError
     moduleinfo*: ModuleInfo
   TypeNotFoundError* = object of NotFoundError
     typeinfo*: TypeInfo
   FunctionNotFoundError* = object of NotFoundError
     codeinfo*: CodeInfo
-
   IncorrectSignatureError* = object of CompileError
     codeinfo*: CodeInfo
-
   TypeError* = object of CompileError
     instinfo*: InstInfo
 
@@ -122,12 +116,11 @@ proc getModule (self: State, index: int): Module =
 
   self.modules[index] = result
 
-
 proc getType (self: State, i: int): Type =
   if i > self.types.high:
     raise newException(CompileError, "Type index out of bounds")
   if self.types[i].pending:
-    cobreRaise[CompileError]("Recursive type", self.types[i].srcpos)
+    raise newException(CompileError, "Recursive Type")
 
   if self.types[i].value.isSome:
     return self.types[i].value.get
@@ -219,6 +212,7 @@ proc getFunction(self: State, i: int): Function =
       result = item.f
       fndata = FnData(kind: readyFn, f: result)
 
+
 proc typeCheck(self: State, fn: Function) =
 
   proc check(t1: Type, t2: Type, index: int) =
@@ -238,9 +232,6 @@ proc typeCheck(self: State, fn: Function) =
   for i in 0..fn.sig.ins.high:
     regs[i] = fn.sig.ins[i]
 
-  #echo "Typechecking ", fn.name
-  #echo "  statics ", self.static_types
-
   # Repeat until the next code is equal to the current code
   # in which case no progress was made
   while next_code.len != code.len:
@@ -259,7 +250,6 @@ proc typeCheck(self: State, fn: Function) =
         else: cancel = true
       of setI:
         if not regs[inst.src].isNil:
-          # If dest has no type, assign it
           if regs[inst.dest].isNil:
             regs[inst.dest] = regs[inst.src]
           else:
@@ -294,7 +284,7 @@ proc typeCheck(self: State, fn: Function) =
         next_code.add(inst)
 
   if next_code.len > 0:
-    raise newException(EXception, "Could not typecheck " & $next_code & " in " & fn.name)
+    raise newException(Exception, "Could not typecheck " & $next_code & " in " & fn.name)
 
 
 proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
@@ -340,13 +330,32 @@ proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
 proc compile* (parser: P.Parser, name: string): Module =
 
   var sourcemap: SourceMap = nil
-
   if parser.metadata.children.len > 0:
     for topnode in parser.metadata.children:
       if topnode.isNamed("source map"):
         sourcemap = newSourceMap(topnode)
   if sourcemap.isNil:
     sourcemap = newSourceMap()
+
+  proc buildModule (argument: Module): Module =
+    var self = State(parser: parser, sourcemap: sourcemap)
+    let p = parser
+
+    self.modules = newSeq[Module](p.modules.len+1)
+    self.modules[0] = argument
+
+    self.types = newSeq[Data[Type]](p.types.len)
+
+    let fcount = p.functions.len
+
+    self.funcs = newSeq[FnData](fcount + p.constants.len)
+    for i in 0 .. self.funcs.high:
+      self.funcs[i] = FnData(kind: codeFn, index: i)
+
+    for i in 0 .. p.constants.high:
+      self.funcs[fcount + i] = FnData(kind: cnsFn, index: i)
+
+    self.getModule(1)
 
   var simpleArg = true
 
@@ -373,7 +382,10 @@ proc compile* (parser: P.Parser, name: string): Module =
     if t.module == 0:
       typeKeys.add(t.name)
 
-  proc iseq (a: Module, b: Module): bool =
+  type Pair = tuple[key: Module, val: Module]
+  var table: seq[Pair] = @[]
+
+  proc `==` (a: Module, b: Module): bool =
     if not simpleArg: return false
     for key in typeKeys.items:
       let ta = a[key]
@@ -383,44 +395,19 @@ proc compile* (parser: P.Parser, name: string): Module =
       else: return false
     return true
 
-  type Pair = tuple[key: Module, val: Module]
-  type Table = seq[Pair]
+  proc getModule (argument: Module): Module =
+    for tpl in table:
+      if argument == tpl.key:
+        return tpl.val
+    let m = buildModule(argument)
+    table.add( (key: argument, val: m) )
+    return m
 
   let emptyArg = Module(
     name: "argument",
     kind: simpleM,
     items: newSeq[machine.Item](0),
   )
-
-  var table: Table = @{:}
-
-  proc buildModule (argument: Module): Module =
-    var self = State(parser: parser, sourcemap: sourcemap)
-    let p = parser
-
-    self.modules = newSeq[Module](p.modules.len+1)
-    self.modules[0] = argument
-
-    self.types = newSeq[Data[Type]](p.types.len)
-
-    let fcount = p.functions.len
-
-    self.funcs = newSeq[FnData](fcount + p.constants.len)
-    for i in 0 .. self.funcs.high:
-      self.funcs[i] = FnData(kind: codeFn, index: i)
-
-    for i in 0 .. p.constants.high:
-      self.funcs[fcount + i] = FnData(kind: cnsFn, index: i)
-
-    self.getModule(1)
-
-  proc getModule (argument: Module): Module =
-    for tpl in table:
-      if iseq(tpl.key, argument):
-        return tpl.val
-    let m = buildModule(argument)
-    table.add( (key: argument, val: m) )
-    return m
 
   proc getter (key: string): Item = getModule(emptyArg)[key]
 

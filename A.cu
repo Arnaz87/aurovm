@@ -3,7 +3,8 @@ import cobre.system { void print (string); }
 
 import module argument {
   type `0` as X;
-  void `1` () as f;
+  // If this line is included, test.cu doesn't typecheck. That's intended.
+  //void `1` () as f;
 }
 
 type T (X);

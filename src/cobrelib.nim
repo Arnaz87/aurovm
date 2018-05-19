@@ -6,6 +6,7 @@ import tables
 import options
 
 from times import cpuTime
+from strutils import toHex
 import osproc
 
 import sequtils
@@ -43,13 +44,32 @@ template addfn* (
 ) = addfn(items, myname, mksig(myins, myouts), body)
 
 
+proc newModule* (
+  name: string,
+  types: seq[(string, Type)] = @[],
+  funcs: seq[(string, Function)] = @[],
+  ): Module =
+  result = Module(kind: simpleM, name: name, items: @[])
+  for tpl in types:
+    let (nm, tp) = tpl
+    if tp.name.isNil:
+      tp.name = nm
+    result[nm] = tp
+  for tpl in funcs:
+    let (nm, f) = tpl
+    if f.name.isNil:
+      f.name = nm
+    result[nm] = f
+  machine_modules.add(result)
+
+
 #==========================================================#
 #===                     cobre.core                     ===#
 #==========================================================#
 
-let binT*: Type = Type(kind: nativeT, name: "bin")
-let boolT*: Type = Type(kind: nativeT, name: "bool")
-let anyT*: Type = Type(kind: nativeT, name: "any")
+let binT*: Type = Type(name: "bin")
+let boolT*: Type = Type(name: "bool")
+let anyT*: Type = Type(name: "any")
 
 discard newModule(
   name = "cobre.core",
@@ -61,7 +81,7 @@ discard newModule(
 #===                     cobre.unit                     ===#
 #==========================================================#
 
-let unitT*: Type = Type(kind: nativeT, name: "unit")
+let unitT*: Type = Type(name: "unit")
 
 block:
   var items = @[Item(name: "", kind: tItem, t: unitT)]
@@ -77,7 +97,7 @@ block:
 #===                     cobre.int                      ===#
 #==========================================================#
 
-let intT*: Type = Type(kind: nativeT, name: "int")
+let intT*: Type = Type(name: "int")
 
 block:
   proc addf (args: var seq[Value]) =
@@ -193,7 +213,7 @@ block:
 #===                     cobre.float                    ===#
 #==========================================================#
 
-let fltT*: Type = Type(kind: nativeT, name: "float")
+let fltT*: Type = Type(name: "float")
 
 block:
   proc itoff (args: var seq[Value]) =
@@ -290,8 +310,8 @@ block:
 #===                    cobre.string                    ===#
 #==========================================================#
 
-let strT*: Type = Type(kind: nativeT, name: "string")
-let charT*: Type = Type(kind: nativeT, name: "string")
+let strT*: Type = Type(name: "string")
+let charT*: Type = Type(name: "string")
 
 block:
   var items = @[
@@ -357,7 +377,7 @@ block:
 #==========================================================#
 
 block:
-  let fileT = Type(kind: nativeT, name: "file")
+  let fileT = Type(name: "file")
   var items = @[ Item(name: "file", kind: tItem, t: fileT) ]
 
   items.addfn("quit", [intT], []):
@@ -453,19 +473,17 @@ proc tplFn (argument: Module): Module =
 
   let basename = "record" & $n
 
-  var tp = Type(name: basename, kind: productT, ts: types)
+  var tp = Type(name: basename)
   var items = @[ Item(name: "", kind: tItem, t: tp) ]
+
+  type Product = ref object of RootObj
+    fields: seq[Value]
 
   proc create_getter (index: int): Function =
     proc prc (args: var seq[Value]) =
-      let v = args[0]
-      case v.kind
-      of productV:
-        let field = v.p.fields[index]
-        args.ret(field)
-      else:
-        let msg = "Runtime type mismatch, expected a " & tp.name & ", given " & $v
-        raise newException(Exception, msg)
+      let p = Product(args[0].obj)
+      let field = p.fields[index]
+      args.ret(field)
     let sig = Signature(ins: @[tp], outs: @[types[index]])
     return Function(
       name: basename & ".get" & $index,
@@ -476,14 +494,8 @@ proc tplFn (argument: Module): Module =
 
   proc create_setter (index: int): Function =
     proc prc (args: var seq[Value]) =
-      let p = args[0]
-      let v = args[1]
-      case p.kind
-      of productV:
-        p.p.fields[index] = v
-      else:
-        let msg = "Runtime type mismatch, expected " & tp.name
-        raise newException(Exception, msg)
+      let p = Product(args[0].obj)
+      p.fields[index] = args[1]
     let sig = Signature(ins: @[tp, types[index]], outs: @[])
     return Function(
       name: basename & ".set" & $index,
@@ -510,11 +522,8 @@ proc tplFn (argument: Module): Module =
       vs[i] = args[i]
 
     args.ret Value(
-      kind: productV,
-      p: Product(
-        tp: tp,
-        fields: vs
-      )
+      kind: objV,
+      obj: Product(fields: vs)
     )
 
   let sig = Signature(ins: types, outs: @[tp])
@@ -552,7 +561,7 @@ proc nullFn (argument: Module): Module =
     raise newException(Exception, "argument 0 for cobre.null is not a type")
   var base = argitem.t
   let basename = "null(" & base.name & ")"
-  var tp = Type(name: basename, kind: nullableT, t: base)
+  var tp = Type(name: basename)
 
   var items = @[ Item(kind: tItem, name: "", t: tp) ]
 
@@ -596,83 +605,51 @@ proc arrayFn (argument: Module): Module =
     return array_modules[base]
 
   let basename = "array(" & base.name & ")"
-  var tp = Type(name: basename, kind: arrayT, t: base)
+  var tp = Type(name: basename)
 
-  proc newProc (args: var seq[Value]) =
+  type Array = ref object of RootObj
+    items: seq[Value]
+
+  var items = @[ Item(kind: tItem, name: "", t: tp) ]
+
+  items.addfn("new", [base, intT], [tp]):
     var vs = newSeq[Value](args[1].i)
     for i in 0 ..< vs.len:
       vs[i] = args[0]
-
     args.ret Value(
-      kind: arrayV,
-      arr: Array(
-        tp: tp,
-        items: vs
-      )
+      kind: objV,
+      obj: Array(items: vs)
     )
 
-  proc getProc (args: var seq[Value]) =
+  items.addfn("get", [tp, intT], [base]):
+    let arr = Array(args[0].obj)
     let i = args[1].i
-    if i > args[0].arr.items.high:
-      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $args[0].arr.items.len & ")")
-    args.ret args[0].arr.items[i]
+    if i > arr.items.high:
+      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
+    args.ret arr.items[i]
 
-  proc setProc (args: var seq[Value]) =
+  items.addfn("set", [tp, intT, base], []):
+    let arr = Array(args[0].obj)
     let i = args[1].i
-    if i > args[0].arr.items.high:
-      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $args[0].arr.items.len & ")")
-    args[0].arr.items[i] = args[2]
+    if i > arr.items.high:
+      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
+    arr.items[i] = args[2]
 
-  var items = @[
-    Item(kind: tItem, name: "", t: tp),
-    Item(
-      name: "new",
-      kind: fItem,
-      f: Function(
-        name: basename & ".new",
-        sig: Signature(ins: @[base, intT], outs: @[tp]),
-        kind: procF,
-        prc: newProc
-      )
-    ),
-    Item(
-      name: "get",
-      kind: fItem,
-      f: Function(
-        name: basename & ".get",
-        sig: Signature(ins: @[tp, intT], outs: @[base]),
-        kind: procF,
-        prc: getProc
-      )
-    ),
-    Item(
-      name: "set",
-      kind: fItem,
-      f: Function(
-        name: basename & ".set",
-        sig: Signature(ins: @[tp, intT, base], outs: @[]),
-        kind: procF,
-        prc: setProc
-      )
-    )
-  ]
-
-  items.addfn("len", mksig(@[tp], @[intT])):
-    let r = args[0].arr.items.len
+  items.addfn("len", [tp], [intT]):
+    let arr = Array(args[0].obj)
+    let r = arr.items.len
     args.ret Value(kind: intV, i: r)
 
   # These two are temporary, until other array types are introduced
 
-  items.addfn("push", mksig(@[tp, base], @[])):
-    args[0].arr.items.add args[1]
+  items.addfn("push", [tp, base], []):
+    let arr = Array(args[0].obj)
+    arr.items.add args[1]
 
-  items.addfn("empty", mksig(@[], @[tp])):
+  items.addfn("empty", [], [tp]):
     args.ret Value(
-      kind: arrayV,
-      arr: Array(
-        tp: tp,
-        items: @[]
-      )
+      kind: objV,
+      obj: Array(items: @[])
     )
 
 
@@ -715,7 +692,7 @@ proc functionFn (argument: Module): Module =
 
   let basename = sig.name
 
-  var tp = Type(name: basename, kind: functionT, sig: sig)
+  var tp = Type(name: basename)
   var items = @[ Item(name: "", kind: tItem, t: tp) ]
 
   var applyIns = @[tp]
@@ -813,6 +790,8 @@ machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionF
 #===                   cobre.typeshell                  ===#
 #==========================================================#
 
+var shellid = 1
+
 proc shellFn (argument: Module): Module =
 
   #[ This is a problem, I cannot check right away if the argument is a type
@@ -824,7 +803,8 @@ proc shellFn (argument: Module): Module =
   let basename = "shell(" & base.name & ")"
   ]#
 
-  let basename = "typeshell"
+  let basename = "type_" & shellid.toHex(2)
+  shellid += 1
 
   proc getbase (): Type =
     let argitem = argument["0"]
@@ -832,7 +812,7 @@ proc shellFn (argument: Module): Module =
       raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
     return argitem.t
 
-  let tp = Type(name: basename, kind: nativeT)
+  let tp = Type(name: basename)
   let tpitem = Item(kind: tItem, name: "", t: tp)
 
   # Just returns the argument as is, as this type is just a box

@@ -64,7 +64,7 @@ Applies an argument to a functor
     module: module_index
     name: string
 
-Types do not have kinds, all types are always imported from a module, and the standard library provides certain special type creating modules. The type is imported from the module with index `module - 1`, if module is 0 the module the type is from is hidden, useful for documentation modules.
+Types do not have kinds, all types are always imported from a module, and the standard library provides certain special type creating modules. The type is imported from the module with index `module - 1`. If the module index is 0, the module where the type is from is hidden, useful for documentation modules.
 
 # Functions
     
@@ -90,7 +90,7 @@ If the kind is > 1, the function is extracted from the module with index `kind -
 
 # Constants
 
-Defines functions that returns single constant values, and are added to the function list. In spite of these just being functions, they need to be separated from the main function section because to parse this section, all functions' inputs and outputs need to be known.
+Defines functions that returns single constant values, and are added to the function list. In spite of these just being functions, they need to be separated from the main function section because to parse this section, the inputs and outputs of all functions need to be known.
 
 ## Int [1]
 
@@ -107,7 +107,7 @@ A value of type cobre.core.bin.
 
 ## Call
 
-Any item with kind > 15 is a function call, formated exactly like a regular function calls in code, but the arguments are indices to other functions (with exactly one result, if an argument function returns more than one, a constant for each result must be created beforehand). Each value the function returns is added independently as a constant. Constants are aware of each other, even if defined after, but circular calls are not allowed.
+Any item with kind > 15 is a function call, formated exactly like a regular function calls in code, but the arguments are indices to other functions (of exactly one result, if a function with more is to be used, a constant for each result must be created beforehand). Each value the function returns is added independently as a constant. Constants are aware of each other, even if defined after, but circular calls are not allowed.
 
 # Code
 

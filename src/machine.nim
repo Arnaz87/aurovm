@@ -13,25 +13,12 @@ template debug (body: untyped) =
   when (do_debug): body
 
 type
-  SrcPos* = object of RootObj
-    file*: Option[string]
-    line*: Option[int]
-    column*: Option[int]
-
   Signature* = object
     ins*: seq[Type]
     outs*: seq[Type]
 
-  Product* = ref object of RootObj
-    tp*: Type
-    fields*: seq[Value]
-
-  Array* = ref object of RootObj
-    tp*: Type
-    items*: seq[Value]
-
   ValueKind* = enum
-    nilV, boolV, intV, fltV, strV, binV, productV, functionV, arrayV, objV, ptrV
+    nilV, boolV, intV, fltV, strV, binV, functionV, objV, ptrV
   Value* = object
     case kind*: ValueKind
     of nilV: discard
@@ -40,9 +27,7 @@ type
     of fltV: f*: float
     of strV: s*: string
     of binV: bytes*: seq[uint8]
-    of productV: p*: Product
     of functionV: fn*: Function
-    of arrayV: arr*: Array
     of objV: obj*: ref RootObj
     of ptrV: pt*: pointer
 
@@ -84,18 +69,8 @@ type
     retpos: int
     counter: int
 
-  TypeKind* = enum nativeT, aliasT, nullableT, arrayT, productT, sumT, functionT
   Type* = ref object of RootObj
-    module*: Module
     name*: string
-    case kind*: TypeKind
-    of nativeT: discard
-    of aliasT, nullableT, arrayT:
-      t*: Type
-    of productT, sumT:
-      ts*: seq[Type]
-    of functionT:
-      sig*: Signature
 
   ItemKind* = enum nilItem, fItem, tItem, mItem
   Item* = object
@@ -120,20 +95,14 @@ type
       builder*: proc(arg: Module): Module
 
   CobreError* = object of Exception
-    srcpos*: SrcPos
-
   RuntimeError* = object of CobreError
   StackOverflowError* = object of RuntimeError
   InfiniteLoopError* = object of RuntimeError
 
-proc cobreRaise*[T](msg: string, srcpos: Srcpos = SrcPos()) =
-  var e = newException(T, msg)
-  e.srcpos = srcpos
-  raise e
-
 var machine_modules* = newSeq[Module]()
 
 var cobreargs* = newSeq[string]()
+var cobreexec* = "";
 
 type ModLoader = proc(name: string): Module
 proc default_loader (name: string): Module = nil
@@ -154,25 +123,8 @@ proc `$`* (m: Module): string =
   if m.isNil: return "nil"
   else: result = "Module(" & m.name & ", " & $m.items & ")"
 proc `$`* (t: Type): string =
-  if t.isNil: return "nil"
-  result = "Type_" & $t.kind & "("
-  case t.kind
-  of nativeT:
-    result &= t.name
-  of aliasT, nullableT, arrayT:
-    result &= t.t.name
-  of productT, sumT:
-    if t.ts.len > 0:
-      result &= t.ts[0].name
-      for i in 1 .. t.ts.high:
-        result &= " " & t.ts[i].name
-  of functionT:
-    for i in 0 .. t.sig.ins.high:
-      result &= t.sig.ins[i].name & " "
-    result &= "->"
-    for i in 0 .. t.sig.outs.high:
-      result &= " " & t.sig.outs[i].name
-  result &= ")"
+  if t.isNil: "nil"
+  else: t.name
 proc `[]=`* (m: var Module, k: string, f: Function) =
   m.items.add(Item(name: k, kind: fItem, f: f))
 proc `[]=`* (m: var Module, k: string, t: Type) =
@@ -200,24 +152,6 @@ proc name* (sig: Signature): string =
   let ins = sig.ins.map(proc (t: Type): string = t.name)
   let outs = sig.outs.map(proc (t: Type): string = t.name)
   "(" & ins.join(" ") & " -> " & outs.join(" ") & ")"
-
-proc newModule* (
-  name: string,
-  types: seq[(string, Type)] = @[],
-  funcs: seq[(string, Function)] = @[],
-  ): Module =
-  result = Module(kind: simpleM, name: name, items: @[])
-  for tpl in types:
-    let (nm, tp) = tpl
-    if tp.name.isNil:
-      tp.name = nm
-    result[nm] = tp
-  for tpl in funcs:
-    let (nm, f) = tpl
-    if f.name.isNil:
-      f.name = nm
-    result[nm] = f
-  machine_modules.add(result)
 
 proc findModule* (name: string): Module =
   for module in machine_modules:
@@ -286,8 +220,6 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
 
   buildTop(fn)
 
-  #echo "Statics: ", fn.statics
-
   try:
     while true:
 
@@ -295,9 +227,6 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       template st: untyped = top
 
       var advance = true
-
-      #if st.counter > max_instruction_count:
-      #  raise newException(InfiniteLoopError, "Function has executed " & $max_instruction_count & " instructions")
 
       proc fill (args: var seq[Value], xs: var seq[int], outlen: int = 0) =
         args.setLen max(xs.len, outlen)
@@ -405,8 +334,6 @@ proc `==`* (a: Value, b: Value): bool =
   of fltV: a.f == b.f
   of strV: a.s == b.s
   of binV: a.bytes == b.bytes
-  of productV: a.p == b.p
   of functionV: a.fn == b.fn
-  of arrayV: a.arr == b.arr
   of objV: a.obj == b.obj
   of ptrV: a.pt == b.pt
