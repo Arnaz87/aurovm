@@ -783,12 +783,10 @@ suite "Full Tests":
     )
 
     let parsed = parseData(code)
-    let compiled = compile(parsed, "Simple add")
+    let compiled = compile(parsed, "Module Type Arguments")
 
     proc newArg (name: string, tp: machine.Type): machine.Module =
-      machine.Module(name: name, kind: simpleM, items: @[
-        machine.Item(name: "T", kind: machine.tItem, t: tp)
-      ])
+      machine.SimpleModule(name, [machine.TypeItem("T", tp)])
 
     let modint1 = compiled.build(newArg("int argument 1", cobrelib.intT))
     let modint2 = compiled.build(newArg("int argument 1", cobrelib.intT))
@@ -832,19 +830,11 @@ suite "Full Tests":
     )
 
     let parsed = parseData(code)
-    let compiled = compile(parsed, "Simple add")
+    let compiled = compile(parsed, "Other Module Arguments")
 
-    let argument =  machine.Module(
-      name: "int argument",
-      kind: simpleM,
-      items: @[
-        machine.Item(
-          name: "T",
-          kind: machine.tItem,
-          t: cobrelib.intT
-        )
-      ]
-    )
+    let argument = machine.SimpleModule("int argument", [
+      machine.TypeItem("T", cobrelib.intT)
+    ])
 
     let modint1 = compiled.build(argument)
     let modint2 = compiled.build(argument)
@@ -852,3 +842,35 @@ suite "Full Tests":
     # Even if all the arguments are the same, the returned modules are
     # different because one of the used arguments is not a type.
     check(modint1["T"].t != modint2["T"].t)
+
+  test "Name Matching":
+    #[ Features
+      complex name matchinv
+    ]#
+
+    let code = bin(
+      "Cobre 0.5", 0,
+      1, # Modules
+        # module #0 is the argument
+        1, 5, #1 Every one of these just exports the argument
+          0, 0, $"a",
+          0, 0, $"a\x1db",
+          0, 0, $"a\x1db\x1db\x1dc",
+          0, 0, $"a\x1dc\x1dd",
+          0, 0, $"a\x1dc\x1de",
+      0, # Types
+      0, # Functions
+      0, # Constants
+      0, # No metadata
+    )
+
+    let parsed = parseData(code)
+    let compiled = compile(parsed, "Name Matching")
+
+    check(compiled[parseName("b")].kind == nilItem)
+    check(compiled[parseName("a")].kind != nilItem)
+    check(compiled[parseName("a\x1db")].kind != nilItem)
+    check(compiled[parseName("a\x1dc")].kind == nilItem)
+    check(compiled[parseName("a\x1dd")].kind != nilItem)
+    check(compiled[parseName("a\x1db\x1dc")].kind != nilItem)
+    check(compiled[parseName("a\x1db\x1dc\x1dc")].kind == nilItem)

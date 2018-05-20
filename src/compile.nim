@@ -72,34 +72,35 @@ proc getModule (self: State, index: int): Module =
   of P.mDefine:
     var promises = repeat(none(Item), data.items.len)
 
-    proc getter(key: string): Item =
-      for i in 0..< data.items.len:
+    proc getter(key: Name): Item =
+      proc getname (item: P.Item): Name = machine.parseName(item.name)
+      let i = machine.findWithName(data.items, key, getname)
+      if i >= 0:
         let item = data.items[i]
-        if item.name == key:
-          if promises[i].isSome:
-            return promises[i].get
-          case item.kind
-          of P.tItem: result = Item(
-            name: key,
-            kind: machine.tItem,
-            t: self.getType(item.index)
-          )
-          of P.fItem: result = Item(
-            name: key,
-            kind: machine.fItem,
-            f: self.getFunction(item.index)
-          )
-          of P.mItem: result = Item(
-            name: key,
-            kind: machine.mItem,
-            m: self.getModule(item.index)
-          )
-          else: raise newException(UnsupportedError, "Non function/type items not supported")
-          promises[i] = some(result)
-          return result
+        if promises[i].isSome:
+          return promises[i].get
+        case item.kind
+        of P.tItem: result = Item(
+          name: key,
+          kind: machine.tItem,
+          t: self.getType(item.index)
+        )
+        of P.fItem: result = Item(
+          name: key,
+          kind: machine.fItem,
+          f: self.getFunction(item.index)
+        )
+        of P.mItem: result = Item(
+          name: key,
+          kind: machine.mItem,
+          m: self.getModule(item.index)
+        )
+        else: raise newException(UnsupportedError, "Non function/type items not supported")
+        promises[i] = some(result)
+        return result
       return Item(kind: machine.nilItem)
 
-    result = Module(kind: lazyM, getter: getter)
+    result = CustomModule(nil, getter)
   of P.mBuild:
     let base = self.getModule(data.module)
     let argument = self.getModule(data.argument)
@@ -403,13 +404,9 @@ proc compile* (parser: P.Parser, name: string): Module =
     table.add( (key: argument, val: m) )
     return m
 
-  let emptyArg = Module(
-    name: "argument",
-    kind: simpleM,
-    items: newSeq[machine.Item](0),
-  )
+  let emptyArg = SimpleModule("argument", [])
 
-  proc getter (key: string): Item = getModule(emptyArg)[key]
+  proc getter (key: Name): Item = getModule(emptyArg)[key]
 
   # Main Module
-  result = Module(name: name, kind: lazyM, getter: getter, builder: getModule)
+  result = CustomModule(name, getter, getModule)

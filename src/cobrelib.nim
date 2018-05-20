@@ -21,19 +21,15 @@ proc mksig* (ins: openarray[Type], outs: openarray[Type]): Signature =
   Signature(ins: @ins, outs: @outs)
 
 template addfn* (items: var seq[Item], myname: string, mysig: Signature, body: untyped) =
-  items.add(Item(
+  items.add(FunctionItem(myname, Function(
     name: myname,
-    kind: fItem,
-    f: Function(
-      name: myname,
-      sig: mysig,
-      kind: procF,
-      prc: proc (myargs: var seq[Value]) =
-        var args {.inject.}: seq[Value]
-        args.shallowCopy(myargs)
-        body
-    )
-  ))
+    sig: mysig,
+    kind: procF,
+    prc: proc (myargs: var seq[Value]) =
+      var args {.inject.}: seq[Value]
+      args.shallowCopy(myargs)
+      body
+  )))
 
 template addfn* (
   items: var seq[Item],
@@ -84,7 +80,7 @@ discard newModule(
 let unitT*: Type = Type(name: "unit")
 
 block:
-  var items = @[Item(name: "", kind: tItem, t: unitT)]
+  var items = @[TypeItem("", unitT)]
   items.addfn("new", [unitT], []): args.ret Value(kind: nilV)
   machine_modules.add Module(
     name: "cobre.unit",
@@ -315,8 +311,8 @@ let charT*: Type = Type(name: "string")
 
 block:
   var items = @[
-    Item(name: "string", kind: tItem, t: strT),
-    Item(name: "char", kind: tItem, t: charT)
+    TypeItem("string", strT),
+    TypeItem("char", charT)
   ]
 
   items.addfn("new", [binT], [strT]):
@@ -378,7 +374,7 @@ block:
 
 block:
   let fileT = Type(name: "file")
-  var items = @[ Item(name: "file", kind: tItem, t: fileT) ]
+  var items = @[ TypeItem("file", fileT) ]
 
   items.addfn("quit", [intT], []):
     quit(args[0].i)
@@ -474,7 +470,7 @@ proc tplFn (argument: Module): Module =
   let basename = "record" & $n
 
   var tp = Type(name: basename)
-  var items = @[ Item(name: "", kind: tItem, t: tp) ]
+  var items = @[ TypeItem("", tp) ]
 
   type Product = ref object of RootObj
     fields: seq[Value]
@@ -505,16 +501,8 @@ proc tplFn (argument: Module): Module =
     )
 
   for i in 0..<n:
-    items.add(Item(
-      name: "get" & $i,
-      kind: fItem,
-      f: create_getter(i)
-    ))
-    items.add(Item(
-      name: "set" & $i,
-      kind: fItem,
-      f: create_setter(i)
-    ))
+    items.add(FunctionItem("get" & $i, create_getter(i)))
+    items.add(FunctionItem("set" & $i, create_setter(i)))
 
   proc newProc (args: var seq[Value]) =
     var vs = newSeq[Value](types.len)
@@ -527,16 +515,12 @@ proc tplFn (argument: Module): Module =
     )
 
   let sig = Signature(ins: types, outs: @[tp])
-  items.add(Item(
-    name: "new",
-    kind: fItem,
-    f: Function(
-      name: basename & ".new",
-      sig: sig,
-      kind: procF,
-      prc: newProc
-    )
-  ))
+  items.add(FunctionItem("new", Function(
+    name: basename & ".new",
+    sig: sig,
+    kind: procF,
+    prc: newProc
+  )))
 
   result = Module(
     name: basename & "_module",
@@ -545,10 +529,10 @@ proc tplFn (argument: Module): Module =
   )
   record_modules[types] = result
 
-machine_modules.add(Module(name: "cobre.record", kind: functorM, fn: tplFn))
+machine_modules.add(Module(name: "cobre.record", kind: customM, builder: tplFn))
 
 # Deprecated
-machine_modules.add(Module(name: "cobre.tuple", kind: functorM, fn: tplFn, deprecated: true))
+machine_modules.add(Module(name: "cobre.tuple", kind: customM, builder: tplFn, deprecated: true))
 
 
 #==========================================================#
@@ -563,7 +547,7 @@ proc nullFn (argument: Module): Module =
   let basename = "null(" & base.name & ")"
   var tp = Type(name: basename)
 
-  var items = @[ Item(kind: tItem, name: "", t: tp) ]
+  var items = @[ TypeItem("", tp) ]
 
   items.addfn("null", mksig(@[], @[tp])):
     args.ret Value(kind: nilV)
@@ -586,7 +570,7 @@ proc nullFn (argument: Module): Module =
     items: items,
   )
 
-machine_modules.add(Module(name: "cobre.null", kind: functorM, fn: nullFn))
+machine_modules.add(Module(name: "cobre.null", kind: customM, builder: nullFn))
 
 
 #==========================================================#
@@ -610,7 +594,7 @@ proc arrayFn (argument: Module): Module =
   type Array = ref object of RootObj
     items: seq[Value]
 
-  var items = @[ Item(kind: tItem, name: "", t: tp) ]
+  var items = @[ TypeItem("", tp) ]
 
   items.addfn("new", [base, intT], [tp]):
     var vs = newSeq[Value](args[1].i)
@@ -660,7 +644,7 @@ proc arrayFn (argument: Module): Module =
   )
   array_modules[base] = result
 
-machine_modules.add(Module(name: "cobre.array", kind: functorM, fn: arrayFn))
+machine_modules.add(Module(name: "cobre.array", kind: customM, builder: arrayFn))
 
 
 #==========================================================#
@@ -693,7 +677,7 @@ proc functionFn (argument: Module): Module =
   let basename = sig.name
 
   var tp = Type(name: basename)
-  var items = @[ Item(name: "", kind: tItem, t: tp) ]
+  var items = @[ TypeItem("", tp) ]
 
   var applyIns = @[tp]
   applyIns.add(ins)
@@ -703,15 +687,11 @@ proc functionFn (argument: Module): Module =
   # apply Functions get treated specially by the machine,
   # to keep the stack organized
 
-  items.add(Item(
-    name: "apply",
-    kind: fItem,
-    f: Function(
-      name: basename & ".apply",
-      sig: applySig,
-      kind: applyF,
-    )
-  ))
+  items.add(FunctionItem("apply", Function(
+    name: basename & ".apply",
+    sig: applySig,
+    kind: applyF,
+  )))
 
   proc newFunctorFn (argument: Module): Module =
     let item = argument["0"]
@@ -733,15 +713,11 @@ proc functionFn (argument: Module): Module =
     return Module(
       name: basename & ".new",
       kind: simpleM,
-      items: @[Item(
-        name: "",
-        kind: fItem,
-        f: cnsf
-      )]
+      items: @[FunctionItem("", cnsf)]
     )
 
-  let newFunctor = Module(name: basename & ".new", kind: functorM, fn: newFunctorFn)
-  items.add(Item(name: "new", kind: mItem, m: newFunctor))
+  let newFunctor = Module(name: basename & ".new", kind: customM, builder: newFunctorFn)
+  items.add(ModuleItem("new", newFunctor))
 
   # A closure is like a normal function, but the base function has an
   # additional parameter, which is bound to the function value
@@ -773,8 +749,8 @@ proc functionFn (argument: Module): Module =
 
     return Module(name: closurename, kind: simpleM, items: items)
 
-  let closureFunctor = Module(name: basename & ".closure", kind: functorM, fn: closureFunctorFn)
-  items.add(Item(name: "closure", kind: mItem, m: closureFunctor))
+  let closureFunctor = Module(name: basename & ".closure", kind: customM, builder: closureFunctorFn)
+  items.add(ModuleItem("closure", closureFunctor))
 
   result = Module(
     name: basename & "_module",
@@ -783,7 +759,7 @@ proc functionFn (argument: Module): Module =
   )
   function_modules[sig] = result
 
-machine_modules.add(Module(name: "cobre.function", kind: functorM, fn: functionFn))
+machine_modules.add(Module(name: "cobre.function", kind: customM, builder: functionFn))
 
 
 #==========================================================#
@@ -813,7 +789,7 @@ proc shellFn (argument: Module): Module =
     return argitem.t
 
   let tp = Type(name: basename)
-  let tpitem = Item(kind: tItem, name: "", t: tp)
+  let tpitem = TypeItem("", tp)
 
   # Just returns the argument as is, as this type is just a box
   proc idProc (args: var seq[Value]) = args.ret args[0]
@@ -823,44 +799,33 @@ proc shellFn (argument: Module): Module =
   var newitem = none(Item)
   var getitem = none(Item)
 
-  proc getter (key: string): Item =
-    case key
+  proc getter (key: Name): Item =
+    if key.parts.len > 0: return Item(kind: nilItem)
+    case key.main
     of "": tpitem
     of "new":
       if newitem.isNone:
-        newitem = some(Item(
-          name: "new",
-          kind: fItem,
-          f: Function(
-            name: basename & ".new",
-            sig: mksig(@[getbase()], @[tp]),
-            kind: procF,
-            prc: idProc
-          )
-        ))
+        newitem = some(FunctionItem("new", Function(
+          name: basename & ".new",
+          sig: mksig(@[getbase()], @[tp]),
+          kind: procF,
+          prc: idProc
+        )))
       newitem.get
     of "get":
       if getitem.isNone:
-        getitem = some(Item(
-          name: "get",
-          kind: fItem,
-          f: Function(
-            name: basename & ".get",
-            sig: mksig(@[tp], @[getbase()]),
-            kind: procF,
-            prc: idProc
-          )
-        ))
+        getitem = some(FunctionItem("get", Function(
+          name: basename & ".get",
+          sig: mksig(@[tp], @[getbase()]),
+          kind: procF,
+          prc: idProc
+        )))
       getitem.get
     else: Item(kind: nilItem)
 
-  return Module(
-    name: basename & "_module",
-    kind: lazyM,
-    getter: getter,
-  )
+  return CustomModule(basename & "_module", getter)
 
-machine_modules.add(Module(name: "cobre.typeshell", kind: functorM, fn: shellFn))
+machine_modules.add(CustomModule("cobre.typeshell", nil, shellFn))
 
 
 #==========================================================#
@@ -907,4 +872,4 @@ proc anyFn (argument: Module): Module =
   )
   array_modules[base] = result
 
-machine_modules.add(Module(name: "cobre.any", kind: functorM, fn: anyFn))
+machine_modules.add(CustomModule("cobre.any", nil, anyFn))

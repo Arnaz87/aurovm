@@ -2,6 +2,7 @@
 import sequtils
 import strutils
 import options
+from algorithm import sort
 
 from os import sleep
 
@@ -72,27 +73,32 @@ type
   Type* = ref object of RootObj
     name*: string
 
+  Name* = object
+    main*: string
+    parts*: seq[string]
+
   ItemKind* = enum nilItem, fItem, tItem, mItem
   Item* = object
-    name*: string
+    name*: Name
     case kind*: ItemKind
     of fItem: f*: Function
     of tItem: t*: Type
     of mItem: m*: Module
     of nilItem: discard
 
-  ModuleKind* = enum functorM, simpleM, lazyM
+  GetterFn = proc(key: Name): Item
+  BuilderFn = proc(arg: Module): Module
+
+  ModuleKind* = enum simpleM, customM
   Module* = ref object
     name*: string
     deprecated*: bool
     case kind*: ModuleKind
     of simpleM:
       items*: seq[Item]
-    of functorM:
-      fn*: proc(arg: Module): Module
-    of lazyM:
-      getter*: proc(key: string): Item
-      builder*: proc(arg: Module): Module
+    of customM:
+      getter*: GetterFn
+      builder*: BuilderFn
 
   CobreError* = object of Exception
   RuntimeError* = object of CobreError
@@ -110,41 +116,87 @@ var module_loader: ModLoader = default_loader
 proc set_module_loader*(loader: ModLoader) =
   module_loader = loader
 
+# TODO: This fails with, for example: "a:b:b:c" "a:b:c:c"
+# both ways should be false, but both return true
+proc `$`* (self: Name): string = self.main & ":" & self.parts.join(":")
+proc parseName* (str: string): Name =
+  result.parts = str.split("\x1d")
+  result.main = result.parts[0]
+  result.parts.del(0)
+  result.parts.sort(system.cmp)
+proc contains* (a: Name, b: Name): bool =
+  if a.main != b.main: return false
+  if a.parts.len < b.parts.len: return false
+  var ia, ib: int
+  while ia < a.parts.len and ib < b.parts.len:
+    if a.parts[ia] == b.parts[ib]:
+      inc(ib)
+    inc(ia)
+  return ib == b.parts.len
+
+proc findWithName*[T] (a: openarray[T], key: Name, f: proc (x: T): Name): int {.inline} =
+  ## Returns the best index of the best match in `a` or -1 if no match.
+  var matches = 0
+  var i = 0
+  for item in items(a):
+    let name = f(item)
+    if name.contains(key):
+      if name.parts.len == key.parts.len:
+        return i # exact match
+      else:
+        inc(matches)
+        result = i
+    inc(i)
+  if matches != 1: return -1
+  
+
+proc TypeItem* (name: string, tp: Type): Item =
+  Item(name: parseName(name), kind: tItem, t: tp)
+proc FunctionItem* (name: string, fn: Function): Item =
+  Item(name: parseName(name), kind: fItem, f: fn)
+proc ModuleItem* (name: string, m: Module): Item =
+  Item(name: parseName(name), kind: mItem, m: m)
+
+proc SimpleModule* (name: string, items: openarray[Item]): Module =
+  Module(kind: simpleM, name: name, items: @items)
+proc CustomModule* (name: string, getter: GetterFn, builder: BuilderFn = nil): Module =
+  Module(kind: customM, name: name, getter: getter, builder: builder)
+
 proc `$`* (f: Function): string = f.name
 proc `$`* (i: Item): string =
   if i.kind == nilItem: return "NoItem"
-  $i.kind & "(" & i.name & ", " & (case i.kind
+  $i.kind & "(" & $i.name & ", " & (case i.kind
     of fItem: $i.f[]
     of tItem: $i.t[]
     of mItem: i.m.name
     else: ""
   ) & ")"
 proc `$`* (m: Module): string =
-  if m.isNil: return "nil"
-  else: result = "Module(" & m.name & ", " & $m.items & ")"
+  if m.isNil: "nil"
+  elif not m.name.isNil: m.name 
+  else: "<anonymous module>"
 proc `$`* (t: Type): string =
   if t.isNil: "nil"
   else: t.name
 proc `[]=`* (m: var Module, k: string, f: Function) =
-  m.items.add(Item(name: k, kind: fItem, f: f))
+  m.items.add(FunctionItem(k, f))
 proc `[]=`* (m: var Module, k: string, t: Type) =
-  m.items.add(Item(name: k, kind: tItem, t: t))
-proc `[]`* (m: Module, key: string): Item =
+  m.items.add(TypeItem(k, t))
+proc `[]`* (m: Module, key: Name): Item =
   case m.kind
   of simpleM:
-    for item in m.items:
-      if item.name == key:
-        return item
-    return Item(kind: nilItem)
-  of lazyM:
-    return m.getter(key)
-  else:
-    return Item(kind: nilItem)
+    proc get (it: Item): Name = it.name
+    let i = findWithName(m.items, key, get)
+    if i >= 0: return m.items[i]
+  of customM:
+    if not m.getter.isNil:
+      return m.getter(key)
+  else: discard
+  return Item(kind: nilItem)
+proc `[]`* (m: Module, key: string): Item = m[parseName(key)]
 
 proc build* (self: Module, argument: Module): Module =
-  if self.kind == functorM:
-    return self.fn(argument)
-  if self.kind == lazyM and not self.builder.isNil:
+  if self.kind == customM and not self.builder.isNil:
     return self.builder(argument)
   raise newException(CobreError, "Module " & self.name & " is not a functor")
 
