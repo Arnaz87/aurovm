@@ -118,7 +118,9 @@ proc set_module_loader*(loader: ModLoader) =
 
 # TODO: This fails with, for example: "a:b:b:c" "a:b:c:c"
 # both ways should be false, but both return true
-proc `$`* (self: Name): string = self.main & ":" & self.parts.join(":")
+proc `$`* (self: Name): string =
+  if self.parts.len == 0: self.main
+  else: self.main & ":" & self.parts.join(":")
 proc parseName* (str: string): Name =
   result.parts = str.split("\x1d")
   result.main = result.parts[0]

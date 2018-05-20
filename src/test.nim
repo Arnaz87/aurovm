@@ -14,6 +14,8 @@ import options
 
 import cobrelib
 
+from strutils import multiReplace
+
 # JS Compatibility
 proc `$` (x: uint8): string = $int(x)
 
@@ -64,7 +66,7 @@ macro bin* (xs: varargs[untyped]): untyped =
           addInt( x[1].intVal )
         of nnkStrLit:
           addInt( x[1].strVal.len )
-          addStr( x[1].strVal )
+          addStr( x[1].strVal.multiReplace({".": "\x1f", ":": "\x1d"}))
         else: otherwise()
       else: otherwise()
     else: otherwise()
@@ -90,6 +92,7 @@ suite "binary":
     check bin($"") == bin(0)
     check bin(7, "ab") == bin(7, 'a', 'b')
     check bin($"abcde") == bin(5, "abcde")
+    check bin($"a.b:c") == bin(5, "a\x1fb\x1dc")
 
 proc get_function (m: machine.Module, name: string): machine.Function =
   let item = m[name]

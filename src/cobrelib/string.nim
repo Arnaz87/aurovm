@@ -1,0 +1,53 @@
+
+let strT*: Type = Type(name: "string")
+let charT*: Type = Type(name: "char")
+
+globalModule("cobre.string"):
+  self["string"] = strT
+  self["char"] = charT
+
+  self.addfn("new", [binT], [strT]):
+    let bytes = args[0].bytes
+    var str = newString(bytes.len)
+    for i in 0..bytes.high:
+      str[i] = char(bytes[i])
+    args.ret Value(kind: strV, s: str)
+
+  self.addfn("itos", [intT], [strT]):
+    let i = args[0].i
+    args.ret Value(kind: strV, s: $i)
+
+  self.addfn("ftos", [fltT], [strT]):
+    let f = args[0].f
+    args.ret Value(kind: strV, s: $f)
+
+  self.addfn("add", [strT, charT], [strT]):
+    let r = args[0].s & args[1].s
+    args.ret Value(kind: strV, s: r)
+
+  self.addfn("concat", [strT, strT], [strT]):
+    let r = args[0].s & args[1].s
+    args.ret Value(kind: strV, s: r)
+
+  self.addfn("eq", [strT, strT], [boolT]):
+    let r = args[0].s == args[1].s
+    args.ret Value(kind: boolV, b: r)
+
+  self.addfn("newchar", [intT], [charT]):
+    let ch = cast[char](args[0].i)
+    args.ret Value(kind: strV, s: $ch)
+
+  self.addfn("charat", [strT, intT], [charT, intT]):
+    let i = args[1].i
+    let str = $args[0].s[i]
+    args.retn([
+      Value(kind: strV, s: str),
+      Value(kind: intV, i: i+1)
+    ])
+
+  self.addfn("codeof", [charT], [intT]):
+    let code = cast[int](args[0].s[0])
+    args.ret Value(kind: intV, i: code)
+
+  self.addfn("length", [strT], [intT]):
+    args.ret Value(kind: intV, i: args[0].s.len)

@@ -156,12 +156,12 @@ proc getFunction(self: State, i: int): Function =
     of intConst:
       let n = data.value
       let v = Value(kind: intV, i: n)
-      let sig = Signature(ins:  @[], outs: @[findModule("cobre.int")["int"].t])
+      let sig = Signature(ins:  @[], outs: @[cobrelib.intT])
       result = Function(name: $n, kind: constF, sig: sig, value: v)
       fndata = FnData(kind: readyFn, f: result)
     of binConst:
       let v = Value(kind: binV, bytes: data.bytes)
-      let sig = Signature(ins:  @[], outs: @[findModule("cobre.core")["bin"].t])
+      let sig = Signature(ins:  @[], outs: @[cobrelib.binT])
       result = Function(name: "binary", kind: constF, sig: sig, value: v)
       fndata = FnData(kind: readyFn, f: result)
     of callConst:
@@ -259,8 +259,7 @@ proc typeCheck(self: State, fn: Function) =
       of jmpI: discard
       of jifI, nifI:
         if not regs[inst.src].isNil:
-          let boolT = findModule("cobre.core")["bool"].t
-          check(regs[inst.src], boolT, index)
+          check(regs[inst.src], cobrelib.boolT, index)
         else: cancel = true
       of endI:
         for i in 0 .. inst.args.high:

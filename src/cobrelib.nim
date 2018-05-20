@@ -6,7 +6,7 @@ import tables
 import options
 
 from times import cpuTime
-from strutils import toHex
+from strutils import toHex, replace
 import osproc
 
 import sequtils
@@ -39,6 +39,21 @@ template addfn* (
   body: untyped
 ) = addfn(items, myname, mksig(myins, myouts), body)
 
+template addfn* (
+  self: var Module,
+  name: string,
+  sig: Signature,
+  body: untyped
+) = addfn(self.items, name, sig, body)
+
+template addfn* (
+  self: var Module,
+  name: string,
+  myins: openArray[Type],
+  myouts: openArray[Type],
+  body: untyped
+) = addfn(self, name, mksig(myins, myouts), body)
+
 
 proc newModule* (
   name: string,
@@ -58,345 +73,75 @@ proc newModule* (
     result[nm] = f
   machine_modules.add(result)
 
+template createModule (name: string, body: untyped): Module =
+  block:
+    var self {.inject.} = SimpleModule(name.replace('.', '\x1f'), [])
+    body
+    self
 
-#==========================================================#
-#===                     cobre.core                     ===#
-#==========================================================#
+template globalModule (name: string, body: untyped) =
+  machine_modules.add(createModule(name, body))
+
+template createFunctor (name: string, body: untyped): Module =
+  block:
+    proc builder (myarg: Module): Module =
+      var argument {.inject.} = myarg
+      body
+    CustomModule(name.replace('.', '\x1f'), nil, builder)
+
+template globalFunctor (name: string, body: untyped) =
+  machine_modules.add(createFunctor(name, body))
+
+proc hash(t: Type): Hash = t.name.hash
+proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
+
 
 let binT*: Type = Type(name: "bin")
 let boolT*: Type = Type(name: "bool")
-let anyT*: Type = Type(name: "any")
 
-discard newModule(
-  name = "cobre.core",
-  types = @{ "bool": boolT, "bin": binT, "any": anyT }
-)
+globalModule("cobre.core"):
+  self["bool"] = boolT
+  self["bin"] = binT
 
-
-#==========================================================#
-#===                     cobre.unit                     ===#
-#==========================================================#
-
-let unitT*: Type = Type(name: "unit")
-
-block:
-  var items = @[TypeItem("", unitT)]
-  items.addfn("new", [unitT], []): args.ret Value(kind: nilV)
-  machine_modules.add Module(
-    name: "cobre.unit",
-    kind: simpleM,
-    items: items,
-  )
-
-
-#==========================================================#
-#===                     cobre.int                      ===#
-#==========================================================#
-
-let intT*: Type = Type(name: "int")
-
-block:
-  proc addf (args: var seq[Value]) =
-    let r = args[0].i + args[1].i
-    args.ret Value(kind: intV, i: r)
-
-  proc subf (args: var seq[Value]) =
-    let r = args[0].i - args[1].i
-    args.ret Value(kind: intV, i: r)
-
-  proc mulf (args: var seq[Value]) =
-    let r = args[0].i * args[1].i
-    args.ret Value(kind: intV, i: r)
-
-  proc divf (args: var seq[Value]) =
-    let r = int(args[0].i / args[1].i)
-    args.ret Value(kind: intV, i: r)
-
-  proc eqf (args: var seq[Value]) =
-    let r = args[0].i == args[1].i
-    args.ret Value(kind: boolV, b: r)
-
-  proc gtf (args: var seq[Value]) =
-    let r = args[0].i > args[1].i
-    args.ret Value(kind: boolV, b: r)
-
-  proc gtef (args: var seq[Value]) =
-    let r = args[0].i >= args[1].i
-    args.ret Value(kind: boolV, b: r)
-
-  proc ltf (args: var seq[Value]) =
-    let r = args[0].i < args[1].i
-    args.ret Value(kind: boolV, b: r)
-
-  proc ltef (args: var seq[Value]) =
-    let r = args[0].i <= args[1].i
-    args.ret Value(kind: boolV, b: r)
-
-  proc gtzf (args: var seq[Value]) =
-    let r = args[0].i > 0
-    args.ret Value(kind: boolV, b: r)
-
-  proc incf (args: var seq[Value]) =
-    let r = args[0].i + 1
-    args.ret Value(kind: intV, i: r)
-
-  proc decf (args: var seq[Value]) =
-    let r = args[0].i - 1
-    args.ret Value(kind: intV, i: r)
-
-  proc negf (args: var seq[Value]) =
-    let r = 0 - args[0].i
-    args.ret Value(kind: intV, i: r)
-
-  proc signedf (args: var seq[Value]) =
-    let i = args[0].i
-    let mag = i shr 1
-    let r = if (i and 1) == 1: -mag else: mag
-    args.ret Value(kind: intV, i: r)
-
-  let iitoi = Signature(
-    ins: @[intT, intT],
-    outs: @[intT]
-  )
-  let iitob = Signature(
-    ins: @[intT, intT],
-    outs: @[boolT]
-  )
-  let itoi = Signature(ins: @[intT], outs: @[intT])
-  let itob = Signature(ins: @[intT], outs: @[boolT])
-
-  discard newModule(
-    name = "cobre.int", 
-    types = @{ "int": intT, },
-    funcs = @{
-      "add": newFunction("add", iitoi, addf),
-      "sub": newFunction("sub", iitoi, subf),
-      "mul": newFunction("mul", iitoi, mulf),
-      "div": newFunction("div", iitoi, divf),
-      "eq" : newFunction("eq" , iitob, eqf),
-      "gt" : newFunction("gt" , iitob, gtf),
-      "gte": newFunction("gte", iitob, gtef),
-      "lt" : newFunction("lt" , iitob, ltf),
-      "lte": newFunction("lte", iitob, ltef),
-      "gtz": newFunction("gtz", itob, gtzf),
-      "inc": newFunction("inc", itoi, incf),
-      "dec": newFunction("dec", itoi, decf),
-      "neg": newFunction("neg", itoi, negf),
-      "signed": newFunction("signed", itoi, signedf),
-    }
-  )
-
-  var prim = newModule(
-    name = "cobre.prim", 
-    types = @{ "int": intT, },
-    funcs = @{
-      "add": newFunction("add", iitoi, addf),
-      "sub": newFunction("sub", iitoi, subf),
-      "mul": newFunction("mul", iitoi, mulf),
-      "div": newFunction("div", iitoi, divf),
-      "eq" : newFunction("eq" , iitob, eqf),
-      "gt" : newFunction("gt" , iitob, gtf),
-      "gte": newFunction("gte", iitob, gtef),
-      "gtz": newFunction("gtz", itob, gtzf),
-      "inc": newFunction("inc", itoi, incf),
-      "dec": newFunction("dec", itoi, decf),
-    }
-  )
-  prim.deprecated = true
-
-
-#==========================================================#
-#===                     cobre.float                    ===#
-#==========================================================#
-
-let fltT*: Type = Type(name: "float")
-
-block:
-  proc itoff (args: var seq[Value]) =
-    let r = (float) args[0].i
-    args.ret Value(kind: fltV, f: r)
-
-  proc decimalf (args: var seq[Value]) =
-    var r = (float) args[0].i
-    var exp = args[1].i
-
-    while exp > 0:
-      r = r*10
-      exp -= 1
-
-    while exp < 0:
-      r = r/10
-      exp += 1
-    args.ret Value(kind: fltV, f: r)
-
-  proc addf (args: var seq[Value]) =
-    let r = args[0].f + args[1].f
-    args.ret Value(kind: fltV, f: r)
-
-  proc subf (args: var seq[Value]) =
-    let r = args[0].f - args[1].f
-    args.ret Value(kind: fltV, f: r)
-
-  proc mulf (args: var seq[Value]) =
-    let r = args[0].f * args[1].f
-    args.ret Value(kind: fltV, f: r)
-
-  proc divf (args: var seq[Value]) =
-    let r = args[0].f / args[1].f
-    args.ret Value(kind: fltV, f: r)
-
-  proc eqf (args: var seq[Value]) =
-    let r = args[0].f == args[1].f
-    args.ret Value(kind: boolV, b: r)
-
-  proc gtf (args: var seq[Value]) =
-    let r = args[0].f > args[1].f
-    args.ret Value(kind: boolV, b: r)
-
-  proc gtef (args: var seq[Value]) =
-    let r = args[0].f >= args[1].f
-    args.ret Value(kind: boolV, b: r)
-
-  proc ltf (args: var seq[Value]) =
-    let r = args[0].f < args[1].f
-    args.ret Value(kind: boolV, b: r)
-
-  proc ltef (args: var seq[Value]) =
-    let r = args[0].f <= args[1].f
-    args.ret Value(kind: boolV, b: r)
-
-  proc gtzf (args: var seq[Value]) =
-    let r = args[0].f > 0
-    args.ret Value(kind: boolV, b: r)
-
-  let fftof = Signature(
-    ins: @[fltT, fltT],
-    outs: @[fltT]
-  )
-  let fftob = Signature(
-    ins: @[fltT, fltT],
-    outs: @[boolT]
-  )
-  let ftof = Signature(ins: @[fltT], outs: @[fltT])
-  let ftob = Signature(ins: @[fltT], outs: @[boolT])
-  let itofsig = Signature(ins: @[intT], outs: @[fltT])
-  let iitofsig = Signature(ins: @[intT, intT], outs: @[fltT])
-
-  discard newModule(
-    name = "cobre.float", 
-    types = @{ "float": fltT, },
-    funcs = @{
-      "add": newFunction("add", fftof, addf),
-      "sub": newFunction("sub", fftof, subf),
-      "mul": newFunction("mul", fftof, mulf),
-      "div": newFunction("div", fftof, divf),
-      "eq" : newFunction("eq" , fftob, eqf),
-      "gt" : newFunction("gt" , fftob, gtf),
-      "gte": newFunction("gte", fftob, gtef),
-      "lt" : newFunction("lt" , fftob, ltf),
-      "lte": newFunction("lte", fftob, ltef),
-      "gtz": newFunction("gtz", ftob, gtzf),
-      "itof": newFunction("itof", itofsig, itoff),
-      "decimal": newFunction("decimal", iitofsig, decimalf),
-    }
-  )
-
-
-#==========================================================#
-#===                    cobre.string                    ===#
-#==========================================================#
-
-let strT*: Type = Type(name: "string")
-let charT*: Type = Type(name: "string")
-
-block:
-  var items = @[
-    TypeItem("string", strT),
-    TypeItem("char", charT)
-  ]
-
-  items.addfn("new", [binT], [strT]):
-    let bytes = args[0].bytes
-    var str = newString(bytes.len)
-    for i in 0..bytes.high:
-      str[i] = char(bytes[i])
-    args.ret Value(kind: strV, s: str)
-
-  items.addfn("itos", [intT], [strT]):
-    let i = args[0].i
-    args.ret Value(kind: strV, s: $i)
-
-  items.addfn("ftos", [fltT], [strT]):
-    let f = args[0].f
-    args.ret Value(kind: strV, s: $f)
-
-  items.addfn("add", [strT, charT], [strT]):
-    let r = args[0].s & args[1].s
-    args.ret Value(kind: strV, s: r)
-
-  items.addfn("concat", [strT, strT], [strT]):
-    let r = args[0].s & args[1].s
-    args.ret Value(kind: strV, s: r)
-
-  items.addfn("eq", [strT, strT], [boolT]):
-    let r = args[0].s == args[1].s
-    args.ret Value(kind: boolV, b: r)
-
-  items.addfn("newchar", [intT], [charT]):
-    let ch = cast[char](args[0].i)
-    args.ret Value(kind: strV, s: $ch)
-
-  items.addfn("charat", [strT, intT], [charT, intT]):
-    let i = args[1].i
-    let str = $args[0].s[i]
-    args.retn([
-      Value(kind: strV, s: str),
-      Value(kind: intV, i: i+1)
-    ])
-
-  items.addfn("codeof", [charT], [intT]):
-    let code = cast[int](args[0].s[0])
-    args.ret Value(kind: intV, i: code)
-
-  items.addfn("length", [strT], [intT]):
-    args.ret Value(kind: intV, i: args[0].s.len)
-  
-  machine_modules.add Module(
-    name: "cobre.string",
-    kind: simpleM,
-    items: items,
-  )
-
+include cobrelib/int
+include cobrelib/float
+include cobrelib/string
+include cobrelib/record
+include cobrelib/null
+include cobrelib/array
+include cobrelib/function
+include cobrelib/typeshell
+include cobrelib/any
 
 #==========================================================#
 #===                    cobre.system                    ===#
 #==========================================================#
 
-block:
+globalModule("cobre.system"):
   let fileT = Type(name: "file")
-  var items = @[ TypeItem("file", fileT) ]
+  self["file"] = fileT
 
-  items.addfn("quit", [intT], []):
+  self.addfn("quit", [intT], []):
     quit(args[0].i)
 
-  items.addfn("print", mksig([strT], [])):
+  self.addfn("print", mksig([strT], [])):
     echo args[0].s
     args.setLen(0)
 
-  items.addfn("read", mksig([], [strT])):
+  self.addfn("read", mksig([], [strT])):
     var line = stdin.readLine()
     args.ret Value(kind: strV, s: line)
 
-  items.addfn("clock", mksig([], [fltT])):
+  self.addfn("clock", mksig([], [fltT])):
     args.ret Value(kind: fltV, f: cpuTime())
 
-  items.addfn("exec", mksig([strT], [intT])):
+  self.addfn("exec", mksig([strT], [intT])):
     let cmd = args[0].s
     var p = startProcess(command = cmd, options = {poEvalCommand})
     let code = p.waitForExit()
     args.ret Value(kind: intV, i: code)
 
-  items.addfn("cmd", mksig([strT], [strT])):
+  self.addfn("cmd", mksig([strT], [strT])):
     let cmd = args[0].s
     var p = startProcess(command = cmd, options = {poEvalCommand})
     var out_file: File
@@ -406,7 +151,7 @@ block:
 
     args.ret Value(kind: strV, s: out_str)
 
-  items.addfn("open", mksig([strT, strT], [fileT])):
+  self.addfn("open", mksig([strT, strT], [fileT])):
     let path = args[0].s
     let mode = case args[1].s
       of "w": fmWrite
@@ -415,461 +160,28 @@ block:
     let file = open(path, mode)
     args.ret(Value(kind: ptrV, pt: file))
 
-  items.addfn("readall", mksig([strT], [strT])):
+  self.addfn("readall", mksig([strT], [strT])):
     let path = args[0].s
     let file = open(path, fmRead)
     let contents = readAll(file)
     args.ret(Value(kind: strV, s: contents))
 
-  items.addfn("write", mksig([fileT, strT], [])):
+  self.addfn("write", mksig([fileT, strT], [])):
     let file = cast[File](args[0].pt)
     file.write(args[1].s)
 
-  items.addfn("writebyte", mksig([fileT, intT], [])):
+  self.addfn("writebyte", mksig([fileT, intT], [])):
     let file = cast[File](args[0].pt)
     let b = uint8(args[1].i)
     let written = file.writeBytes([b], 0, 1)
     if written != 1:
       raise newException(Exception, "Couldn't write file")
 
-  items.addfn("argc", mksig([], [intT])):
+  self.addfn("argc", mksig([], [intT])):
     args.ret Value(kind: intV, i: cobreargs.len)
 
-  items.addfn("args", mksig([intT], [strT])):
+  self.addfn("args", mksig([intT], [strT])):
     args.ret Value(kind: strV, s: cobreargs[args[0].i])
 
-  items.addfn("error", mksig([strT], [])):
+  self.addfn("error", mksig([strT], [])):
     raise newException(Exception, args[0].s)
-
-  machine_modules.add Module(
-    name: "cobre.system",
-    kind: simpleM,
-    items: items,
-  )
-
-
-#==========================================================#
-#===                    cobre.record                     ===#
-#==========================================================#
-
-proc hash(t: Type): Hash = t.name.hash
-var record_modules = initTable[seq[Type], Module](32)
-
-proc tplFn (argument: Module): Module =
-  var types: seq[Type] = @[]
-  var n = 0
-  var nitem = argument[$n]
-  while nitem.kind == tItem:
-    types.add(nitem.t)
-    n += 1
-    nitem = argument[$n]
-
-  if record_modules.hasKey(types):
-    return record_modules[types]
-
-  let basename = "record" & $n
-
-  var tp = Type(name: basename)
-  var items = @[ TypeItem("", tp) ]
-
-  type Product = ref object of RootObj
-    fields: seq[Value]
-
-  proc create_getter (index: int): Function =
-    proc prc (args: var seq[Value]) =
-      let p = Product(args[0].obj)
-      let field = p.fields[index]
-      args.ret(field)
-    let sig = Signature(ins: @[tp], outs: @[types[index]])
-    return Function(
-      name: basename & ".get" & $index,
-      sig: sig,
-      kind: procF,
-      prc: prc
-    )
-
-  proc create_setter (index: int): Function =
-    proc prc (args: var seq[Value]) =
-      let p = Product(args[0].obj)
-      p.fields[index] = args[1]
-    let sig = Signature(ins: @[tp, types[index]], outs: @[])
-    return Function(
-      name: basename & ".set" & $index,
-      sig: sig,
-      kind: procF,
-      prc: prc
-    )
-
-  for i in 0..<n:
-    items.add(FunctionItem("get" & $i, create_getter(i)))
-    items.add(FunctionItem("set" & $i, create_setter(i)))
-
-  proc newProc (args: var seq[Value]) =
-    var vs = newSeq[Value](types.len)
-    for i in 0..<types.len:
-      vs[i] = args[i]
-
-    args.ret Value(
-      kind: objV,
-      obj: Product(fields: vs)
-    )
-
-  let sig = Signature(ins: types, outs: @[tp])
-  items.add(FunctionItem("new", Function(
-    name: basename & ".new",
-    sig: sig,
-    kind: procF,
-    prc: newProc
-  )))
-
-  result = Module(
-    name: basename & "_module",
-    kind: simpleM,
-    items: items,
-  )
-  record_modules[types] = result
-
-machine_modules.add(Module(name: "cobre.record", kind: customM, builder: tplFn))
-
-# Deprecated
-machine_modules.add(Module(name: "cobre.tuple", kind: customM, builder: tplFn, deprecated: true))
-
-
-#==========================================================#
-#===                     cobre.null                     ===#
-#==========================================================#
-
-proc nullFn (argument: Module): Module =
-  var argitem = argument["0"]
-  if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.null is not a type")
-  var base = argitem.t
-  let basename = "null(" & base.name & ")"
-  var tp = Type(name: basename)
-
-  var items = @[ TypeItem("", tp) ]
-
-  items.addfn("null", mksig(@[], @[tp])):
-    args.ret Value(kind: nilV)
-
-  items.addfn("new", mksig(@[base], @[tp])):
-    args.ret args[0]
-
-  items.addfn("get", mksig(@[tp], @[base])):
-    if args[0].kind == nilV:
-      raise newException(Exception, "Value is null")
-    args.ret args[0]
-
-  items.addfn("isnull", mksig(@[tp], @[boolT])):
-    let r = args[0].kind == nilV
-    args.ret Value(kind: boolV, b: r)
-
-  return Module(
-    name: basename & "_module",
-    kind: simpleM,
-    items: items,
-  )
-
-machine_modules.add(Module(name: "cobre.null", kind: customM, builder: nullFn))
-
-
-#==========================================================#
-#===                    cobre.array                     ===#
-#==========================================================#
-
-var array_modules = initTable[Type, Module](32)
-
-proc arrayFn (argument: Module): Module =
-  var argitem = argument["0"]
-  if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.array is not a type")
-  var base = argitem.t
-
-  if array_modules.hasKey(base):
-    return array_modules[base]
-
-  let basename = "array(" & base.name & ")"
-  var tp = Type(name: basename)
-
-  type Array = ref object of RootObj
-    items: seq[Value]
-
-  var items = @[ TypeItem("", tp) ]
-
-  items.addfn("new", [base, intT], [tp]):
-    var vs = newSeq[Value](args[1].i)
-    for i in 0 ..< vs.len:
-      vs[i] = args[0]
-    args.ret Value(
-      kind: objV,
-      obj: Array(items: vs)
-    )
-
-  items.addfn("get", [tp, intT], [base]):
-    let arr = Array(args[0].obj)
-    let i = args[1].i
-    if i > arr.items.high:
-      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
-    args.ret arr.items[i]
-
-  items.addfn("set", [tp, intT, base], []):
-    let arr = Array(args[0].obj)
-    let i = args[1].i
-    if i > arr.items.high:
-      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
-    arr.items[i] = args[2]
-
-  items.addfn("len", [tp], [intT]):
-    let arr = Array(args[0].obj)
-    let r = arr.items.len
-    args.ret Value(kind: intV, i: r)
-
-  # These two are temporary, until other array types are introduced
-
-  items.addfn("push", [tp, base], []):
-    let arr = Array(args[0].obj)
-    arr.items.add args[1]
-
-  items.addfn("empty", [], [tp]):
-    args.ret Value(
-      kind: objV,
-      obj: Array(items: @[])
-    )
-
-
-  result = Module(
-    name: basename & "_module",
-    kind: simpleM,
-    items: items,
-  )
-  array_modules[base] = result
-
-machine_modules.add(Module(name: "cobre.array", kind: customM, builder: arrayFn))
-
-
-#==========================================================#
-#===                   cobre.function                   ===#
-#==========================================================#
-
-proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
-var function_modules = initTable[Signature, Module](32)
-
-proc functionFn (argument: Module): Module =
-  var ins:  seq[Type] = @[]
-  var outs: seq[Type] = @[]
-  var n = 0
-  var nitem = argument["in" & $n]
-  while nitem.kind == tItem:
-    ins.add(nitem.t)
-    n += 1
-    nitem = argument["in" & $n]
-  n = 0
-  nitem = argument["out" & $n]
-  while nitem.kind == tItem:
-    outs.add(nitem.t)
-    n += 1
-    nitem = argument["out" & $n]
-
-  var sig = Signature(ins: ins, outs: outs)
-  if function_modules.hasKey(sig):
-    return function_modules[sig]
-
-  let basename = sig.name
-
-  var tp = Type(name: basename)
-  var items = @[ TypeItem("", tp) ]
-
-  var applyIns = @[tp]
-  applyIns.add(ins)
-
-  let applySig = Signature(ins: applyIns, outs: outs)
-
-  # apply Functions get treated specially by the machine,
-  # to keep the stack organized
-
-  items.add(FunctionItem("apply", Function(
-    name: basename & ".apply",
-    sig: applySig,
-    kind: applyF,
-  )))
-
-  proc newFunctorFn (argument: Module): Module =
-    let item = argument["0"]
-    if item.kind != fItem:
-      raise newException(Exception, "Argument `0` is not a function")
-    let f = item.f
-    if f.sig != sig:
-      raise newException(Exception, "Incorrect function signature")
-
-    let value = Value(kind: functionV, fn: f)
-
-    let cnsf = Function(
-      name: basename,
-      sig: Signature(ins: @[], outs: @[tp]),
-      kind: constF,
-      value: value
-    )
-
-    return Module(
-      name: basename & ".new",
-      kind: simpleM,
-      items: @[FunctionItem("", cnsf)]
-    )
-
-  let newFunctor = Module(name: basename & ".new", kind: customM, builder: newFunctorFn)
-  items.add(ModuleItem("new", newFunctor))
-
-  # A closure is like a normal function, but the base function has an
-  # additional parameter, which is bound to the function value
-  proc closureFunctorFn (argument: Module): Module =
-    let item = argument["0"]
-    if item.kind != fItem:
-      raise newException(Exception, "Argument `0` is not a function")
-    let f = item.f
-    if f.sig.outs != sig.outs or f.sig.ins.len != (sig.ins.len + 1):
-      raise newException(Exception, "Incorrect closure signature")
-
-    for p in zip(f.sig.ins, sig.ins):
-      if p.a != p.b:
-        raise newException(Exception, "Incorrect closure signature")
-
-    # Type of the bound value
-    let boundT = f.sig.ins[f.sig.ins.high]
-    let closurename = basename & ".closure(" & boundT.name & ")"
-    var items = newSeq[Item]()
-
-    items.addfn("new", mksig(@[boundT], @[tp])):
-      args.ret Value(kind: functionV, fn: Function(
-        kind: closureF,
-        name: closurename,
-        sig: f.sig,
-        fn: f,
-        bound: args[0]
-      ))
-
-    return Module(name: closurename, kind: simpleM, items: items)
-
-  let closureFunctor = Module(name: basename & ".closure", kind: customM, builder: closureFunctorFn)
-  items.add(ModuleItem("closure", closureFunctor))
-
-  result = Module(
-    name: basename & "_module",
-    kind: simpleM,
-    items: items,
-  )
-  function_modules[sig] = result
-
-machine_modules.add(Module(name: "cobre.function", kind: customM, builder: functionFn))
-
-
-#==========================================================#
-#===                   cobre.typeshell                  ===#
-#==========================================================#
-
-var shellid = 1
-
-proc shellFn (argument: Module): Module =
-
-  #[ This is a problem, I cannot check right away if the argument is a type
-  # because I would need to evaluate it, nor can I get the type name
-  var argitem = argument["0"]
-  if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
-  var base = argitem.t
-  let basename = "shell(" & base.name & ")"
-  ]#
-
-  let basename = "type_" & shellid.toHex(2)
-  shellid += 1
-
-  proc getbase (): Type =
-    let argitem = argument["0"]
-    if argitem.kind != tItem:
-      raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
-    return argitem.t
-
-  let tp = Type(name: basename)
-  let tpitem = TypeItem("", tp)
-
-  # Just returns the argument as is, as this type is just a box
-  proc idProc (args: var seq[Value]) = args.ret args[0]
-
-  # These items cannot be created yet because I need their signatures,
-  # and the signatures need the type, which cannot be evaluated yet
-  var newitem = none(Item)
-  var getitem = none(Item)
-
-  proc getter (key: Name): Item =
-    if key.parts.len > 0: return Item(kind: nilItem)
-    case key.main
-    of "": tpitem
-    of "new":
-      if newitem.isNone:
-        newitem = some(FunctionItem("new", Function(
-          name: basename & ".new",
-          sig: mksig(@[getbase()], @[tp]),
-          kind: procF,
-          prc: idProc
-        )))
-      newitem.get
-    of "get":
-      if getitem.isNone:
-        getitem = some(FunctionItem("get", Function(
-          name: basename & ".get",
-          sig: mksig(@[tp], @[getbase()]),
-          kind: procF,
-          prc: idProc
-        )))
-      getitem.get
-    else: Item(kind: nilItem)
-
-  return CustomModule(basename & "_module", getter)
-
-machine_modules.add(CustomModule("cobre.typeshell", nil, shellFn))
-
-
-#==========================================================#
-#===                     cobre.any                      ===#
-#==========================================================#
-
-var any_modules = initTable[Type, Module](32)
-
-type AnyVal = ref object of RootObj
-  tp: Type
-  v: Value
-
-proc anyFn (argument: Module): Module =
-  var argitem = argument["0"]
-  if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.any is not a type")
-  var base = argitem.t
-
-  if array_modules.hasKey(base):
-    return array_modules[base]
-
-  let basename = "any(" & base.name & ")"
-
-  var items = newSeq[Item]()
-
-  items.addfn("new", mksig(@[base], @[anyT])):
-    let val = AnyVal(tp: base, v: args[0])
-    args.ret Value(kind: objV, obj: val)
-
-  items.addfn("get", mksig(@[anyT], @[base])):
-    let val = AnyVal(args[0].obj)
-    if val.tp != base:
-      raise newException(Exception, "Any type was " & val.tp.name)
-    args.ret val.v
-
-  items.addfn("test", mksig(@[anyT], @[boolT])):
-    let val = AnyVal(args[0].obj)
-    args.ret Value(kind: boolV, b: val.tp == base)
-
-  result = Module(
-    name: basename & "_module",
-    kind: simpleM,
-    items: items,
-  )
-  array_modules[base] = result
-
-machine_modules.add(CustomModule("cobre.any", nil, anyFn))
