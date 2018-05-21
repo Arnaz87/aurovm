@@ -75,22 +75,22 @@ proc newModule* (
 
 template createModule (name: string, body: untyped): Module =
   block:
-    var self {.inject.} = SimpleModule(name.replace('.', '\x1f'), [])
+    var self {.inject.} = SimpleModule(name, [])
     body
     self
 
 template globalModule (name: string, body: untyped) =
-  machine_modules.add(createModule(name, body))
+  machine_modules.add(createModule(name.replace('.', '\x1f'), body))
 
 template createFunctor (name: string, body: untyped): Module =
   block:
     proc builder (myarg: Module): Module =
       var argument {.inject.} = myarg
       body
-    CustomModule(name.replace('.', '\x1f'), nil, builder)
+    CustomModule(name, nil, builder)
 
 template globalFunctor (name: string, body: untyped) =
-  machine_modules.add(createFunctor(name, body))
+  machine_modules.add(createFunctor(name.replace('.', '\x1f'), body))
 
 proc hash(t: Type): Hash = t.name.hash
 proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)

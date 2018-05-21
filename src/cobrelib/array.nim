@@ -16,52 +16,47 @@ globalFunctor("cobre.array"):
   type Array = ref object of RootObj
     items: seq[Value]
 
-  var items = @[ TypeItem("", tp) ]
+  result = createModule(basename):
+    self[""] = tp
 
-  items.addfn("new", [base, intT], [tp]):
-    var vs = newSeq[Value](args[1].i)
-    for i in 0 ..< vs.len:
-      vs[i] = args[0]
-    args.ret Value(
-      kind: objV,
-      obj: Array(items: vs)
-    )
+    self.addfn("new", [base, intT], [tp]):
+      var vs = newSeq[Value](args[1].i)
+      for i in 0 ..< vs.len:
+        vs[i] = args[0]
+      args.ret Value(
+        kind: objV,
+        obj: Array(items: vs)
+      )
 
-  items.addfn("get", [tp, intT], [base]):
-    let arr = Array(args[0].obj)
-    let i = args[1].i
-    if i > arr.items.high:
-      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
-    args.ret arr.items[i]
+    self.addfn("get", [tp, intT], [base]):
+      let arr = Array(args[0].obj)
+      let i = args[1].i
+      if i > arr.items.high:
+        raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
+      args.ret arr.items[i]
 
-  items.addfn("set", [tp, intT, base], []):
-    let arr = Array(args[0].obj)
-    let i = args[1].i
-    if i > arr.items.high:
-      raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
-    arr.items[i] = args[2]
+    self.addfn("set", [tp, intT, base], []):
+      let arr = Array(args[0].obj)
+      let i = args[1].i
+      if i > arr.items.high:
+        raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
+      arr.items[i] = args[2]
 
-  items.addfn("len", [tp], [intT]):
-    let arr = Array(args[0].obj)
-    let r = arr.items.len
-    args.ret Value(kind: intV, i: r)
+    self.addfn("len", [tp], [intT]):
+      let arr = Array(args[0].obj)
+      let r = arr.items.len
+      args.ret Value(kind: intV, i: r)
 
-  # These two are temporary, until other array types are introduced
+    # These two are temporary, until other array types are introduced
 
-  items.addfn("push", [tp, base], []):
-    let arr = Array(args[0].obj)
-    arr.items.add args[1]
+    self.addfn("push", [tp, base], []):
+      let arr = Array(args[0].obj)
+      arr.items.add args[1]
 
-  items.addfn("empty", [], [tp]):
-    args.ret Value(
-      kind: objV,
-      obj: Array(items: @[])
-    )
-
-
-  result = Module(
-    name: basename & "_module",
-    kind: simpleM,
-    items: items,
-  )
+    self.addfn("empty", [], [tp]):
+      args.ret Value(
+        kind: objV,
+        obj: Array(items: @[])
+      )
+      
   array_modules[base] = result

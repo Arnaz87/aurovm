@@ -4,16 +4,10 @@ let intT*: Type = Type(name: "int")
 globalModule("cobre.int"):
   self["int"] = intT
 
-  let iitoi = Signature(
-    ins: @[intT, intT],
-    outs: @[intT]
-  )
-  let iitob = Signature(
-    ins: @[intT, intT],
-    outs: @[boolT]
-  )
-  let itoi = Signature(ins: @[intT], outs: @[intT])
-  let itob = Signature(ins: @[intT], outs: @[boolT])
+  let itoi = mksig([intT], [intT])
+  let itob = mksig([intT], [boolT])
+  let iitoi = mksig([intT, intT], [intT])
+  let iitob = mksig([intT, intT], [boolT])
 
   self.addfn("add", iitoi):
     let r = args[0].i + args[1].i
