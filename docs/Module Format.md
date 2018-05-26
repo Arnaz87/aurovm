@@ -2,9 +2,9 @@
 
 *[2018-03-23 05:23]*
 
-The file starts with the ascii string `Cobre 0.5` followed by NUL.
+The file starts with the ascii string `Cobre 0.6` followed by NUL.
 
-A module file has 5 sections: Modules, Types, Functions, Code and Metadata. The first three are item sections, entries in the module and function sections must have a kind id, which indicates how the item is defined, and in this specification each item kind will have it's id indicated in square brackets in it's title.
+A module file has 5 sections: Modules, Types, Functions, Code and Metadata. The first three are item sections, entries in the module and function sections must have a kind id, which indicates how the item is defined, and in this document each item kind will have it's id indicated in square brackets in it's title.
 
 # Modules
 
@@ -22,13 +22,15 @@ By convention, modules that don't use names in their arguments items expect thos
 
 By convention, modules that have one main item export it with an empty string as the name, such as Java classes, Python modules or Java generic methods.
 
-## Import [0]
+## Unknown [0]
+
+## Import [1]
 
     name: string
 
 Gets a module from the global module namespace constructed with an empty module argument.
 
-## Define [1]
+## Define [2]
 
     len: int
     items: {
@@ -38,12 +40,6 @@ Gets a module from the global module namespace constructed with an empty module 
     }[len]
 
 Creates a module with the specified items. Each item is defined by a section (a number indicating which of the module[0], type[1] or function[2] section is the item from), an index to an item of said section, and a name with which the item will be accessed from the module.
-
-## ImportFunctor [2] \(Deprecated)
-
-    name: string
-
-Gets a module from the global module namespace as a functor without constructing it. Exactly the same as simply Import
 
 ## Use [3]
 
@@ -67,14 +63,14 @@ Applies an argument to a functor
 Types do not have kinds, all types are always imported from a module, and the standard library provides certain special type creating modules. The type is imported from the module with index `module - 1`. If the module index is 0, the module where the type is from is hidden, useful for documentation modules.
 
 # Functions
-    
+
     kind: int
     in_count: int
     in_types: type_index[in_count]
     out_count: int
     out_types: type_index[out_count]
 
-## Null [0]
+## Unknown [0]
 
 A function that is guaranteed to exist but isn't defined in the module file, for example in documentation modules.
 
@@ -98,12 +94,12 @@ Defines functions that returns single constant values, and are added to the func
 
 A value of type cobre.int (only positive numbers).
 
-## Bin [2]
+## Buffer [2]
 
     size: int
     data: byte[size]
 
-A value of type cobre.core.bin.
+A value of type cobre.buffer.
 
 ## Call
 
@@ -132,10 +128,3 @@ The basic instructions are:
 
 The metadata is structured like s-expressions with a custom binary encoding. Each element starts with a varint, the first bit indicates if the item is a list (0) or a string (1), and the rest of the bits indicate the number of subelements for lists or the number of characters for strings. The list bit is 0 so that the byte 0 represents an empty list, the closest value to nil.
 
-# Core modules
-
-This part is not definitive yet, it's more related to the standard library than to the module format.
-
-Module `cobre.type` has operations to build types. Built types are aliases to other types but expanded with certain characteristics, like interfaces, which are functions bound to the types, and casts, which allow to convert types to other types at runtime.
-
-Module `cobre.module` has tools to create and manipulate modules at runtime, which allow module files to compute modules at load time by setting their module #1 to a constructed module.

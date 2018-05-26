@@ -6,12 +6,19 @@ globalModule("cobre.string"):
   self["string"] = strT
   self["char"] = charT
 
-  self.addfn("new", [binT], [strT]):
+  self.addfn("new", [bufT], [strT]):
     let bytes = args[0].bytes
     var str = newString(bytes.len)
     for i in 0..bytes.high:
       str[i] = char(bytes[i])
     args.ret Value(kind: strV, s: str)
+
+  self.addfn("tobuffer", [bufT], [strT]):
+    let str = args[0].s
+    var buf = newSeq[byte](str.len)
+    for i in 0..str.high:
+      buf[i] = byte(str[i])
+    args.ret Value(kind: binV, bytes: buf)
 
   self.addfn("itos", [intT], [strT]):
     let i = args[0].i

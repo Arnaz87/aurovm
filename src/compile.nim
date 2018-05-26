@@ -65,7 +65,7 @@ proc getModule (self: State, index: int): Module =
 
   let data = self.parser.modules[index-1]
   case data.kind
-  of P.mImport, P.mImportF:
+  of P.mImport:
     result = findModule(data.name)
     if result.isNil:
       raise newException(CompileError, "Module " & data.name & " not found")
@@ -161,8 +161,8 @@ proc getFunction(self: State, i: int): Function =
       fndata = FnData(kind: readyFn, f: result)
     of binConst:
       let v = Value(kind: binV, bytes: data.bytes)
-      let sig = Signature(ins:  @[], outs: @[cobrelib.binT])
-      result = Function(name: "binary", kind: constF, sig: sig, value: v)
+      let sig = Signature(ins:  @[], outs: @[cobrelib.bufT])
+      result = Function(name: "buffer", kind: constF, sig: sig, value: v)
       fndata = FnData(kind: readyFn, f: result)
     of callConst:
       let f = self.getFunction(data.value)

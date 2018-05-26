@@ -125,3 +125,111 @@ En *cobre.prim* los shifts son shift logicos, excepto que son errores con distan
 
 No sé si esto debería incluirse, porque es difícil adivinar el comportamiento de los shifts si no se sabe el tamaño de los números.
 
+# Librerías de otros lenguajes
+
+## C
+
+En stdlib
+
+- abort(): raise(SIGABRT)
+- exit(status)
+- getenv(name)
+- system(cmd)
+
+En csignal
+
+- signal(sig, fn): la función se invoca cuando se reciba la señal. Devuelve la función anterior
+- raise(sig): envía la señal
+- señales: SIGABRT, SIGFPE, SIGILL, SIGINT, SIGSEGV, SIGTERM
+
+En stdio, ignorando los de formato (printf y familia)
+
+- remove(filename)
+- rename(oldname, newname)
+- tmpfile()
+- tmpnam()
+- fclose(file)
+- fflush(file)
+- fopen(filename, mode: string)
+- freopen(filename, mode, file): abre el archivo usando el mismo stream
+- setvbuf(file, char*, mode, size): Puede ser de entrada o de salida. El modo puede ser full (se escribe el archivo cuando el buffer se llena), line (se escribe cuando se encuentra salto de linea) o no (el archivo deja de usar buffer si estaba usando uno)
+- setbuf(file, char*) = setvbuf(file, char*, mode=full, size=¿?)
+- fgetc(file): lee un solo byte/caracter (en c son lo mismo)
+- fgets(char*, n, file): lee caracteres hasta que encuentre '\n', '\0' o haya leido n caracteres
+- fputc(char, file)
+- fputs(str, file)
+- ungetc(char, file): "retrocede" el cursor y guarda el caracter para el próximo getc
+- fread(ptr*, size, count, file): lee (size*count) bytes y los guarda en ptr
+- fwrite(ptr*, size, count, file): lee (size*count) de memoria en ptr y los escribe
+- fgetpos(file)
+- fsetpos(file, pos)
+- rewind(file): pone el cursor al principio
+
+
+## Lua
+
+- io.input(file): asigna el archivo a stdin
+- io.input(): devuelve stdin
+- io.open(filename, mode="r")
+- io.output(file): asigna el archivo a stdout
+- io.output(): devuelve stdout
+- io.popen(prog, mode="r"): lanza el programa y devuelve su archivo de stdin (mode="w") o stdout (mode="r")
+- io.tmpfile()
+- io.type(): devuelve "file", "closed file" o nil
+- io.write(...)
+- file:close()
+- file:flush()
+- file:read(...): parecido a readf() de C
+- file:write(...): solo texto y números (los imprime como ascii)
+- file:lines(...): iterador que usa file:read repetidamente
+- file:seek(whence="cur", offset=0): pone(whence="set"|"end") o pide(whence="cur") la posición del cursor en el archivo
+- file:setvbuf(mode, size=¿?): dice si el archivo se modifica inmediatamente "no", cuando el buffer se llena "full" o en los saltos de línea "line"
+
+- os.clock(): Tiempo en segundos desde que empezó el programa
+- os.date(format="¿?", time=os.time()): Devuelve el tiempo UNIX como un string con el formato de fecha indicado
+- os.difftime(t1, t2): La diferencia en segundos de dos tiempos UNIX
+- os.execute(cmd): equivalente a la función system de C
+- os.exit(code)
+- os.getenv(name)
+- os.remove(filename)
+- os.rename(filename, newname)
+- os.setlocale(locale, \[category\]): ¿?
+- os.time(): Unix time
+- os.tmpname()
+
+# Propuesta
+
+## cobre.bin
+
+- type \`\` as bin
+- bin new (int size)
+- int get (bin, int pos)
+- void set (bin, int pos, int byte)
+- void resize (bin, int size)
+- bool readonly (bin)
+
+## cobre.io
+
+- type file
+- type mode
+- mode r()
+- mode w()
+- mode a()
+- file open (string filename, mode)
+- void close (file)
+- bin read (file, int size)
+- void write (file, bin)
+- int pos:get (file)
+- void pos:set (file, int)
+
+## cobre.system
+
+- bin read (int size)
+- void write (bin)
+- void exit(int status)
+- int argc()
+- string arg0()
+- string argv(int index)
+- value getenv(string name)
+- void exec(string cmd)
+- void error(string msg)

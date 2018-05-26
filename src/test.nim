@@ -109,12 +109,12 @@ suite "Full Tests":
       static ints
     ]#
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       2, # Modules
         # module #0 is the argument
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 1, $"myadd",
-        0, $"cobre.int", #2 Import
+        1, $"cobre.int", #2 Import
       1, # Types
         (2+1), $"int", #0 import "int" from module 2
       2, # Functions
@@ -148,13 +148,13 @@ suite "Full Tests":
       recursive function call
     ]#
     let data = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       3,
         #0 is the argument module
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 1, $"factorial",
-        0, $"cobre.int", #2 Import cobre.int
-        0, $"cobre.core", #3 import cobre.core
+        1, $"cobre.int", #2 Import cobre.int
+        1, $"cobre.bool", #3 import cobre.bool
       2, # Types
         (2+1), $"int",
         (3+1), $"bool",
@@ -204,12 +204,12 @@ suite "Full Tests":
       constant function calls
     ]#
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       2, # Modules
         # module #0 is the argument
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 1, $"main",
-        0, $"cobre.int", #2 Import
+        1, $"cobre.int", #2 Import
       1, # Types
         (2+1), $"int", #0 import "int" from module 2
       2, # Functions
@@ -243,17 +243,17 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       5,
         #0 is the argument module
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 0, $"main",
-        0, $"cobre.prim", #2 Import
+        1, $"cobre.prim", #2 Import
 
-        1, 2, #3 Define (arguments for cobre.tuple)
+        2, 2, #3 Define (arguments for cobre.tuple)
           1, 0, $"0", # type_0 (int)
           1, 0, $"1", # type_2 (int)
-        2, $"cobre.tuple", #4 Import functor
+        1, $"cobre.tuple", #4 Import functor
         4, 4, 3, #5 Build cobre.tuple
       2, # Types
         (2+1), $"int", #0
@@ -302,30 +302,30 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       12,
         #0 is the argument module
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 1, $"main",
-        0, $"cobre.int", #2 Import
+        1, $"cobre.int", #2 Import
 
-        1, 2, #3 Define (arguments for cobre.tuple)
+        2, 2, #3 Define (arguments for cobre.tuple)
           1, 0, $"0", # type_0 (int)
           1, 2, $"1", # type_2 (nullable tuple)
-        2, $"cobre.record", #4 Import functor
+        1, $"cobre.record", #4 Import functor
         4, 4, 3, #5 Build cobre.record
 
-        1, 1, #6 Define(arguments for cobre.null)
+        2, 1, #6 Define(arguments for cobre.null)
           1, 3, $"0", # type_1 (typeshell)
-        2, $"cobre.null", #7 Import functor
+        1, $"cobre.null", #7 Import functor
         4, 7, 6, #8 Build cobre.null
 
-        1, 1, #9 Define(arguments for cobre.typeshell)
+        2, 1, #9 Define(arguments for cobre.typeshell)
           1, 1, $"0", # type_1 (tuple)
-        2, $"cobre.typeshell", #10 Import functor
+        1, $"cobre.typeshell", #10 Import functor
         4, 10, 9, #11 Build cobre.null
 
-        0, $"cobre.core", #12 Import
+        1, $"cobre.core", #12 Import
       5, # Types
         (2+1), $"int", #0
         (5+1), $"", #1 tuple(int, #2)
@@ -424,22 +424,22 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       8,
         #0 is the argument module
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 1, $"main",
-        0, $"cobre.int", #2 Import
+        1, $"cobre.int", #2 Import
 
-        1, 2, #3 Define (arguments for cobre.tuple)
+        2, 2, #3 Define (arguments for cobre.tuple)
           1, 0, $"0", # type_0 (int)
           1, 2, $"1", # type_2 (nullable tuple)
-        2, $"cobre.record", #4 Import functor
+        1, $"cobre.record", #4 Import functor
         4, 4, 3, #5 Build cobre.tuple
 
-        1, 1, #6 Define(arguments for cobre.null)
+        2, 1, #6 Define(arguments for cobre.null)
           1, 2, $"0", # type_1 (tuple)
-        2, $"cobre.null", #7 Import functor
+        1, $"cobre.null", #7 Import functor
         4, 7, 6, #8 Build cobre.null
       3, # Types
         (2+1), $"int", #0
@@ -503,21 +503,21 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       8,
         #0 is the argument module
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 4, $"main",
-        0, $"cobre.int", #2
+        1, $"cobre.int", #2
 
-        2, $"cobre.function", #3 Import functor
-        1, 2, #4 Define (argument)
+        1, $"cobre.function", #3 Import functor
+        2, 2, #4 Define (argument)
           1, 0, $"in0",
           1, 0, $"out0",
         4, 3, 4, #5 Build cobre.function with #4 (int -> int)
 
         3, 5, $"new", #6 Import functor cobre.function.new
-        1, 1, #7 Define module
+        2, 1, #7 Define module
           2, 1, $"0", # 0: function_1 (add4)
         4, 6, 7, #8 build cobre.function.new(add4 as `0`)
       2, # Types
@@ -577,13 +577,14 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       2, # Modules
         # module #0 is the argument
-        1, 0, #1 Define (exports)
-        0, $"cobre.core", #2 Import
+        2, 1, #1 Define (exports)
+          1, 0, $"string", # export type #0 as "string"
+        1, $"cobre.int", #2 Import
       1, # Types
-        (2+1), $"string", #0 import "string" from cobre.core, should fail
+        (2+1), $"string", #0 import "string" from cobre.int, should fail
       0, # Functions
       0, # Constants
       (1 shl 2), # Metadata, 1 toplevel node
@@ -617,6 +618,7 @@ suite "Full Tests":
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed, "Metadata fail 1")
+      let item = compiled["string"]
 
       checkpoint("Expected TypeNotFoundError")
       fail()
@@ -632,34 +634,34 @@ suite "Full Tests":
       // Type string not found in cobre.core
       import cobre.prim { type int; }
       import cobre.string { type string; }
-      import cobre.system { void print(string); }
+      import cobre.system { void println(string); }
       void main () {
-        print(42); // Should fail typecheck
+        println(42); // Should fail typecheck
       }
     ]#
 
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       4, # Modules
         # module #0 is the argument
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           2, 1, $"main",
-        0, $"cobre.int", #2
-        0, $"cobre.string", #3
-        0, $"cobre.system", #4
+        1, $"cobre.int", #2
+        1, $"cobre.string", #3
+        1, $"cobre.system", #4
       2, # Types
         (2+1), $"int",    #0 from cobre.core import int
         (3+1), $"string", #1 from cobre.core import string
       2, # Functions
         (4+2), #0 from cobre.system
-          1, 1, 0,      #  void print(string)
-          $"print",
+          1, 1, 0,      #  void println(string)
+          $"println",
         1, 0, 0,        #1 void main ()
       1, # Constants
         1, 42, #2 int 42
       3, # Block for #1 (main)
         (16+2), #0 const_2 (42)
-        (16 + 0), 0, # print #0 (Shouldn't typecheck)
+        (16 + 0), 0, # println #0 (Shouldn't typecheck)
         0,
       (1 shl 2), # Metadata, 1 toplevel node
         (3 shl 2), # 2 nodes (+ header)
@@ -682,7 +684,7 @@ suite "Full Tests":
                 (6 shl 1 or 1), # line 6
                 (8 shl 1 or 1), # column 8
               (3 shl 2),
-                (1 shl 1 or 1), # code[1] (call print)
+                (1 shl 1 or 1), # code[1] (call println)
                 (6 shl 1 or 1), # line 6
                 (2 shl 1 or 1), # column 2
     )
@@ -704,22 +706,22 @@ suite "Full Tests":
 
     #[ Equivalent Cu
       import cobre.system {
-        void print(); // It's actually void print(string)
+        void println(); // It's actually void println(string)
       }
     ]#
 
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       2, # Modules
         # module #0 is the argument
-        1, 1, #1 Define (exports)
-          2, 0, $"print",
-        0, $"cobre.system", #2 Import
+        2, 1, #1 Define (exports)
+          2, 0, $"println",
+        1, $"cobre.system", #2 Import
       0, # Types
       1, # Functions
         (2+2), #0 from cobre.system import string
-          0, 0, #  void print () (wrong, it really is void print(string))
-          $"print",
+          0, 0, #  void println () (wrong, it really is void println(string))
+          $"println",
       0, # Constants
       (1 shl 2), # Metadata, 1 toplevel node
         (4 shl 2), # 3 nodes (+ header)
@@ -750,7 +752,7 @@ suite "Full Tests":
     try:
       let parsed = parseData(code)
       let compiled = compile(parsed, "Incorrect Signature")
-      let fn = compiled.get_function("print")
+      let fn = compiled.get_function("println")
 
       checkpoint("Expected Incorrect Signature Error")
       fail()
@@ -766,15 +768,15 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       4, # Modules
         # module #0 is the argument
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           1, 1, $"T",
 
-        1, 1, #2 Define(arguments for cobre.typeshell)
+        2, 1, #2 Define(arguments for cobre.typeshell)
           1, 0, $"0", # type_0 (T)
-        0, $"cobre.typeshell", #3 Import cobre.typeshell
+        1, $"cobre.typeshell", #3 Import cobre.typeshell
         4, 3, 2, #4 Build cobre.typeshell(T)
 
       2, # Types
@@ -807,18 +809,18 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       5, # Modules
         # module #0 is the argument
-        1, 1, #1 Define (exports)
+        2, 1, #1 Define (exports)
           1, 1, $"T",
 
-        1, 1, #2 Define(arguments for cobre.typeshell)
+        2, 1, #2 Define(arguments for cobre.typeshell)
           1, 0, $"0", # type_0 (T)
-        0, $"cobre.typeshell", #3 import
+        1, $"cobre.typeshell", #3 import
         4, 3, 2, #4 Build cobre.typeshell(T)
 
-        0, $"cobre.int", #5 import
+        1, $"cobre.int", #5 import
 
       3, # Types
         (0+1), $"T", #0 import "T" from module 0 (argument)
@@ -852,10 +854,10 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.5", 0,
+      "Cobre 0.6", 0,
       1, # Modules
         # module #0 is the argument
-        1, 5, #1 Every one of these just exports the argument
+        2, 5, #1 Every one of these just exports the argument
           0, 0, $"a",
           0, 0, $"a\x1db",
           0, 0, $"a\x1db\x1db\x1dc",

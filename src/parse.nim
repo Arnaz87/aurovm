@@ -18,7 +18,7 @@ type
     name*: string
     index*: int
 
-  ModuleKind* = enum mImport, mDefine, mImportF, mUse, mBuild
+  ModuleKind* = enum mImport, mDefine, mUse, mBuild
   Module* = object of RootObj
     kind*: ModuleKind
     name*: string
@@ -120,8 +120,8 @@ proc checkFormat (parser: Parser) =
       printable = false
       break
 
-  if sig != "Cobre 0.5":
-    var msg = "Expected signature \"Cobre 0.5\""
+  if sig != "Cobre 0.6":
+    var msg = "Expected signature \"Cobre 0.6\""
     if printable: msg &= ", but found \"" & sig & "\""
     raise newException(InvalidModuleError, msg)
 
@@ -132,18 +132,21 @@ proc parseItem (p: Parser): Item =
 
 proc parseModule (p: Parser): Module =
   let k = p.readInt
-  result.kind = ModuleKind(k)
-  case result.kind
-  of mImport, mImportF:
+  case k
+  of 1:
+    result.kind = mImport
     result.name = p.readStr
-  of mUse:
+  of 2:
+    result.kind = mDefine
+    result.items.buildSeq(p.readInt) do -> Item: p.parseItem
+  of 3:
+    result.kind = mUse
     result.module = p.readInt
     result.name = p.readStr
-  of mBuild:
+  of 4:
+    result.kind = mBuild
     result.module = p.readInt
     result.argument = p.readInt
-  of mDefine:
-    result.items.buildSeq(p.readInt) do -> Item: p.parseItem
   else:
     parseRaise[InvalidKindError](p, "Invalid module kind " & $k)
 

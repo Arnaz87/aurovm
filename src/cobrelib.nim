@@ -8,6 +8,7 @@ import options
 from times import cpuTime
 from strutils import toHex, replace
 import osproc
+from ospaths import getEnv
 
 import sequtils
 
@@ -95,17 +96,18 @@ template globalFunctor (name: string, body: untyped) =
 proc hash(t: Type): Hash = t.name.hash
 proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
 
-
-let binT*: Type = Type(name: "bin")
 let boolT*: Type = Type(name: "bool")
-
-globalModule("cobre.core"):
+globalModule("cobre.bool"):
   self["bool"] = boolT
-  self["bin"] = binT
 
 include cobrelib/int
 include cobrelib/float
+include cobrelib/buffer
 include cobrelib/string
+
+include cobrelib/io
+include cobrelib/system
+
 include cobrelib/record
 include cobrelib/null
 include cobrelib/array
@@ -116,72 +118,3 @@ include cobrelib/any
 #==========================================================#
 #===                    cobre.system                    ===#
 #==========================================================#
-
-globalModule("cobre.system"):
-  let fileT = Type(name: "file")
-  self["file"] = fileT
-
-  self.addfn("quit", [intT], []):
-    quit(args[0].i)
-
-  self.addfn("print", mksig([strT], [])):
-    echo args[0].s
-    args.setLen(0)
-
-  self.addfn("read", mksig([], [strT])):
-    var line = stdin.readLine()
-    args.ret Value(kind: strV, s: line)
-
-  self.addfn("clock", mksig([], [fltT])):
-    args.ret Value(kind: fltV, f: cpuTime())
-
-  self.addfn("exec", mksig([strT], [intT])):
-    let cmd = args[0].s
-    var p = startProcess(command = cmd, options = {poEvalCommand})
-    let code = p.waitForExit()
-    args.ret Value(kind: intV, i: code)
-
-  self.addfn("cmd", mksig([strT], [strT])):
-    let cmd = args[0].s
-    var p = startProcess(command = cmd, options = {poEvalCommand})
-    var out_file: File
-    discard out_file.open(p.outputHandle, fmRead)
-    discard p.waitForExit()
-    let out_str = out_file.readAll()
-
-    args.ret Value(kind: strV, s: out_str)
-
-  self.addfn("open", mksig([strT, strT], [fileT])):
-    let path = args[0].s
-    let mode = case args[1].s
-      of "w": fmWrite
-      of "a": fmAppend
-      else: fmRead
-    let file = open(path, mode)
-    args.ret(Value(kind: ptrV, pt: file))
-
-  self.addfn("readall", mksig([strT], [strT])):
-    let path = args[0].s
-    let file = open(path, fmRead)
-    let contents = readAll(file)
-    args.ret(Value(kind: strV, s: contents))
-
-  self.addfn("write", mksig([fileT, strT], [])):
-    let file = cast[File](args[0].pt)
-    file.write(args[1].s)
-
-  self.addfn("writebyte", mksig([fileT, intT], [])):
-    let file = cast[File](args[0].pt)
-    let b = uint8(args[1].i)
-    let written = file.writeBytes([b], 0, 1)
-    if written != 1:
-      raise newException(Exception, "Couldn't write file")
-
-  self.addfn("argc", mksig([], [intT])):
-    args.ret Value(kind: intV, i: cobreargs.len)
-
-  self.addfn("args", mksig([intT], [strT])):
-    args.ret Value(kind: strV, s: cobreargs[args[0].i])
-
-  self.addfn("error", mksig([strT], [])):
-    raise newException(Exception, args[0].s)

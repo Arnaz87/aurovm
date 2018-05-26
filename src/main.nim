@@ -34,7 +34,7 @@ for p in commandLineParams():
   if cobreargs.len < 1:
     if p == "--help" or p == "-h": help()
     if p == "--version" or p == "-v":
-      echo "Cobre 0.5"
+      echo "Cobre 0.6"
       quit(QuitSuccess)
     elif p == "--install": mode = install_mode
     elif p == "--remove": mode = remove_mode
