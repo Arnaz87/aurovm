@@ -13,7 +13,7 @@ globalModule("cobre.string"):
       str[i] = char(bytes[i])
     args.ret Value(kind: strV, s: str)
 
-  self.addfn("tobuffer", [bufT], [strT]):
+  self.addfn("tobuffer", [strT], [bufT]):
     let str = args[0].s
     var buf = newSeq[byte](str.len)
     for i in 0..str.high:

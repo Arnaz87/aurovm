@@ -1,10 +1,12 @@
-import os
 
 import machine
 import parse
 import compile
 
 import cobrelib
+
+import os
+from strutils import replace
 
 type Module = machine.Module
 
@@ -15,7 +17,9 @@ proc help () =
   echo()
   echo "  Runs the specified cobre module. The module is searched in the current"
   echo "  directory as a file that matches the module name, failing that it's searched"
-  echo "  in the module installation path: $HOME/.cobre/modules"
+  echo "  in the module installation path: $HOME/.cobre/modules. All imported modules"
+  echo "  are loaded the same way. Module names given use the point character instead"
+  echo "  of the unit separator (0x1f), and installed module files as well."
   echo()
   echo "Options:"
   echo "  -h  --help    prints this help"
@@ -77,9 +81,9 @@ proc compile_file (file: File, name: string): Module =
     quit(QuitFailure)
 
 proc module_loader (name: string): Module =
-  var filename: string = name
+  var filename: string = name.replace('\x1f', '.')
   if not fileExists(filename):
-    filename = mod_path & "/" & name
+    filename = mod_path & "/" & filename
     if not fileExists(filename):
       return nil
   let file = open(filename)
