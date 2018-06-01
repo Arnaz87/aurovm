@@ -1,13 +1,19 @@
 
+var null_modules = initTable[Type, Module](32)
+
 globalFunctor("cobre.null"):
   var argitem = argument["0"]
   if argitem.kind != tItem:
     raise newException(Exception, "argument 0 for cobre.null is not a type")
   var base = argitem.t
+
+  if null_modules.hasKey(base):
+    return null_modules[base]
+
   let basename = "null(" & base.name & ")"
   var tp = Type(name: basename)
 
-  createModule(basename & "_module"):
+  result = createModule(basename & "_module"):
     self[""] = tp
 
     self.addfn("null", mksig(@[], @[tp])):
@@ -24,3 +30,5 @@ globalFunctor("cobre.null"):
     self.addfn("isnull", mksig(@[tp], @[boolT])):
       let r = args[0].kind == nilV
       args.ret Value(kind: boolV, b: r)
+      
+  null_modules[base] = result
