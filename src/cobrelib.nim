@@ -99,6 +99,28 @@ proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
 let boolT*: Type = Type(name: "bool")
 globalModule("cobre.bool"):
   self["bool"] = boolT
+  self["true"] = Function(
+    name: "true",
+    kind: constF,
+    sig: mksig([], [boolT]),
+    value: Value(kind: boolV, b: true)
+  )
+  self["false"] = Function(
+    name: "false",
+    kind: constF,
+    sig: mksig([], [boolT]),
+    value: Value(kind: boolV, b: false)
+  )
+  self.addfn("not", [boolT], [boolT]):
+    args.ret Value(kind: boolV, b: not args[0].b)
+  self.addfn("or", [boolT, boolT], [boolT]):
+    args.ret Value(kind: boolV, b: args[0].b or args[1].b)
+  self.addfn("and", [boolT, boolT], [boolT]):
+    args.ret Value(kind: boolV, b: args[0].b and args[1].b)
+  self.addfn("xor", [boolT, boolT], [boolT]):
+    args.ret Value(kind: boolV, b: args[0].b xor args[1].b)
+  self.addfn("eq", [boolT, boolT], [boolT]):
+    args.ret Value(kind: boolV, b: args[0].b == args[1].b)
 
 include cobrelib/int
 include cobrelib/float

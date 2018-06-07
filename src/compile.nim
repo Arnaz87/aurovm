@@ -31,6 +31,7 @@ type
       index: int
 
   State = ref object of RootObj
+    name: string
     parser: P.Parser
     sourcemap: SourceMap
     modules: seq[Module]
@@ -338,7 +339,7 @@ proc compile* (parser: P.Parser, name: string): Module =
     sourcemap = newSourceMap()
 
   proc buildModule (argument: Module): Module =
-    var self = State(parser: parser, sourcemap: sourcemap)
+    var self = State(parser: parser, sourcemap: sourcemap, name: name)
     let p = parser
 
     self.modules = newSeq[Module](p.modules.len+1)

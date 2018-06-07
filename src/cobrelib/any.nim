@@ -11,9 +11,8 @@ block:
   let baseModule = createModule("cobre.any"):
     self["any"] = anyT
 
-  globalFunctor("cobre.any"):
+  proc builder (argument: Module): Module =
     var argitem = argument["0"]
-    if argitem.kind == nilItem: return baseModule
     if argitem.kind != tItem:
       raise newException(Exception, "argument 0 for cobre.any is not a type")
     var base = argitem.t
@@ -35,5 +34,9 @@ block:
       self.addfn("test", mksig(@[anyT], @[boolT])):
         let val = AnyVal(args[0].obj)
         args.ret Value(kind: boolV, b: val.tp == base)
-
+      
     modules[base] = result
+
+  proc getter (key: Name): Item = baseModule[key]
+
+  machine_modules.add(CustomModule("cobre\x1fany", getter, builder))

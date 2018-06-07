@@ -29,21 +29,6 @@ globalModule("cobre.system"):
     let code = p.waitForExit()
     args.ret Value(kind: intV, i: code)
 
-  self.addfn("open", mksig([strT, strT], [fileT])):
-    let path = args[0].s
-    let mode = case args[1].s
-      of "w": fmWrite
-      of "a": fmAppend
-      else: fmRead
-    let file = open(path, mode)
-    args.ret(Value(kind: ptrV, pt: file))
-
-  self.addfn("readall", mksig([strT], [strT])):
-    let path = args[0].s
-    let file = open(path, fmRead)
-    let contents = readAll(file)
-    args.ret(Value(kind: strV, s: contents))
-
   self.addfn("arg0", [], [strT]):
     args.ret Value(kind: strV, s: cobreexec)
 
