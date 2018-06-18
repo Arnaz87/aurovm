@@ -23,7 +23,7 @@ globalFunctor("cobre.function"):
 
   let basename = sig.name
 
-  var tp = Type(name: basename)
+  var tp = newType(basename)
 
   var applyIns = @[tp]
   applyIns.add(ins)

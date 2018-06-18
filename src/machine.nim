@@ -71,6 +71,7 @@ type
     counter: int
 
   Type* = ref object of RootObj
+    id*: int
     name*: string
 
   Name* = object
@@ -150,7 +151,11 @@ proc findWithName*[T] (a: openarray[T], key: Name, f: proc (x: T): Name): int {.
         result = i
     inc(i)
   if matches != 1: return -1
-  
+
+var type_id = 0
+proc newType* (name: string): Type =
+  result = Type(name: name, id: type_id)
+  type_id = type_id + 1
 
 proc TypeItem* (name: string, tp: Type): Item =
   Item(name: parseName(name), kind: tItem, t: tp)

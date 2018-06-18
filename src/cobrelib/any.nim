@@ -1,7 +1,8 @@
 
-let anyT*: Type = Type(name: "any")
+let anyT*: Type = newType("any")
 
 block:
+
   var modules = initTable[Type, Module](32)
 
   type AnyVal = ref object of RootObj
@@ -28,7 +29,7 @@ block:
       self.addfn("get", mksig(@[anyT], @[base])):
         let val = AnyVal(args[0].obj)
         if val.tp != base:
-          raise newException(Exception, "Any type was " & val.tp.name)
+          raise newException(Exception, "Any type was " & val.tp.name & " but expected " & base.name)
         args.ret val.v
 
       self.addfn("test", mksig(@[anyT], @[boolT])):

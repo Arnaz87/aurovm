@@ -1,5 +1,5 @@
 
-let intT*: Type = Type(name: "int")
+let intT*: Type = newType("int")
 
 globalModule("cobre.int"):
   self["int"] = intT

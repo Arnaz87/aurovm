@@ -1,8 +1,8 @@
 
-let fileT = Type(name: "file")
+let fileT = newType("file")
 
 globalModule("cobre.io"):
-  let modeT = Type(name: "mode")
+  let modeT = newType("mode")
 
   self["file"] = fileT
   self["mode"] = modeT

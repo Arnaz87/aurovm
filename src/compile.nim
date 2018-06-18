@@ -368,7 +368,7 @@ proc compile* (parser: P.Parser, name: string): Module =
         simpleArg = false
     of mDefine:
       for item in m.items.items:
-        if item.kind == P.mItem:
+        if item.kind == P.mItem and item.index == 0:
           # argument contains a module item
           simpleArg = false
     else: discard

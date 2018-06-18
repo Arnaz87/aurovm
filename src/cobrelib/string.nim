@@ -1,6 +1,6 @@
 
-let strT*: Type = Type(name: "string")
-let charT*: Type = Type(name: "char")
+let strT*: Type = newType("string")
+let charT*: Type = newType("char")
 
 globalModule("cobre.string"):
   self["string"] = strT

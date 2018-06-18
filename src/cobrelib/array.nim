@@ -11,7 +11,7 @@ globalFunctor("cobre.array"):
     return array_modules[base]
 
   let basename = "array(" & base.name & ")"
-  var tp = Type(name: basename)
+  var tp = newType(basename)
 
   type Array = ref object of RootObj
     items: seq[Value]

@@ -11,7 +11,7 @@ globalFunctor("cobre.null"):
     return null_modules[base]
 
   let basename = "null(" & base.name & ")"
-  var tp = Type(name: basename)
+  var tp = newType(basename)
 
   result = createModule(basename & "_module"):
     self[""] = tp

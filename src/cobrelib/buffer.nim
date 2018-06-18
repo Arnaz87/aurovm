@@ -1,5 +1,5 @@
 
-let bufT*: Type = Type(name: "buffer")
+let bufT*: Type = newType("buffer")
 
 globalModule("cobre.buffer"):
   self["buffer"] = bufT

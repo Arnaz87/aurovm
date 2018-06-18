@@ -1,5 +1,5 @@
 
-let fltT*: Type = Type(name: "float")
+let fltT*: Type = newType("float")
 
 globalModule("cobre.float"):
   self["float"] = fltT

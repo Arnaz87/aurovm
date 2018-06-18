@@ -1,5 +1,9 @@
 
-var shellid = 1
+# For debugging purposes
+type ShellModule* = ref object
+  module*: Module
+  getbase*: proc (): Type
+var shell_modules* = newSeq[ShellModule](0)
 
 globalFunctor("cobre.typeshell"):
 
@@ -12,16 +16,15 @@ globalFunctor("cobre.typeshell"):
   let basename = "shell(" & base.name & ")"
   ]#
 
-  let basename = "type_" & shellid.toHex(2)
-  shellid += 1
-
   proc getbase (): Type =
     let argitem = argument["0"]
     if argitem.kind != tItem:
       raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
     return argitem.t
 
-  let tp = Type(name: basename)
+  let tp = newType(nil)
+  let basename = "type_" & $tp.id
+  tp.name = basename
   let tpitem = TypeItem("", tp)
 
   # Just returns the argument as is, as this type is just a box
@@ -56,4 +59,6 @@ globalFunctor("cobre.typeshell"):
       getitem.get
     else: Item(kind: nilItem)
 
-  CustomModule(basename & "_module", getter)
+  result = CustomModule(basename & "_module", getter)
+
+  shell_modules.add ShellModule(module: result, getbase: getbase )

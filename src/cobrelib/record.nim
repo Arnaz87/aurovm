@@ -13,9 +13,9 @@ globalFunctor("cobre.record"):
   if record_modules.hasKey(types):
     return record_modules[types]
 
-  let basename = "record" & $n
+  let basename = "(" & types.mapIt(it.name).join(", ") & ")"
 
-  var tp = Type(name: basename)
+  var tp = newType(basename)
 
   type Product = ref object of RootObj
     fields: seq[Value]
