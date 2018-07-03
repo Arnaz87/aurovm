@@ -24,7 +24,7 @@ globalFunctor("cobre.null"):
 
     self.addfn("get", mksig(@[tp], @[base])):
       if args[0].kind == nilV:
-        raise newException(Exception, "Value is null")
+        raise newException(UserError, "Value is null")
       args.ret args[0]
 
     self.addfn("isnull", mksig(@[tp], @[boolT])):

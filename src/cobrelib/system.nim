@@ -42,4 +42,4 @@ globalModule("cobre.system"):
     args.ret Value(kind: strV, s: getEnv(args[0].s))
 
   self.addfn("error", mksig([strT], [])):
-    raise newException(Exception, args[0].s)
+    raise newException(UserError, args[0].s)

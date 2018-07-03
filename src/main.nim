@@ -102,7 +102,19 @@ if main_item.kind != machine.fItem:
   echo "main function not found in " & main_module_name
   quit(QuitFailure)
 
-# TODO: Surround with try/except and print stack
-discard main_item.f.run(@[])
+try:
+  discard main_item.f.run(@[])
+except UserError:
+  echo "Error: ", getCurrentExceptionMsg()
+  echo()
+  print_trace()
+except Exception:
+  var e = getCurrentException()
+  echo "FATAL: ", e.name, ": ", e.msg
+  echo e.getStackTrace()
+  
+  print_trace()
+  echo()
+  print_lowlevel()
 
 

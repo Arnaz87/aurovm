@@ -29,7 +29,7 @@ block:
       self.addfn("get", mksig(@[anyT], @[base])):
         let val = AnyVal(args[0].obj)
         if val.tp != base:
-          raise newException(Exception, "Any type was " & val.tp.name & " but expected " & base.name)
+          raise newException(UserError, "Any type was " & val.tp.name & " but expected " & base.name)
         args.ret val.v
 
       self.addfn("test", mksig(@[anyT], @[boolT])):

@@ -47,7 +47,7 @@ globalModule("cobre.io"):
     let buf = args[1].bytes
     let written = file.f.writeBytes(buf, 0, buf.len)
     if written != buf.len:
-      raise newException(Exception, "Couldn't write file")
+      raise newException(UserError, "Couldn't write file")
 
   self.addfn("eof", [fileT], [boolT]):
     let file = FileObj(args[0].obj)

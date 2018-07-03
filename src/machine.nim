@@ -105,11 +105,37 @@ type
   RuntimeError* = object of CobreError
   StackOverflowError* = object of RuntimeError
   InfiniteLoopError* = object of RuntimeError
+  UserError* = object of RuntimeError
 
 var machine_modules* = newSeq[Module]()
 
 var cobreargs* = newSeq[string]()
-var cobreexec* = "";
+var cobreexec* = ""
+
+var trace_stack: seq[State]
+
+proc print_trace* () =
+  if not trace_stack.isNil:
+    echo "Cobre stack (oldest first):"
+    for i in 0 .. trace_stack.high:
+      let instinfo = trace_stack[i].f.codeinfo.getInst(trace_stack[i].pc)
+      if i < trace_stack.high:
+        echo "  ", instinfo
+      else: echo "> ", instinfo
+
+
+proc print_lowlevel* () =
+  if not trace_stack.isNil:
+    if trace_stack.len > 0:
+      let top = trace_stack.pop
+
+      echo "Instructions [pc: ", top.pc, "]:"
+      for i, inst in top.f.code.pairs:
+        echo "  ", i, ": ", inst
+      echo "Registers: "
+      for i, reg in top.regs.pairs:
+        echo "  ", i, ": ", reg
+    else: discard
 
 type ModLoader = proc(name: string): Module
 proc default_loader (name: string): Module = nil
@@ -363,26 +389,9 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
 
       if advance: top.pc.inc()
   except Exception:
-    var e = getCurrentException()
-    e.msg &= "\n"
-    proc errline (str: string) =
-      e.msg &= str & "\n"
-    errline("Machine stack (oldest first):")
-    for i in 0 .. stack.high:
-      # (pc - 1) porque pc se incrementa después del call
-      let instinfo = stack[i].f.codeinfo.getInst(stack[i].pc - 1)
-      errline("  " & $instinfo)
-
-    if stack.len > 0:
-      let instinfo = top.f.codeinfo.getInst(top.pc)
-      errline("> " & $instinfo)
-      errline("Code [pc: " & $top.pc & "]:")
-      for i, inst in top.f.code.pairs:
-        errline("  " & $i & ": " & $inst)
-      errline("Registers: ")
-      for i, reg in top.regs.pairs:
-        errline("  " & $i & ": " & $reg)
-    raise e
+    stack.add(top)
+    trace_stack = stack
+    raise getCurrentException()
 
 proc `==`* (a: Value, b: Value): bool =
   if a.kind != b.kind: return false

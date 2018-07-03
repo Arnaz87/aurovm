@@ -32,14 +32,14 @@ globalFunctor("cobre.array"):
       let arr = Array(args[0].obj)
       let i = args[1].i
       if i > arr.items.high:
-        raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
+        raise newException(UserError, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
       args.ret arr.items[i]
 
     self.addfn("set", [tp, intT, base], []):
       let arr = Array(args[0].obj)
       let i = args[1].i
       if i > arr.items.high:
-        raise newException(Exception, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
+        raise newException(UserError, "index " & $i & " out of bounds (array size: " & $arr.items.len & ")")
       arr.items[i] = args[2]
 
     self.addfn("len", [tp], [intT]):
