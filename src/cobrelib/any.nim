@@ -21,20 +21,20 @@ block:
     if modules.hasKey(base):
       return modules[base]
 
+    let nullArg = createModule(nil):
+      self["0"] = base
+    let nullModule = findModule("cobre\x1fnull").build(nullArg)
+    let nullT = nullModule[""].t
+
     result = createModule("any(" & base.name & ")"):
       self.addfn("new", mksig(@[base], @[anyT])):
         let val = AnyVal(tp: base, v: args[0])
         args.ret Value(kind: objV, obj: val)
 
-      self.addfn("get", mksig(@[anyT], @[base])):
+      self.addfn("get", mksig(@[anyT], @[nullT])):
         let val = AnyVal(args[0].obj)
-        if val.tp != base:
-          raise newException(UserError, "Any type was " & val.tp.name & " but expected " & base.name)
-        args.ret val.v
-
-      self.addfn("test", mksig(@[anyT], @[boolT])):
-        let val = AnyVal(args[0].obj)
-        args.ret Value(kind: boolV, b: val.tp == base)
+        if val.tp == base: args.ret val.v
+        else: args.ret Value(kind: nilV)
       
     modules[base] = result
 
