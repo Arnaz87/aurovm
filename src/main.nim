@@ -106,13 +106,13 @@ try:
   discard main_item.f.run(@[])
 except UserError:
   echo "Error: ", getCurrentExceptionMsg()
-  echo()
   print_trace()
 except Exception:
   var e = getCurrentException()
   echo "FATAL: ", e.name, ": ", e.msg
   echo e.getStackTrace()
   
+  echo "Cobre Stack:"
   print_trace()
   echo()
   print_lowlevel()

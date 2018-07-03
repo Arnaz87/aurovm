@@ -5,6 +5,7 @@ import cobre.system {
 }
 
 void f (string x) {
+  //error("foo");
   string y;
   println(x + y);
   y = "lol";

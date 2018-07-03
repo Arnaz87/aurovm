@@ -116,12 +116,11 @@ var trace_stack: seq[State]
 
 proc print_trace* () =
   if not trace_stack.isNil:
-    echo "Cobre stack (oldest first):"
-    for i in 0 .. trace_stack.high:
-      let instinfo = trace_stack[i].f.codeinfo.getInst(trace_stack[i].pc)
-      if i < trace_stack.high:
-        echo "  ", instinfo
-      else: echo "> ", instinfo
+    # TODO: Unfamiliar reverse for syntax
+    for i in 1 .. trace_stack.len:
+      let instinfo = trace_stack[^i].f.codeinfo.getInst(trace_stack[^i].pc)
+      if i == 1: echo "> ", instinfo
+      else: echo "  ", instinfo
 
 
 proc print_lowlevel* () =
