@@ -15,36 +15,48 @@ proc help () =
   # paramStr(0) solo me da el comando usado (en linux al menos).
   echo "Usage: " & paramStr(0) & " [options] module {args}"
   echo()
-  echo "  Runs the specified cobre module. The module is searched in the current"
-  echo "  directory as a file that matches the module name, failing that it's searched"
-  echo "  in the module installation path: $HOME/.cobre/modules. All imported modules"
-  echo "  are loaded the same way. Module names given use the point character instead"
-  echo "  of the unit separator (0x1f), and installed module files as well."
+  echo "  Runs the specified cobre module."
+  echo()
+  echo "  The module is searched as a file matching the module name, replacing the"
+  echo "  unit separator (0x1f) with a point. It's searched in the following order:"
+  echo "   - The directories passed in command arguments, in the reverse order"
+  echo "   - The current directory"
+  echo "   - The module installation path: $HOME/.cobre/modules"
+  echo()
+  echo "  All subsequent imported modules are loaded the same way."
   echo()
   echo "Options:"
   echo "  -h  --help    prints this help"
   echo "  -v --version  prints the version information"
   echo "  --install     install the file module on the system"
   echo "  --remove      removes a module from system"
+  echo "  --dir dir     adds the directory to the search list"
   quit(QuitSuccess)
 
 if paramCount() == 0: help()
 
 type Mode = enum run_mode, install_mode, remove_mode
 
+var search_list = @[getEnv("HOME") & "/.cobre/modules", "."]
+
 var mode = run_mode
 var main_module_name: string = nil
+var add_dir = false
 for p in commandLineParams():
   if cobreargs.len < 1:
     if p == "--help" or p == "-h": help()
     if p == "--version" or p == "-v":
       echo "Cobre 0.6"
       quit(QuitSuccess)
+    if p == "--dir": add_dir = true
     elif p == "--install": mode = install_mode
     elif p == "--remove": mode = remove_mode
     elif p[0] == '-':
       echo "Unknown option " & p
       quit(QuitFailure)
+    elif add_dir:
+      search_list.add(p)
+      add_dir = false
     else:
       main_module_name = p
       cobreargs.add(p)
@@ -82,12 +94,11 @@ proc compile_file (file: File, name: string): Module =
 
 proc module_loader (name: string): Module =
   var filename: string = name.replace('\x1f', '.')
-  if not fileExists(filename):
-    filename = mod_path & "/" & filename
-    if not fileExists(filename):
-      return nil
-  let file = open(filename)
-  return compile_file(file, name)
+  for i in 1 .. search_list.len:
+    var path = search_list[^i] & "/" & filename
+    if fileExists(path):
+      let file = open(path)
+      return compile_file(file, name)
 
 set_module_loader(module_loader)
 
