@@ -8,18 +8,19 @@ import cobre.any { type any; }
 
 import cobre.any (int) {
   any `new` (int) as anyInt;
-  int? get (any) as getInt;
+  int get (any) as getInt;
+  bool test (any) as testInt;
 }
 
 import cobre.any (string) {
   any `new` (string) as anyStr;
-  string? get (any) as getStr;
+  string get (any) as getStr;
+  bool test (any) as testStr;
 }
 
 void f (any a) {
-  string? _s = getStr(a);
-  if (_s.isnull()) println(":(");
-  else println(_s.get());
+  if (!testStr(a)) println(":(");
+  else println(getStr(a));
 }
 
 void main () {
