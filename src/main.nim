@@ -84,7 +84,7 @@ proc compile_file (file: File, name: string): Module =
   proc read_byte(): uint8 =
     let L = file.readBuffer(result.addr, 1)
     if L != 1: raise newException(IOError, "cannot read byte")
-  let parsed = parse(read_byte)
+  let parsed = parse(read_byte, name)
   try:
     return compile(parsed, name)
   except CompileError:

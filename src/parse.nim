@@ -55,6 +55,7 @@ type
   Parser* = ref object of RootObj
     read_proc: proc(): uint8
     pos: int
+    name: string
 
     modules*: seq[Module]
     types*: seq[Type]
@@ -73,7 +74,8 @@ type
   UnsupportedError* = object of Exception
 
 proc parseRaise*[T](p: Parser, xmsg: string) =
-  let msg = xmsg & ", at byte " & p.pos.toHex(4)
+  let filepos = if p.name.isNil: "" else: ", at file " & p.name
+  let msg = xmsg & filepos & ", at byte " & p.pos.toHex(4)
   var e = newException(T, msg)
   e.pos = p.pos
   raise e
@@ -123,7 +125,7 @@ proc checkFormat (parser: Parser) =
   if sig != "Cobre 0.6":
     var msg = "Expected signature \"Cobre 0.6\""
     if printable: msg &= ", but found \"" & sig & "\""
-    raise newException(InvalidModuleError, msg)
+    parseRaise[InvalidModuleError](parser, msg)
 
 proc parseItem (p: Parser): Item =
   result.kind = ItemKind(p.readInt)
@@ -152,7 +154,7 @@ proc parseModule (p: Parser): Module =
 
 proc parseType (p: Parser): Type =
   let k = p.readInt
-  if k == 0: raise newException(NullKindError, "Null type")
+  if k == 0: parseRaise[NullKindError](p, "Null type")
   result.module = k-1
   result.name = p.readStr
 
@@ -160,7 +162,7 @@ proc parseFunction (p: Parser): Function =
   let k = p.readInt
   result.ins.buildSeq(p.readInt) do -> int: p.readInt
   result.outs.buildSeq(p.readInt) do -> int: p.readInt
-  if k == 0: raise newException(NullKindError, "Null function")
+  if k == 0: parseRaise[NullKindError](p, "Null function")
   if k == 1: result.internal = true
   else:
     result.internal = false
@@ -235,10 +237,11 @@ proc parseNode (p: Parser): Node =
     return Node(kind: listNode, children: nodes)
 
 
-proc parse* (read_proc: proc(): uint8): Parser =
+proc parse* (read_proc: proc(): uint8, name: string = nil): Parser =
 
   var p = Parser(
     pos: 0,
+    name: name,
     read_proc: read_proc,
   )
   result = p
