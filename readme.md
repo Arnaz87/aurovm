@@ -8,6 +8,8 @@ It's intended that many features available in many programming languages or else
 
 This project holds the design and an implementation written in Nim. The main documentation is in [docs/Module Format.md](docs/Module Format.md).
 
+There is an [alternative implementation](https://github.com/Arnaz87/cobreweb) based on Javascript, and there's also a [Lua implementation](https://github.com/Arnaz87/culua) on Cobre. You can see both of them in action [here](http://arnaud.com.ve/cobre/).
+
 **Note**: The main documentation is in english, but files in notes and a few source comments here and there are in spanish. I'm working on translating the important stuff to english.
 
 **License**: This project is open source software, distributed under the MIT license.
@@ -42,6 +44,8 @@ To execute a Cobre module, use `cobre <modulefile>`. To create module files, you
 
 Things that need to be done
 
+- Closures, they are ubiquitous and too hard for language implementors
+- Module level code and parametric modules are ugly: modules are duck typed maps and type/function to value and vice versa is ugly
 - Finish the standard library. It must have:
   + Structs
   + Arrays
@@ -57,6 +61,9 @@ Things that need to be done
   + Ownership Model? (Simplified?)
   + Module manipulation
 - Figure out concurrency and memory safety
+- Scheme on cobre
+- Make the cobre module dumper in a cobre language
+- Make a static analysis tool
 
 # Wishlist
 
