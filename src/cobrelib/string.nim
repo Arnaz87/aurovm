@@ -36,6 +36,12 @@ globalModule("cobre.string"):
     let r = args[0].s & args[1].s
     args.ret Value(kind: strV, s: r)
 
+  self.addfn("slice", [strT, intT, intT], [strT]):
+    let a = args[1].i
+    let b = args[2].i
+    let r = args[0].s.substr(a, b-1)
+    args.ret Value(kind: strV, s: r)
+
   self.addfn("eq", [strT, strT], [boolT]):
     let r = args[0].s == args[1].s
     args.ret Value(kind: boolV, b: r)

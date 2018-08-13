@@ -251,7 +251,7 @@ proc findModule* (name: string): Module =
     echo "DEPRECATED: " & name
 
 var max_instruction_count = 10_000
-var max_stack_depth = 64
+var max_stack_depth = 128
 
 proc newFunction* (
   name: string = "",

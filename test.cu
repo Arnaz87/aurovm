@@ -1,5 +1,5 @@
 
-import cobre.system { void println (string); }
+/*import cobre.system { void println (string); }
 
 import cobre.utils.arraylist (string as `0`) {
   type `` as list {
@@ -33,4 +33,8 @@ void main () {
   m["1"] = "uno";
   m["2"] = "dos";
   println(m["1"].get() + " " + m["2"].get());
-}
+}*/
+
+import cobre.string { string slice (string, int, int); }
+
+void main () { println(slice("Cobrevm-0.6", 0, 15)); }

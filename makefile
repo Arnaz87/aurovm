@@ -24,8 +24,8 @@ jstest: bin/nimtest.js
 monitor-test:
 	while inotifywait -q -e close_write src/; do make test; done
 
-install: bin/cobre
-	install bin/cobre $(BINDIR)/cobre
+install: bin/cobre-release
+	install bin/cobre-release $(BINDIR)/cobre
 
 uninstall:
 	rm -f $(BINDIR)/cobre

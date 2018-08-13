@@ -7,6 +7,9 @@ globalModule("cobre.float"):
   let fftof = mksig([fltT, fltT], [fltT])
   let fftob = mksig([fltT, fltT], [boolT])
 
+  self.addfn("ftoi", [fltT], [intT]):
+    args.ret Value(kind: intV, i: (int) args[0].f)
+
   self.addfn("itof", [intT], [fltT]):
     let r = (float) args[0].i
     args.ret Value(kind: fltV, f: r)
@@ -46,7 +49,7 @@ globalModule("cobre.float"):
     let r = args[0].f > args[1].f
     args.ret Value(kind: boolV, b: r)
 
-  self.addfn("gt", fftob):
+  self.addfn("ge", fftob):
     let r = args[0].f >= args[1].f
     args.ret Value(kind: boolV, b: r)
 
