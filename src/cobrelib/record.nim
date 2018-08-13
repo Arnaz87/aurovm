@@ -1,6 +1,9 @@
 
 var record_modules = initTable[seq[Type], Module](32)
 
+type Product = ref object of RootObj
+  fields: seq[Value]
+
 globalFunctor("cobre.record"):
   var types: seq[Type] = @[]
   var n = 0
@@ -16,9 +19,6 @@ globalFunctor("cobre.record"):
   let basename = "(" & types.mapIt(it.name).join(", ") & ")"
 
   var tp = newType(basename)
-
-  type Product = ref object of RootObj
-    fields: seq[Value]
 
   result = createModule(basename):
     self[""] = tp

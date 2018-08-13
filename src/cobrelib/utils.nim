@@ -84,8 +84,25 @@ block:
     let nullArg = SimpleModule("", [TypeItem("0", base)])
     let nullT = findModule("cobre\x1fnull").build(nullArg)[""].t
 
+    let pairArg = SimpleModule("", [TypeItem("0", strT), TypeItem("1", base)])
+    let pairT = findModule("cobre\x1frecord").build(pairArg)[""].t
+
+    let nullPairArg = SimpleModule("", [TypeItem("0", pairT)])
+    let nullPairT = findModule("cobre\x1fnull").build(nullPairArg)[""].t
+
+    type Iter = iterator (m: Map): (string, Value)
+
+    var iterT = newType("stringmap.iter(" & base.name & ")")
+    type MapIter = ref object of RootObj
+      map: Map
+      iter: Iter
+
+    iterator pairsIter (m: Map): (string, Value) {.closure.} =
+      for k, v in m.items.pairs: yield (k, v)
+
     result = createModule(basename):
       self[""] = tp
+      self["iterator"] = iterT
 
       self.addfn("new", [], [tp]):
         args.ret Value(
@@ -108,5 +125,26 @@ block:
       self.addfn("remove", [tp, strT], []):
         let map = Map(args[0].obj)
         map.items.del args[1].s
+
+      self.addfn("new\x1diterator", [tp], [iterT]):
+        let map = Map(args[0].obj)
+        var iter = pairsIter
+        args.ret Value(
+          kind: objV,
+          obj: MapIter(map: map, iter: iter)
+        )
+
+      self.addfn("next\x1diterator", [iterT], [nullPairT]):
+        let mapiter = MapIter(args[0].obj)
+        let (k, v) = mapiter.iter(mapiter.map)
+        if mapiter.iter.finished:
+          args.ret Value(kind: nilV)
+        else:
+          args.ret Value(
+            kind: objV,
+            obj: Product(fields: @[
+              Value(kind: strV, s: k), v
+            ])
+          )
         
     str_modules[base] = result
