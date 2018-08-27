@@ -64,3 +64,21 @@ globalModule("cobre.float"):
   self.addfn("gtz", [fltT], [boolT]):
     let r = args[0].f > 0
     args.ret Value(kind: boolV, b: r)
+
+  self.addfn("nan", [], [fltT]):
+    args.ret Value(kind: fltV, f: NaN)
+
+  self.addfn("inf", [], [fltT]):
+    args.ret Value(kind: fltV, f: Inf)
+
+  self.addfn("isnan", [fltT], [boolT]):
+    let r = case classify(args[0].f)
+      of fcNan: true
+      else: false
+    args.ret Value(kind: boolV, b: r)
+
+  self.addfn("isinf", [fltT], [boolT]):
+    let r = case classify(args[0].f)
+      of fcInf, fcNegInf: true
+      else: false
+    args.ret Value(kind: boolV, b: r)

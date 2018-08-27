@@ -35,7 +35,7 @@ bool nz (float);
 /** Tests wether an float is greater than zero. */
 bool gz (float);
 
-/** Tests wether two floats are equal. */
+/** Tests wether two floats are equal. Algebraic identities might not hold after float calculations. */
 bool eq (float, float);
 
 /** Tests wether two floats are not equal. */
@@ -64,3 +64,8 @@ int ftoi (float);
 
 /** Creates a float given a magnitude and an exponent base 10 */
 float decimal (int magnitude, int exponent);
+
+float nan ();
+float inf ();
+bool isnan (float);
+bool isinf (float);

@@ -12,6 +12,8 @@ from ospaths import getEnv
 
 import sequtils
 
+import math
+
 proc retn* (sq: var seq[Value], vs: openarray[Value]) =
   for i in 0 .. vs.high:
     sq[i] = vs[i]
@@ -138,3 +140,4 @@ include cobrelib/typeshell
 include cobrelib/any
 
 include cobrelib/utils
+include cobrelib/math

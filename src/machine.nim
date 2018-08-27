@@ -251,7 +251,12 @@ proc findModule* (name: string): Module =
     echo "DEPRECATED: " & name
 
 var max_instruction_count = 10_000
-var max_stack_depth = 128
+var max_stack_depth = 1024 # arbitrary power of two
+# max stack depth:
+# node: 15387
+# firefox: 55851
+# python: 999
+# lua: 999990 (whoa)
 
 proc newFunction* (
   name: string = "",
