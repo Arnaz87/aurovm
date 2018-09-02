@@ -66,6 +66,6 @@ int ftoi (float);
 float decimal (int magnitude, int exponent);
 
 float nan ();
-float inf ();
+float infinity ();
 bool isnan (float);
-bool isinf (float);
+bool isinfinity (float);

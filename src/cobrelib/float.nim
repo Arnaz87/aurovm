@@ -25,6 +25,7 @@ globalModule("cobre.float"):
       exp += 1
     args.ret Value(kind: fltV, f: r)
 
+
   self.addfn("add", fftof):
     let r = args[0].f + args[1].f
     args.ret Value(kind: fltV, f: r)
@@ -40,6 +41,7 @@ globalModule("cobre.float"):
   self.addfn("div", fftof):
     let r = args[0].f / args[1].f
     args.ret Value(kind: fltV, f: r)
+
 
   self.addfn("eq", fftob):
     let r = args[0].f == args[1].f
@@ -65,10 +67,11 @@ globalModule("cobre.float"):
     let r = args[0].f > 0
     args.ret Value(kind: boolV, b: r)
 
+
   self.addfn("nan", [], [fltT]):
     args.ret Value(kind: fltV, f: NaN)
 
-  self.addfn("inf", [], [fltT]):
+  self.addfn("infinity", [], [fltT]):
     args.ret Value(kind: fltV, f: Inf)
 
   self.addfn("isnan", [fltT], [boolT]):
@@ -77,7 +80,7 @@ globalModule("cobre.float"):
       else: false
     args.ret Value(kind: boolV, b: r)
 
-  self.addfn("isinf", [fltT], [boolT]):
+  self.addfn("isinfinity", [fltT], [boolT]):
     let r = case classify(args[0].f)
       of fcInf, fcNegInf: true
       else: false
