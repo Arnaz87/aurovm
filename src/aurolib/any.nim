@@ -9,13 +9,13 @@ block:
     tp: Type
     v: Value
 
-  let baseModule = createModule("cobre.any"):
+  let baseModule = createModule("auro.any"):
     self["any"] = anyT
 
   proc builder (argument: Module): Module =
     var argitem = argument["0"]
     if argitem.kind != tItem:
-      raise newException(Exception, "argument 0 for cobre.any is not a type")
+      raise newException(Exception, "argument 0 for auro.any is not a type")
     var base = argitem.t
 
     if modules.hasKey(base):
@@ -40,4 +40,4 @@ block:
 
   proc getter (key: Name): Item = baseModule[key]
 
-  machine_modules.add(CustomModule("cobre\x1fany", getter, builder))
+  machine_modules.add(CustomModule("auro\x1fany", getter, builder))

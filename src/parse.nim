@@ -122,8 +122,8 @@ proc checkFormat (parser: Parser) =
       printable = false
       break
 
-  if sig != "Cobre 0.6":
-    var msg = "Expected signature \"Cobre 0.6\""
+  if sig != "Auro 0.6":
+    var msg = "Expected signature \"Auro 0.6\""
     if printable: msg &= ", but found \"" & sig & "\""
     parseRaise[InvalidModuleError](parser, msg)
 

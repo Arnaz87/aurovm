@@ -4,7 +4,7 @@ var record_modules = initTable[seq[Type], Module](32)
 type Product = ref object of RootObj
   fields: seq[Value]
 
-globalFunctor("cobre.record"):
+globalFunctor("auro.record"):
   var types: seq[Type] = @[]
   var n = 0
   var nitem = argument[$n]

@@ -99,7 +99,7 @@ proc hash(t: Type): Hash = t.id.hash
 proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
 
 let boolT*: Type = newType("bool")
-globalModule("cobre.bool"):
+globalModule("auro.bool"):
   self["bool"] = boolT
   self["true"] = Function(
     name: "true",
@@ -124,20 +124,20 @@ globalModule("cobre.bool"):
   self.addfn("eq", [boolT, boolT], [boolT]):
     args.ret Value(kind: boolV, b: args[0].b == args[1].b)
 
-include cobrelib/int
-include cobrelib/float
-include cobrelib/buffer
-include cobrelib/string
+include aurolib/int
+include aurolib/float
+include aurolib/buffer
+include aurolib/string
 
-include cobrelib/io
-include cobrelib/system
+include aurolib/io
+include aurolib/system
 
-include cobrelib/record
-include cobrelib/null
-include cobrelib/array
-include cobrelib/function
-include cobrelib/typeshell
-include cobrelib/any
+include aurolib/record
+include aurolib/null
+include aurolib/array
+include aurolib/function
+include aurolib/typeshell
+include aurolib/any
 
-include cobrelib/utils
-include cobrelib/math
+include aurolib/utils
+include aurolib/math

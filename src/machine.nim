@@ -109,8 +109,8 @@ type
 
 var machine_modules* = newSeq[Module]()
 
-var cobreargs* = newSeq[string]()
-var cobreexec* = ""
+var auroargs* = newSeq[string]()
+var auroexec* = ""
 
 var trace_stack: seq[State]
 

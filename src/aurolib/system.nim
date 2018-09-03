@@ -1,7 +1,7 @@
 
 # Investigar sobre las librerías POSIX, unistd.h, tienen funciones muy interesantes
 
-globalModule("cobre.system"):
+globalModule("auro.system"):
   self.addfn("readline", mksig([], [strT])):
     var line = stdin.readLine()
     args.ret Value(kind: strV, s: line)
@@ -30,13 +30,13 @@ globalModule("cobre.system"):
     args.ret Value(kind: intV, i: code)
 
   self.addfn("arg0", [], [strT]):
-    args.ret Value(kind: strV, s: cobreexec)
+    args.ret Value(kind: strV, s: auroexec)
 
   self.addfn("argc", mksig([], [intT])):
-    args.ret Value(kind: intV, i: cobreargs.len)
+    args.ret Value(kind: intV, i: auroargs.len)
 
   self.addfn("argv", mksig([intT], [strT])):
-    args.ret Value(kind: strV, s: cobreargs[args[0].i])
+    args.ret Value(kind: strV, s: auroargs[args[0].i])
 
   self.addfn("env", mksig([strT], [strT])):
     args.ret Value(kind: strV, s: getEnv(args[0].s))

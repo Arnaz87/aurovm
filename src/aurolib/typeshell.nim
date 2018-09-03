@@ -5,13 +5,13 @@ type ShellModule* = ref object
   getbase*: proc (): Type
 var shell_modules* = newSeq[ShellModule](0)
 
-globalFunctor("cobre.typeshell"):
+globalFunctor("auro.typeshell"):
 
   #[ This is a problem, I cannot check right away if the argument is a type
   # because I would need to evaluate it, nor can I get the type name
   var argitem = argument["0"]
   if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
+    raise newException(Exception, "argument 0 for auro.typeshell is not a type")
   var base = argitem.t
   let basename = "shell(" & base.name & ")"
   ]#
@@ -19,7 +19,7 @@ globalFunctor("cobre.typeshell"):
   proc getbase (): Type =
     let argitem = argument["0"]
     if argitem.kind != tItem:
-      raise newException(Exception, "argument 0 for cobre.typeshell is not a type")
+      raise newException(Exception, "argument 0 for auro.typeshell is not a type")
     return argitem.t
 
   let tp = newType(nil)

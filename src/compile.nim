@@ -5,7 +5,7 @@ import parse as P
 import metadata
 import sourcemap
 import machine
-import cobrelib
+import aurolib
 
 import options
 import sequtils
@@ -157,12 +157,12 @@ proc getFunction(self: State, i: int): Function =
     of intConst:
       let n = data.value
       let v = Value(kind: intV, i: n)
-      let sig = Signature(ins:  @[], outs: @[cobrelib.intT])
+      let sig = Signature(ins:  @[], outs: @[aurolib.intT])
       result = Function(name: $n, kind: constF, sig: sig, value: v)
       fndata = FnData(kind: readyFn, f: result)
     of binConst:
       let v = Value(kind: binV, bytes: data.bytes)
-      let sig = Signature(ins:  @[], outs: @[cobrelib.bufT])
+      let sig = Signature(ins:  @[], outs: @[aurolib.bufT])
       result = Function(name: "buffer", kind: constF, sig: sig, value: v)
       fndata = FnData(kind: readyFn, f: result)
     of callConst:
@@ -260,7 +260,7 @@ proc typeCheck(self: State, fn: Function) =
       of jmpI: discard
       of jifI, nifI:
         if not regs[inst.src].isNil:
-          check(regs[inst.src], cobrelib.boolT, index)
+          check(regs[inst.src], aurolib.boolT, index)
         else: cancel = true
       of endI:
         for i in 0 .. inst.args.high:

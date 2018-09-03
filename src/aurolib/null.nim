@@ -1,10 +1,10 @@
 
 var null_modules = initTable[Type, Module](32)
 
-globalFunctor("cobre.null"):
+globalFunctor("auro.null"):
   var argitem = argument["0"]
   if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.null is not a type")
+    raise newException(Exception, "argument 0 for auro.null is not a type")
   var base = argitem.t
 
   if null_modules.hasKey(base):

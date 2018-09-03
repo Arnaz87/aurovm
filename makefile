@@ -3,10 +3,10 @@ PREFIX = $(DESTDIR)/usr/local
 BINDIR = $(PREFIX)/bin
 SRC = src/*.nim src/*/*.nim
 
-bin/cobre: $(SRC)
+bin/auro: $(SRC)
 	nim --checks:on -o:$@ c src/main.nim
 
-bin/cobre-release: $(SRC)
+bin/auro-release: $(SRC)
 	nim -d:release -o:$@ c src/main.nim
 
 bin/nimtest: $(SRC)
@@ -24,8 +24,11 @@ jstest: bin/nimtest.js
 monitor-test:
 	while inotifywait -q -e close_write src/; do make test; done
 
-install: bin/cobre-release
-	install bin/cobre-release $(BINDIR)/cobre
+install: bin/auro-release
+	install bin/auro-release $(BINDIR)/auro
 
 uninstall:
+	rm -f $(BINDIR)/auro
+
+uninstall-cobre:
 	rm -f $(BINDIR)/cobre

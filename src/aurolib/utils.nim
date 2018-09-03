@@ -2,10 +2,10 @@
 block:
 
   var arr_modules = initTable[Type, Module](16)
-  globalFunctor("cobre.utils.arraylist"):
+  globalFunctor("auro.utils.arraylist"):
     var argitem = argument["0"]
     if argitem.kind != tItem:
-      raise newException(Exception, "argument 0 for cobre.utils.arraylist is not a type")
+      raise newException(Exception, "argument 0 for auro.utils.arraylist is not a type")
     var base = argitem.t
 
     if arr_modules.hasKey(base):
@@ -66,10 +66,10 @@ block:
     arr_modules[base] = result
   
   var str_modules = initTable[Type, Module](16)
-  globalFunctor("cobre.utils.stringmap"):
+  globalFunctor("auro.utils.stringmap"):
     var argitem = argument["0"]
     if argitem.kind != tItem:
-      raise newException(Exception, "argument 0 for cobre.utils.stringmap is not a type")
+      raise newException(Exception, "argument 0 for auro.utils.stringmap is not a type")
     var base = argitem.t
 
     if str_modules.hasKey(base):
@@ -82,13 +82,13 @@ block:
       items: Table[string, Value]
 
     let nullArg = SimpleModule("", [TypeItem("0", base)])
-    let nullT = findModule("cobre\x1fnull").build(nullArg)[""].t
+    let nullT = findModule("auro\x1fnull").build(nullArg)[""].t
 
     let pairArg = SimpleModule("", [TypeItem("0", strT), TypeItem("1", base)])
-    let pairT = findModule("cobre\x1frecord").build(pairArg)[""].t
+    let pairT = findModule("auro\x1frecord").build(pairArg)[""].t
 
     let nullPairArg = SimpleModule("", [TypeItem("0", pairT)])
-    let nullPairT = findModule("cobre\x1fnull").build(nullPairArg)[""].t
+    let nullPairT = findModule("auro\x1fnull").build(nullPairArg)[""].t
 
     type Iter = iterator (m: Map): (string, Value)
 

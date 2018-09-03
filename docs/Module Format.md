@@ -1,8 +1,8 @@
-# Cobre 0.5
+# Auro 0.6
 
 *[2018-03-23 05:23]*
 
-The file starts with the ascii string `Cobre 0.6` followed by NUL.
+The file starts with the ascii string `Auro 0.6` followed by NUL.
 
 A module file has 5 sections: Modules, Types, Functions, Code and Metadata. The first three are item sections, entries in the module and function sections must have a kind id, which indicates how the item is defined, and in this document each item kind will have it's id indicated in square brackets in it's title.
 

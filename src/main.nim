@@ -3,7 +3,7 @@ import machine
 import parse
 import compile
 
-import cobrelib
+import aurolib
 
 import os
 from strutils import replace
@@ -15,13 +15,13 @@ proc help () =
   # paramStr(0) solo me da el comando usado (en linux al menos).
   echo "Usage: " & paramStr(0) & " [options] module {args}"
   echo()
-  echo "  Runs the specified cobre module."
+  echo "  Runs the specified auro module."
   echo()
   echo "  The module is searched as a file matching the module name, replacing the"
   echo "  unit separator (0x1f) with a point. It's searched in the following order:"
   echo "   - The directories passed in command arguments, in the reverse order"
   echo "   - The current directory"
-  echo "   - The module installation path: $HOME/.cobre/modules"
+  echo "   - The module installation path: $HOME/.auro/modules"
   echo()
   echo "  All subsequent imported modules are loaded the same way."
   echo()
@@ -37,16 +37,16 @@ if paramCount() == 0: help()
 
 type Mode = enum run_mode, install_mode, remove_mode
 
-var search_list = @[getEnv("HOME") & "/.cobre/modules", "."]
+var search_list = @[getEnv("HOME") & "/.auro/modules", "."]
 
 var mode = run_mode
 var main_module_name: string = nil
 var add_dir = false
 for p in commandLineParams():
-  if cobreargs.len < 1:
+  if auroargs.len < 1:
     if p == "--help" or p == "-h": help()
     if p == "--version" or p == "-v":
-      echo "Cobre 0.6"
+      echo "Auro 0.6"
       quit(QuitSuccess)
     if p == "--dir": add_dir = true
     elif p == "--install": mode = install_mode
@@ -59,11 +59,11 @@ for p in commandLineParams():
       add_dir = false
     else:
       main_module_name = p
-      cobreargs.add(p)
-  else: cobreargs.add(p)
-cobreexec = paramStr(0)
+      auroargs.add(p)
+  else: auroargs.add(p)
+auroexec = paramStr(0)
 
-let mod_path = getEnv("HOME") & "/.cobre/modules"
+let mod_path = getEnv("HOME") & "/.auro/modules"
 
 if mode != run_mode:
   let target = mod_path & "/" & main_module_name
@@ -123,7 +123,7 @@ except Exception:
   echo "FATAL: ", e.name, ": ", e.msg
   echo e.getStackTrace()
   
-  echo "Cobre Stack:"
+  echo "Auro Stack:"
   print_trace()
   echo()
   print_lowlevel()

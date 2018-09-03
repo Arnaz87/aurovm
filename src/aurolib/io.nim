@@ -1,7 +1,7 @@
 
 let fileT = newType("file")
 
-globalModule("cobre.io"):
+globalModule("auro.io"):
   let modeT = newType("mode")
 
   self["file"] = fileT

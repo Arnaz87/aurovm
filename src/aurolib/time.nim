@@ -1,5 +1,5 @@
 
-globalModule("cobre.system"):
+globalModule("auro.system"):
   let timer: Type = newType("timer")
   let duration: Type = newType("duration")
   let date: Type = newType("date")

@@ -1,7 +1,7 @@
 
 let bufT*: Type = newType("buffer")
 
-globalModule("cobre.buffer"):
+globalModule("auro.buffer"):
   self["buffer"] = bufT
 
   self.addfn("new", [intT], [bufT]):

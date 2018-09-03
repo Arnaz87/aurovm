@@ -1,7 +1,7 @@
 
 let fltT*: Type = newType("float")
 
-globalModule("cobre.float"):
+globalModule("auro.float"):
   self["float"] = fltT
 
   let fftof = mksig([fltT, fltT], [fltT])

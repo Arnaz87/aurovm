@@ -2,7 +2,7 @@
 let strT*: Type = newType("string")
 let charT*: Type = newType("char")
 
-globalModule("cobre.string"):
+globalModule("auro.string"):
   self["string"] = strT
   self["char"] = charT
 

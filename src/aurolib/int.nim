@@ -1,7 +1,7 @@
 
 let intT*: Type = newType("int")
 
-globalModule("cobre.int"):
+globalModule("auro.int"):
   self["int"] = intT
 
   let itoi = mksig([intT], [intT])
@@ -78,7 +78,7 @@ globalModule("cobre.int"):
     args.ret Value(kind: intV, i: r)
 
 
-globalModule("cobre.int.bit"):
+globalModule("auro.int.bit"):
 
   let iitoi = mksig([intT, intT], [intT])
 

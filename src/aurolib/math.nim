@@ -1,5 +1,5 @@
 
-globalModule("cobre.math"):
+globalModule("auro.math"):
 
   template def (fname: untyped, str: string): untyped =
     self.addfn(str, [fltT], [fltT]):

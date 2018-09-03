@@ -1,7 +1,7 @@
 
 var function_modules = initTable[Signature, Module](32)
 
-globalFunctor("cobre.function"):
+globalFunctor("auro.function"):
   var ins:  seq[Type] = @[]
   var outs: seq[Type] = @[]
   var n = 0

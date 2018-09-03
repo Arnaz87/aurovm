@@ -1,10 +1,10 @@
 
 var array_modules = initTable[Type, Module](32)
 
-globalFunctor("cobre.array"):
+globalFunctor("auro.array"):
   var argitem = argument["0"]
   if argitem.kind != tItem:
-    raise newException(Exception, "argument 0 for cobre.array is not a type")
+    raise newException(Exception, "argument 0 for auro.array is not a type")
   var base = argitem.t
 
   if array_modules.hasKey(base):

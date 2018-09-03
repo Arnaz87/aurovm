@@ -12,7 +12,7 @@ import unittest
 import macros
 import options
 
-import cobrelib
+import aurolib
 
 from strutils import multiReplace
 
@@ -109,12 +109,12 @@ suite "Full Tests":
       static ints
     ]#
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       2, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           2, 1, $"myadd",
-        1, $"cobre.int", #2 Import
+        1, $"auro.int", #2 Import
       1, # Types
         (2+1), $"int", #0 import "int" from module 2
       2, # Functions
@@ -148,13 +148,13 @@ suite "Full Tests":
       recursive function call
     ]#
     let data = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       3,
         #0 is the argument module
         2, 1, #1 Define (exports)
           2, 1, $"factorial",
-        1, $"cobre.int", #2 Import cobre.int
-        1, $"cobre.bool", #3 import cobre.bool
+        1, $"auro.int", #2 Import auro.int
+        1, $"auro.bool", #3 import auro.bool
       2, # Types
         (2+1), $"int",
         (3+1), $"bool",
@@ -204,12 +204,12 @@ suite "Full Tests":
       constant function calls
     ]#
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       2, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           2, 1, $"main",
-        1, $"cobre.int", #2 Import
+        1, $"auro.int", #2 Import
       1, # Types
         (2+1), $"int", #0 import "int" from module 2
       2, # Functions
@@ -222,7 +222,7 @@ suite "Full Tests":
           1, 0, # 1 outputs: int
       2, # Constants
         1, $4, #2 int 4
-        (16 + 0), 2, #3 cobre.int.neg(const_2 (4))
+        (16 + 0), 2, #3 auro.int.neg(const_2 (4))
       2, # Block for #1 (myadd)
         (16 + 3), #0 = const_3 (-4)
         0, 0, #return #0
@@ -243,18 +243,18 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       5,
         #0 is the argument module
         2, 1, #1 Define (exports)
           2, 0, $"main",
-        1, $"cobre.prim", #2 Import
+        1, $"auro.prim", #2 Import
 
-        2, 2, #3 Define (arguments for cobre.tuple)
+        2, 2, #3 Define (arguments for auro.tuple)
           1, 0, $"0", # type_0 (int)
           1, 0, $"1", # type_2 (int)
-        1, $"cobre.tuple", #4 Import functor
-        4, 4, 3, #5 Build cobre.tuple
+        1, $"auro.tuple", #4 Import functor
+        4, 4, 3, #5 Build auro.tuple
       2, # Types
         (2+1), $"int", #0
         (5+1), $"", #1 tuple(int, #2)
@@ -262,11 +262,11 @@ suite "Full Tests":
         1, #0 Defined Function (main)
           0,
           1, 1,
-        (5+2), #1 cobre.tuple.get1
+        (5+2), #1 auro.tuple.get1
           1, 1,
           1, 2,
           $"get1",
-        (5+2),  #2 cobre.tuple.new
+        (5+2),  #2 auro.tuple.new
           2, 0, 2,
           1, 1,
           $"new",
@@ -302,30 +302,30 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       12,
         #0 is the argument module
         2, 1, #1 Define (exports)
           2, 1, $"main",
-        1, $"cobre.int", #2 Import
+        1, $"auro.int", #2 Import
 
-        2, 2, #3 Define (arguments for cobre.tuple)
+        2, 2, #3 Define (arguments for auro.tuple)
           1, 0, $"0", # type_0 (int)
           1, 2, $"1", # type_2 (nullable tuple)
-        1, $"cobre.record", #4 Import functor
-        4, 4, 3, #5 Build cobre.record
+        1, $"auro.record", #4 Import functor
+        4, 4, 3, #5 Build auro.record
 
-        2, 1, #6 Define(arguments for cobre.null)
+        2, 1, #6 Define(arguments for auro.null)
           1, 3, $"0", # type_1 (typeshell)
-        1, $"cobre.null", #7 Import functor
-        4, 7, 6, #8 Build cobre.null
+        1, $"auro.null", #7 Import functor
+        4, 7, 6, #8 Build auro.null
 
-        2, 1, #9 Define(arguments for cobre.typeshell)
+        2, 1, #9 Define(arguments for auro.typeshell)
           1, 1, $"0", # type_1 (tuple)
-        1, $"cobre.typeshell", #10 Import functor
-        4, 10, 9, #11 Build cobre.null
+        1, $"auro.typeshell", #10 Import functor
+        4, 10, 9, #11 Build auro.null
 
-        1, $"cobre.core", #12 Import
+        1, $"auro.core", #12 Import
       5, # Types
         (2+1), $"int", #0
         (5+1), $"", #1 tuple(int, #2)
@@ -424,23 +424,23 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       8,
         #0 is the argument module
         2, 1, #1 Define (exports)
           2, 1, $"main",
-        1, $"cobre.int", #2 Import
+        1, $"auro.int", #2 Import
 
-        2, 2, #3 Define (arguments for cobre.tuple)
+        2, 2, #3 Define (arguments for auro.tuple)
           1, 0, $"0", # type_0 (int)
           1, 2, $"1", # type_2 (nullable tuple)
-        1, $"cobre.record", #4 Import functor
-        4, 4, 3, #5 Build cobre.tuple
+        1, $"auro.record", #4 Import functor
+        4, 4, 3, #5 Build auro.tuple
 
-        2, 1, #6 Define(arguments for cobre.null)
+        2, 1, #6 Define(arguments for auro.null)
           1, 2, $"0", # type_1 (tuple)
-        1, $"cobre.null", #7 Import functor
-        4, 7, 6, #8 Build cobre.null
+        1, $"auro.null", #7 Import functor
+        4, 7, 6, #8 Build auro.null
       3, # Types
         (2+1), $"int", #0
         (5+1), $"", #1 tuple(int, #2)
@@ -503,25 +503,25 @@ suite "Full Tests":
     ]#
 
     let data = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       8,
         #0 is the argument module
         2, 1, #1 Define (exports)
           2, 4, $"main",
-        1, $"cobre.int", #2
+        1, $"auro.int", #2
 
-        1, $"cobre.function", #3 Import functor
+        1, $"auro.function", #3 Import functor
         2, 2, #4 Define (argument)
           1, 0, $"in0",
           1, 0, $"out0",
-        4, 3, 4, #5 Build cobre.function with #4 (int -> int)
+        4, 3, 4, #5 Build auro.function with #4 (int -> int)
 
-        3, 5, $"new", #6 Import functor cobre.function.new
+        3, 5, $"new", #6 Import functor auro.function.new
         2, 1, #7 Define module
           2, 1, $"0", # 0: function_1 (add4)
-        4, 6, 7, #8 build cobre.function.new(add4 as `0`)
+        4, 6, 7, #8 build auro.function.new(add4 as `0`)
       2, # Types
-        (2+1), $"int", #0 import cobre.int.int
+        (2+1), $"int", #0 import auro.int.int
         (5+1), $"", #1 type of function(int -> int)
       6, # Functions
         (2+2), #0
@@ -539,7 +539,7 @@ suite "Full Tests":
         1, #4 Defined main
           0, # 0 ins
           1, 0, # 1 outs: int
-        (8+2), #5 cobre.function.new(add4).``
+        (8+2), #5 auro.function.new(add4).``
           0, 1, 1, # void -> (int->int)
           $"",
       2, # Statics
@@ -572,19 +572,19 @@ suite "Full Tests":
   test "Metadata fail 1":
 
     #[ Equivalent Cu
-      // Type string not found in cobre.core
-      import cobre.core { type string; }
+      // Type string not found in auro.core
+      import auro.core { type string; }
     ]#
 
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       2, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           1, 0, $"string", # export type #0 as "string"
-        1, $"cobre.int", #2 Import
+        1, $"auro.int", #2 Import
       1, # Types
-        (2+1), $"string", #0 import "string" from cobre.int, should fail
+        (2+1), $"string", #0 import "string" from auro.int, should fail
       0, # Functions
       0, # Constants
       (1 shl 2), # Metadata, 1 toplevel node
@@ -631,29 +631,29 @@ suite "Full Tests":
   test "Typecheck fail":
 
     #[ Equivalent Cu
-      // Type string not found in cobre.core
-      import cobre.prim { type int; }
-      import cobre.string { type string; }
-      import cobre.system { void println(string); }
+      // Type string not found in auro.core
+      import auro.prim { type int; }
+      import auro.string { type string; }
+      import auro.system { void println(string); }
       void main () {
         println(42); // Should fail typecheck
       }
     ]#
 
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       4, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           2, 1, $"main",
-        1, $"cobre.int", #2
-        1, $"cobre.string", #3
-        1, $"cobre.system", #4
+        1, $"auro.int", #2
+        1, $"auro.string", #3
+        1, $"auro.system", #4
       2, # Types
-        (2+1), $"int",    #0 from cobre.core import int
-        (3+1), $"string", #1 from cobre.core import string
+        (2+1), $"int",    #0 from auro.core import int
+        (3+1), $"string", #1 from auro.core import string
       2, # Functions
-        (4+2), #0 from cobre.system
+        (4+2), #0 from auro.system
           1, 1, 0,      #  void println(string)
           $"println",
         1, 0, 0,        #1 void main ()
@@ -705,21 +705,21 @@ suite "Full Tests":
   test "Incorrect Signature":
 
     #[ Equivalent Cu
-      import cobre.system {
+      import auro.system {
         void println(); // It's actually void println(string)
       }
     ]#
 
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       2, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           2, 0, $"println",
-        1, $"cobre.system", #2 Import
+        1, $"auro.system", #2 Import
       0, # Types
       1, # Functions
-        (2+2), #0 from cobre.system import string
+        (2+2), #0 from auro.system import string
           0, 0, #  void println () (wrong, it really is void println(string))
           $"println",
       0, # Constants
@@ -768,16 +768,16 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       4, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           1, 1, $"T",
 
-        2, 1, #2 Define(arguments for cobre.typeshell)
+        2, 1, #2 Define(arguments for auro.typeshell)
           1, 0, $"0", # type_0 (T)
-        1, $"cobre.typeshell", #3 Import cobre.typeshell
-        4, 3, 2, #4 Build cobre.typeshell(T)
+        1, $"auro.typeshell", #3 Import auro.typeshell
+        4, 3, 2, #4 Build auro.typeshell(T)
 
       2, # Types
         (0+1), $"T", #0 import "T" from module 0 (argument)
@@ -793,9 +793,9 @@ suite "Full Tests":
     proc newArg (name: string, tp: machine.Type): machine.Module =
       machine.SimpleModule(name, [machine.TypeItem("T", tp)])
 
-    let modint1 = compiled.build(newArg("int argument 1", cobrelib.intT))
-    let modint2 = compiled.build(newArg("int argument 1", cobrelib.intT))
-    let modstr = compiled.build(newArg("string argument 1", cobrelib.strT))
+    let modint1 = compiled.build(newArg("int argument 1", aurolib.intT))
+    let modint2 = compiled.build(newArg("int argument 1", aurolib.intT))
+    let modstr = compiled.build(newArg("string argument 1", aurolib.strT))
 
     # Even though modint1 and modint2 are built with different arguments
     # they return the same module because it's the same type used as argument
@@ -809,18 +809,18 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       5, # Modules
         # module #0 is the argument
         2, 1, #1 Define (exports)
           1, 1, $"T",
 
-        2, 1, #2 Define(arguments for cobre.typeshell)
+        2, 1, #2 Define(arguments for auro.typeshell)
           1, 0, $"0", # type_0 (T)
-        1, $"cobre.typeshell", #3 import
-        4, 3, 2, #4 Build cobre.typeshell(T)
+        1, $"auro.typeshell", #3 import
+        4, 3, 2, #4 Build auro.typeshell(T)
 
-        1, $"cobre.int", #5 import
+        1, $"auro.int", #5 import
 
       3, # Types
         (0+1), $"T", #0 import "T" from module 0 (argument)
@@ -838,7 +838,7 @@ suite "Full Tests":
     let compiled = compile(parsed, "Other Module Arguments")
 
     let argument = machine.SimpleModule("int argument", [
-      machine.TypeItem("T", cobrelib.intT)
+      machine.TypeItem("T", aurolib.intT)
     ])
 
     let modint1 = compiled.build(argument)
@@ -854,7 +854,7 @@ suite "Full Tests":
     ]#
 
     let code = bin(
-      "Cobre 0.6", 0,
+      "Auro 0.6", 0,
       1, # Modules
         # module #0 is the argument
         2, 5, #1 Every one of these just exports the argument
