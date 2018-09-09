@@ -118,6 +118,7 @@ try:
 except UserError:
   echo "Error: ", getCurrentExceptionMsg()
   print_trace()
+  quit(QuitFailure)
 except Exception:
   var e = getCurrentException()
   echo "FATAL: ", e.name, ": ", e.msg
@@ -127,5 +128,4 @@ except Exception:
   print_trace()
   echo()
   print_lowlevel()
-
-
+  quit(QuitFailure)
