@@ -1,0 +1,16 @@
+import auro.buffer {
+  type buffer;
+  buffer `new` (int size) as newbuf;
+  void set (buffer, int pos, int val);
+  int get (buffer, int pos);
+}
+import auro.int.bit { int or (int, int); }
+void main () {
+  buffer buf = newbuf(1);
+  set(buf, 0, 100 + 27);
+  println(itos(get(buf, 0)));
+  set(buf, 0, 100 + 28);
+  println(itos(get(buf, 0)));
+  set(buf, 0, 100 + 29);
+  println(itos(get(buf, 0)));
+}

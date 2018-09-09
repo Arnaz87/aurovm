@@ -83,11 +83,7 @@ globalModule("auro.int.bit"):
   let iitoi = mksig([intT, intT], [intT])
 
   self.addfn("not", [intT], [intT]):
-    let r = args[0].i and args[1].i
-    args.ret Value(kind: intV, i: r)
-
-  self.addfn("and", iitoi):
-    let r = args[0].i and args[1].i
+    let r = not args[0].i
     args.ret Value(kind: intV, i: r)
 
   self.addfn("and", iitoi):
@@ -111,8 +107,8 @@ globalModule("auro.int.bit"):
     let b = args[1].i
     if a < 0 or b < 0:
       raise newException(UserError, "negative operand")
-    if b > 16 or a shr (16 - b) > 0:
-      raise newException(UserError, "16 bit overflow")
+    if b > 31 or a shr (31 - b) > 0:
+      raise newException(UserError, "31 bit overflow")
     args.ret Value(kind: intV, i: a shl b)
 
   self.addfn("shr", iitoi):
