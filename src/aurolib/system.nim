@@ -23,11 +23,13 @@ globalModule("auro.system"):
 
   self.addfn("exit", [intT], []): quit(args[0].i)
 
-  self.addfn("exec", mksig([strT], [intT])):
+  self.addfn("exec", mksig([strT], [intT, strT])):
     let cmd = args[0].s
-    var p = startProcess(command = cmd, options = {poEvalCommand})
-    let code = p.waitForExit()
-    args.ret Value(kind: intV, i: code)
+    let (output, code) = execCmdEx(cmd)
+    args.retn([
+      Value(kind: intV, i: code),
+      Value(kind: strV, s: output)
+    ])
 
   self.addfn("arg0", [], [strT]):
     args.ret Value(kind: strV, s: auroexec)
