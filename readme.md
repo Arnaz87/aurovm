@@ -6,9 +6,7 @@ Ideally, Auro would be a platform in which a developer can write in any language
 
 It's intended that many features available in many programming languages or elsewhere, like OOP, dynamic dispatch, object serializing, etc. be implemented in standard libraries and conventions, instead of on Auro itself.
 
-This project holds the design and an implementation written in Nim. The main documentation is in [docs/Module Format.md](docs/Module Format.md).
-
-There is an [alternative implementation](https://github.com/Arnaz87/auroweb) based on Javascript, and there's also a [Lua implementation](https://github.com/Arnaz87/culua) on Auro. You can see both of them in action [here](http://arnaud.com.ve/auro/).
+This project holds the design and an implementation written in Nim. The main documentation is in the [spec repository](https://gitlab.com/aurovm/spec).
 
 **Note**: The main documentation is in english, but files in notes and a few source comments here and there are in spanish. I'm working on translating the important stuff to english.
 
@@ -26,7 +24,7 @@ I want to develop in any platform, in any language I want, with the libraries I 
 
 To install auro, you need the Nim language. Run `make install` as the superuser, then you can run any auro module with `auro <module_name>`, the module has to be in the working directory or installed in the system. To install an auro module run `auro --install <file>`, the file has to have the module name.
 
-To execute a Auro module, use `auro <modulefile>`. To create module files, you can use [Culang](https://github.com/Arnaz87/culang) or [CuLua](https://github.com/Arnaz87/culua). To see the contents of a compiled module, you can use [aurodump](https://github.com/Arnaz87/aurodump). You can also compile a Auro module to Javascript with [auroweb](https://github.com/Arnaz87/auroweb).
+To execute a Auro module, use `auro <modulefile>`. To create module files, you can use [Aulang](https://gitlab.com/aurovm/aulang) or [AuLua](https://gitlab.com/aurovm/aulua). To see the contents of a compiled module, you can use [aurodump](https://gitlab.com/aurovm/aurodump). You can also compile a Auro module to Javascript with [auroweb](https://gitlab.com/aurovm/auroweb). You can see lua running in the web implementation [here](http://arnaud.com.ve/auro/).
 
 # Similar projects
 
@@ -40,9 +38,7 @@ To execute a Auro module, use `auro <modulefile>`. To create module files, you c
 
 **TLDR**: Most of the existing projects are too big and complex for one single person to understand, and those that aren't (like Lua and WebAssembly), are not versatile enough.
 
-# Tasks
-
-Things that need to be done
+# Tasks to do
 
 - Closures, they are ubiquitous and too hard for language implementors
 - Module level code and parametric modules are ugly: modules are duck typed maps and type/function to value and vice versa is ugly
@@ -61,9 +57,11 @@ Things that need to be done
   + Ownership Model? (Simplified?)
   + Module manipulation
 - Figure out concurrency and memory safety
-- Scheme on auro
+- Scheme, Python and Java on auro
+- An auro compiler
 - Make the auro module dumper in an auro language
 - Make a static analysis tool
+- Javascript, C and Haskell on auro
 
 # Wishlist
 
