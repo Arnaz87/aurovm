@@ -74,7 +74,7 @@ type
   UnsupportedError* = object of Exception
 
 proc parseRaise*[T](p: Parser, xmsg: string) =
-  let filepos = if p.name.isNil: "" else: ", at file " & p.name
+  let filepos = if p.name == "": "" else: ", at file " & p.name
   let msg = xmsg & filepos & ", at byte " & p.pos.toHex(4)
   var e = newException(T, msg)
   e.pos = p.pos
@@ -237,7 +237,7 @@ proc parseNode (p: Parser): Node =
     return Node(kind: listNode, children: nodes)
 
 
-proc parse* (read_proc: proc(): uint8, name: string = nil): Parser =
+proc parse* (read_proc: proc(): uint8, name: string = ""): Parser =
 
   var p = Parser(
     pos: 0,

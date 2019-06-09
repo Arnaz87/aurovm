@@ -112,21 +112,23 @@ var machine_modules* = newSeq[Module]()
 var auroargs* = newSeq[string]()
 var auroexec* = ""
 
-var trace_stack: seq[State]
+var trace_stack: Option[seq[State]]
 
 proc print_trace* () =
-  if not trace_stack.isNil:
+  if trace_stack.isSome:
+    let stack = trace_stack.get
     # TODO: Unfamiliar reverse for syntax
-    for i in 1 .. trace_stack.len:
-      let instinfo = trace_stack[^i].f.codeinfo.getInst(trace_stack[^i].pc)
+    for i in 1 .. stack.len:
+      let instinfo = stack[^i].f.codeinfo.getInst(stack[^i].pc)
       if i == 1: echo "> ", instinfo
       else: echo "  ", instinfo
 
 
 proc print_lowlevel* () =
-  if not trace_stack.isNil:
-    if trace_stack.len > 0:
-      let top = trace_stack.pop
+  if trace_stack.isSome:
+    var stack = trace_stack.get
+    if stack.len > 0:
+      let top = stack.pop
 
       echo "Instructions [pc: ", top.pc, "]:"
       for i, inst in top.f.code.pairs:
@@ -205,7 +207,7 @@ proc `$`* (i: Item): string =
   ) & ")"
 proc `$`* (m: Module): string =
   if m.isNil: "nil"
-  elif not m.name.isNil: m.name 
+  elif m.name != "": m.name 
   else: "<anonymous module>"
 proc `$`* (t: Type): string =
   if t.isNil: "nil"
@@ -394,7 +396,7 @@ proc run* (fn: Function, ins: seq[Value]): seq[Value] =
       if advance: top.pc.inc()
   except Exception:
     stack.add(top)
-    trace_stack = stack
+    trace_stack = some(stack)
     raise getCurrentException()
 
 proc `==`* (a: Value, b: Value): bool =

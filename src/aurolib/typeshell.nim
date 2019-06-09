@@ -22,7 +22,7 @@ globalFunctor("auro.typeshell"):
       raise newException(Exception, "argument 0 for auro.typeshell is not a type")
     return argitem.t
 
-  let tp = newType(nil)
+  let tp = newType("")
   let basename = "type_" & $tp.id
   tp.name = basename
   let tpitem = TypeItem("", tp)

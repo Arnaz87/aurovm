@@ -66,12 +66,12 @@ proc newModule* (
   result = Module(kind: simpleM, name: name, items: @[])
   for tpl in types:
     let (nm, tp) = tpl
-    if tp.name.isNil:
+    if tp.name == "":
       tp.name = nm
     result[nm] = tp
   for tpl in funcs:
     let (nm, f) = tpl
-    if f.name.isNil:
+    if f.name == "":
       f.name = nm
     result[nm] = f
   machine_modules.add(result)

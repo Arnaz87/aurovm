@@ -101,7 +101,7 @@ proc getModule (self: State, index: int): Module =
         return result
       return Item(kind: machine.nilItem)
 
-    result = CustomModule(nil, getter)
+    result = CustomModule("", getter)
   of P.mBuild:
     let base = self.getModule(data.module)
     let argument = self.getModule(data.argument)

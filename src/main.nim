@@ -40,7 +40,7 @@ type Mode = enum run_mode, install_mode, remove_mode
 var search_list = @[getEnv("HOME") & "/.auro/modules", "."]
 
 var mode = run_mode
-var main_module_name: string = nil
+var main_module_name = ""
 var add_dir = false
 for p in commandLineParams():
   if auroargs.len < 1:
