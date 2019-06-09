@@ -91,7 +91,7 @@ type
   BuilderFn = proc(arg: Module): Module
 
   ModuleKind* = enum simpleM, customM
-  Module* = ref object
+  Module* = ref object of RootObj
     name*: string
     deprecated*: bool
     case kind*: ModuleKind

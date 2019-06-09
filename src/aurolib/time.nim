@@ -1,5 +1,5 @@
 
-globalModule("auro.system"):
+globalModule("auro.time"):
   let timer: Type = newType("timer")
   let duration: Type = newType("duration")
   let date: Type = newType("date")

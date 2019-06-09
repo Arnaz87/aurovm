@@ -1,0 +1,50 @@
+module module_mod = import auro.`module`;
+module item_mod = import auro.`module`.item;
+
+type mod_type = module_mod.``;
+type item = item_mod.``;
+
+item null_item () = item_mod.`null`;
+
+/*module fn_base = import auro.function;
+module fn_arg { in0 = string; }
+module fn_mod = fn_base(fn_arg);
+type fn = fn_mod.``;
+
+module fn_new_mod = fn_mod.`new`;
+module print_fn_arg { `0` = println; }
+module print_fn_mod = fn_new_mod(print_fn_arg);
+fn get_print_fn () = print_fn_mod.``;
+
+module modfn_base = module_mod.function;
+module modfn_mod = modfn_mod(fn_arg);
+void setfn (modbuilder, string, fn) = modfn_mod.builder$set;*/
+
+
+// builder returns the context of the module given an argument module.
+// return false as we don't need context for this example
+bool build (mod_type argument) { return false; }
+
+item get (bool ctx, string name) { return null_item(); }
+
+module new_mod = module_mod.`new`;
+module b_arg {
+  ctx = bool;
+  build = build;
+  get = get;
+}
+
+module B = new_mod(b_arg);
+
+
+// Running
+
+//type bstr = B.string;
+//bstr getmsg () = B.getmsg;
+//void b_print (bstr) = B.print;
+//void b_print (string) = B.print;
+
+void main () {
+  //b_print(getmsg());
+  //b_print("Hello World!");
+}

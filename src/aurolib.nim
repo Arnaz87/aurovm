@@ -139,5 +139,7 @@ include aurolib/function
 include aurolib/typeshell
 include aurolib/any
 
+include aurolib/module
+
 include aurolib/utils
 include aurolib/math
