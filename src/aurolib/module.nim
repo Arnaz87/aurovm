@@ -81,3 +81,19 @@ block:
       let r = ItemObj(args[0].obj).item.kind == nilItem
       args.ret Value(kind: boolV, b: r)
 
+    let fn_mod = createFunctor("item.function"):
+
+      let fn_t = findModule("auro\x1ffunction").build(argument)[""].t
+
+      let fn = Function(
+        name: "",
+        sig: mksig([fn_t], [item_type]),
+        kind: procF,
+        prc: proc (args: var seq[Value]) =
+          let obj = ItemObj(item: FunctionItem("", args[0].fn))
+          args.ret Value(kind: objV, obj: obj)
+      )
+
+      SimpleModule("item.function", [FunctionItem("", fn)])
+
+    self.items.add(ModuleItem("function", fn_mod))

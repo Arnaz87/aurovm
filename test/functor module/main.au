@@ -6,7 +6,7 @@ type item = item_mod.``;
 
 item null_item () = item_mod.`null`;
 
-/*module fn_base = import auro.function;
+module fn_base = import auro.function;
 module fn_arg { in0 = string; }
 module fn_mod = fn_base(fn_arg);
 type fn = fn_mod.``;
@@ -16,16 +16,22 @@ module print_fn_arg { `0` = println; }
 module print_fn_mod = fn_new_mod(print_fn_arg);
 fn get_print_fn () = print_fn_mod.``;
 
-module modfn_base = module_mod.function;
-module modfn_mod = modfn_mod(fn_arg);
-void setfn (modbuilder, string, fn) = modfn_mod.builder$set;*/
+module fn_item_base = item_mod.function;
+module fn_item_mod = fn_item_base(fn_arg);
+item fn_item_new (fn) = fn_item_mod.``;
 
 
 // builder returns the context of the module given an argument module.
 // return false as we don't need context for this example
 bool build (mod_type argument) { return false; }
 
-item get (bool ctx, string name) { return null_item(); }
+item get (bool ctx, string name) {
+  if (name == "print") {
+    return fn_item_new(get_print_fn());
+  } else {
+    return null_item();
+  }
+}
 
 module new_mod = module_mod.`new`;
 module b_arg {
@@ -42,9 +48,12 @@ module B = new_mod(b_arg);
 //type bstr = B.string;
 //bstr getmsg () = B.getmsg;
 //void b_print (bstr) = B.print;
-//void b_print (string) = B.print;
+void b_print (string) = B.print;
 
 void main () {
+  println("A");
   //b_print(getmsg());
-  //b_print("Hello World!");
+  b_print("Hello World!");
+
+  println("C");
 }
