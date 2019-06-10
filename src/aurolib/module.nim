@@ -77,6 +77,11 @@ block:
       let obj = ItemObj(item: Item(kind: nilItem))
       args.ret Value(kind: objV, obj: obj)
 
+    self.addfn("type", [], [typeT]):
+      let t = Type(args[0].obj)
+      let obj = ItemObj(item: TypeItem("", t))
+      args.ret Value(kind: objV, obj: obj)
+
     self.addfn("isnull", [item_type], []):
       let r = ItemObj(args[0].obj).item.kind == nilItem
       args.ret Value(kind: boolV, b: r)

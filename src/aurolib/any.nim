@@ -11,6 +11,9 @@ block:
 
   let baseModule = createModule("auro.any"):
     self["any"] = anyT
+    self.addfn("type", [anyT], [typeT]):
+      let val = AnyVal(args[0].obj)
+      args.ret Value(kind: objV, obj: val.tp)
 
   proc builder (argument: Module): Module =
     var argitem = argument["0"]

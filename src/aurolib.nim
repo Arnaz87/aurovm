@@ -135,6 +135,8 @@ include aurolib/system
 include aurolib/record
 include aurolib/null
 include aurolib/array
+
+include aurolib/type
 include aurolib/function
 include aurolib/typeshell
 include aurolib/any

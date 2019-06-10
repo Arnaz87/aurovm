@@ -47,13 +47,8 @@ module B = new_mod(b_arg);
 
 //type bstr = B.string;
 //bstr getmsg () = B.getmsg;
-//void b_print (bstr) = B.print;
 void b_print (string) = B.print;
 
 void main () {
-  println("A");
-  //b_print(getmsg());
-  b_print("Hello World!");
-
-  println("C");
+  b_print(getmsg());
 }
