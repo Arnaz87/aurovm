@@ -9,9 +9,9 @@ globalModule("auro.type"):
     args.ret Value(kind: boolV, b: r)
 
   let newFunctor = createFunctor("type.new"):
-    let item = argument["0"]
+    let item = argument[""]
     if item.kind != tItem:
-      raise newException(Exception, "Argument `0` is not a function")
+      raise newException(Exception, "Argument `` is not a type")
 
     let value = Value(kind: objV, obj: item.t)
 

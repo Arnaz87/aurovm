@@ -1,9 +1,31 @@
 
 block:
   let item_type: Type = newType("item")
+  let code_type: Type = newType("code")
 
-  type ItemObj = ref object of RootObj
-    item: Item
+  type
+    ItemObj = ref object of RootObj
+      item: Item
+      code: CodeObj
+
+    RawInst = object
+      fn: ItemObj
+      n: int
+
+    CodeObj = ref object of RootObj
+      ins: seq[Type]
+      outs: seq[Type]
+      code: seq[RawInst]
+      fn: Function
+
+  proc compile (self: CodeObj)
+
+  proc get_item (obj: ItemObj): Item =
+    if obj.code.isNil:
+      return obj.item
+    if obj.code.fn.isNil:
+      obj.code.compile()
+    return FunctionItem("", obj.code.fn)
 
   globalModule("auro.module"):
     let mod_type: Type = newType("module")
@@ -55,7 +77,7 @@ block:
         proc getter (name: Name): Item =
           let name_val = Value(kind: strV, s: name.main)
           let r = get_f.run(@[ctx, name_val])
-          ItemObj(r[0].obj).item
+          ItemObj(r[0].obj).get_item
 
         CustomModule("", getter)
         
@@ -63,7 +85,9 @@ block:
       proc getter (name: Name): Item =
         if base_mod.isNil:
           base_mod = builder(SimpleModule("", []))
-        base_mod[name]
+        var item = base_mod[name]
+        item.name = name
+        return item
 
 
       CustomModule("", getter, builder)
@@ -77,9 +101,14 @@ block:
       let obj = ItemObj(item: Item(kind: nilItem))
       args.ret Value(kind: objV, obj: obj)
 
-    self.addfn("type", [], [typeT]):
+    self.addfn("type", [type_t], [item_type]):
       let t = Type(args[0].obj)
       let obj = ItemObj(item: TypeItem("", t))
+      args.ret Value(kind: objV, obj: obj)
+
+    self.addfn("code", [code_type], [item_type]):
+      let code = CodeObj(args[0].obj)
+      let obj = ItemObj(code: code)
       args.ret Value(kind: objV, obj: obj)
 
     self.addfn("isnull", [item_type], []):
@@ -102,3 +131,5 @@ block:
       SimpleModule("item.function", [FunctionItem("", fn)])
 
     self.items.add(ModuleItem("function", fn_mod))
+
+  include code

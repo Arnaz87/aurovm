@@ -144,8 +144,6 @@ var module_loader: ModLoader = default_loader
 proc set_module_loader*(loader: ModLoader) =
   module_loader = loader
 
-# TODO: This fails with, for example: "a:b:b:c" "a:b:c:c"
-# both ways should be false, but both return true
 proc `$`* (self: Name): string =
   if self.parts.len == 0: self.main
   else: self.main & ":" & self.parts.join(":")
@@ -154,6 +152,9 @@ proc parseName* (str: string): Name =
   result.main = result.parts[0]
   result.parts.del(0)
   result.parts.sort(system.cmp)
+
+# TODO: "a:b:b:c" and "a:b:c:c" shouldn't equal
+# the correct algorithm is to sort each and then compare them exactly
 proc contains* (a: Name, b: Name): bool =
   if a.main != b.main: return false
   if a.parts.len < b.parts.len: return false

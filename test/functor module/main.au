@@ -1,10 +1,19 @@
 module module_mod = import auro.`module`;
 module item_mod = import auro.`module`.item;
+module code_mod = import auro.`module`.code;
+module type_mod = import auro.`type`;
 
 type mod_type = module_mod.``;
 type item = item_mod.``;
+type _type = type_mod.``;
 
 item null_item () = item_mod.`null`;
+item type_item (_type) = item_mod.`type`;
+
+module type_new = type_mod.`new`;
+module string_type_mod_arg { `` = string; }
+module string_type_mod = type_new(string_type_mod_arg);
+_type get_string_type () = string_type_mod.``;
 
 module fn_base = import auro.function;
 module fn_arg { in0 = string; }
@@ -20,6 +29,14 @@ module fn_item_base = item_mod.function;
 module fn_item_mod = fn_item_base(fn_arg);
 item fn_item_new (fn) = fn_item_mod.``;
 
+type code = code_mod.``;
+code new_code () = code_mod.`new`;
+void add_input (code, item) = code_mod.`addinput`;
+void add_int (code, int) = code_mod.`addint`;
+void add_fn (code, item) = code_mod.`addfn`;
+
+item code_item (code) = item_mod.code;
+
 
 // builder returns the context of the module given an argument module.
 // return false as we don't need context for this example
@@ -27,7 +44,21 @@ bool build (mod_type argument) { return false; }
 
 item get (bool ctx, string name) {
   if (name == "print") {
-    return fn_item_new(get_print_fn());
+    code c = new_code();
+    add_input(c, type_item(get_string_type()));
+
+    fn print = get_print_fn();
+    item p_item = fn_item_new(print);
+
+    // print(reg_0)
+    // reg_0: first argument
+    add_fn(c, p_item);
+    add_int(c, 0);
+
+    // end instruction, no result values
+    add_int(c, 0);
+
+    return code_item(c);
   } else {
     return null_item();
   }
@@ -50,5 +81,5 @@ module B = new_mod(b_arg);
 void b_print (string) = B.print;
 
 void main () {
-  b_print(getmsg());
+  b_print("foo");
 }
