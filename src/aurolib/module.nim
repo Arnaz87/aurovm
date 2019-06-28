@@ -133,7 +133,7 @@ block:
       let obj = ItemObj(item: ModuleItem("", m))
       args.ret Value(kind: objV, obj: obj)
 
-    self.addfn("isnull", [item_type], []):
+    self.addfn("isnull", [item_type], [boolT]):
       let r = ItemObj(args[0].obj).item.kind == nilItem
       args.ret Value(kind: boolV, b: r)
 

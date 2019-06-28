@@ -1,0 +1,191 @@
+
+module record = import auro.record;
+module str_mod = import auro.string;
+
+int strlen (string) = str_mod.length;
+string slice (string, int, int) = str_mod.slice;
+
+
+
+module module_mod = import auro.`module`;
+module item_mod = import auro.`module`.item;
+module code_mod = import auro.`module`.code;
+
+type mod_type = module_mod.``;
+type item = item_mod.``;
+
+item null_item () = item_mod.`null`;
+item module_item (mod_type) = item_mod.`module`;
+bool is_null_item (item) = item_mod.isnull;
+
+
+type code = code_mod.``;
+code new_code () = code_mod.`new`;
+void add_input (code, item) = code_mod.`addinput`;
+void add_output (code, item) = code_mod.`addoutput`;
+void add_int (code, int) = code_mod.`addint`;
+void add_fn (code, item) = code_mod.`addfn`;
+
+item code_item (code) = item_mod.code;
+
+module new_module = module_mod.`new`;
+module create_module = module_mod.create;
+mod_type module_build (mod_type, mod_type) = module_mod.build;
+item module_get (mod_type, string) = module_mod.get;
+
+module _record_mod = new_module(record);
+mod_type get_record_mod () = _record_mod.``;
+module _typeshell_mod = new_module(import auro.typeshell);
+mod_type get_typeshell_mod () = _typeshell_mod.``;
+
+
+
+// Shell Argument Module
+
+mod_type sh_build (mod_type argument) { return argument; }
+item sh_get (mod_type ctx, string name) {
+  if (name == "0") return module_get(ctx, "");
+  else return null_item();
+}
+
+module shell_arg = create_module({
+  ctx = mod_type;
+  build = sh_build;
+  get = sh_get;
+});
+
+module _get_shell_arg = new_module(shell_arg);
+mod_type get_shell_arg () = _get_shell_arg.``;
+
+
+
+// Main Module
+
+module ctx_mod = record({
+  `0` = mod_type;
+  `1` = mod_type;
+  `2` = mod_type;
+});
+
+type ctx = ctx_mod.``;
+ctx new_ctx (mod_type, mod_type, mod_type) = ctx_mod.`new`;
+mod_type ctx_arg (ctx) = ctx_mod.get0;
+mod_type ctx_record (ctx) = ctx_mod.get1;
+mod_type ctx_shell (ctx) = ctx_mod.get2;
+
+
+// builder returns the context of the module given an argument module.
+// return false as we don't need context for this example
+ctx build (mod_type argument) {
+  mod_type record = module_build(get_record_mod(), argument);
+  item record_type = module_get(record, "");
+
+  mod_type shell_arg = module_build(get_shell_arg(), record);
+  mod_type shell = module_build(get_typeshell_mod(), shell_arg);
+
+  return new_ctx(argument, record, shell);
+}
+
+
+item get (ctx ctx, string name) {
+  item tp = module_get(ctx_shell(ctx), "");
+
+  if (name == "") {
+    return tp;
+  } else if (name == "new") {
+
+    // Constructor function
+    code c = new_code();
+    add_output(c, tp);
+
+    add_fn(c, module_get(ctx_record(ctx), "new"));
+
+    int i = 0;
+    while (true) {
+      item itp = module_get(ctx_arg(ctx), itos(i));
+      if (is_null_item(itp)) break;
+
+      add_input(c, itp);
+      add_int(c, i);
+      i = i+1;
+    }
+
+    item to_shell = module_get(ctx_shell(ctx), "new");
+    add_fn(c, to_shell);
+    add_int(c, i); // record new's output
+
+    add_int(c, 0); // end instruction
+    add_int(c, i+1); // typeshell new's output
+
+    return code_item(c);
+  } else {
+
+    // Getter function
+
+    if (
+      (strlen(name) < 4) ||
+      !(slice(name, 0, 3) == "get")
+    ) return null_item();
+
+    string ix = slice(name, 3, strlen(name));
+
+    item itp = module_get(ctx_arg(ctx), ix);
+    if (is_null_item(itp)) return null_item();
+
+    code c = new_code();
+    add_input(c, tp);
+    add_output(c, itp);
+
+    item to_record = module_get(ctx_shell(ctx), "get");
+    add_fn(c, to_record);
+    add_int(c, 0); // arg
+
+    item getter = module_get(ctx_record(ctx), "get" + ix);
+    add_fn(c, getter);
+    add_int(c, 1); // typeshell get's output
+
+    add_int(c, 0); // end instruction
+    add_int(c, 2); // record get's output
+
+    return code_item(c);
+  }
+}
+
+module B = (module_mod.create)({
+  ctx = ctx;
+  build = build;
+  get = get;
+});
+
+
+
+// Running
+
+module bmod = B({ `0` = string; });
+type btp = bmod.``;
+btp bnew (string) = bmod.`new`;
+string bget (btp) = bmod.get0;
+
+module rmod = record({ `0` = string; });
+type rtp = rmod.``;
+rtp rnew (string) = rmod.`new`;
+string rget (rtp) = rmod.get0;
+
+module anymod = import auro.any;
+type any = anymod.any;
+
+module anybmod = anymod({`0` = btp;});
+any anyb (btp) = anybmod.`new`;
+btp getb (any) = anybmod.get;
+
+module anyrmod = anymod({`0` = rtp;});
+any anyr (rtp) = anyrmod.`new`;
+rtp getr (any) = anyrmod.get;
+
+void main () {
+  btp b = bnew("foo");
+  any ab = anyb(b);
+  rtp r = getr(ab);
+
+  //println(bget(r));
+}

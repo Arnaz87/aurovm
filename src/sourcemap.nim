@@ -93,7 +93,13 @@ proc getInst* (self: CodeInfo, index: int): InstInfo =
     result.column = last.get.column
   result.index = index
   result.file = self.file
-  result.function = self
+  result.function = ItemInfo(
+    name: self.name,
+    index: self.index,
+    file: self.file,
+    line: self.line,
+    column: self.column
+  )
 
 proc getFuncName (self: ItemInfo): string =
   if self.name.isSome: self.name.get
