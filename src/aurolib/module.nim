@@ -1,5 +1,6 @@
 
 block:
+  let mod_type: Type = newType("module")
   let item_type: Type = newType("item")
   let code_type: Type = newType("code")
 
@@ -28,7 +29,6 @@ block:
     return FunctionItem("", obj.code.fn)
 
   globalModule("auro.module"):
-    let mod_type: Type = newType("module")
     self[""] = mod_type
 
     self.addfn("get", [mod_type, strT], [item_type]):
@@ -36,8 +36,25 @@ block:
       let it = m[args[1].s]
       args.ret Value(kind: objV, obj: ItemObj(item: it))
 
+    self.addfn("build", [mod_type, mod_type], [mod_type]):
+      let base = Module(args[0].obj)
+      let argument = Module(args[1].obj)
+      let result = base.build(argument)
+      args.ret Value(kind: objV, obj: result)
 
-    let creator = createFunctor("new"):
+    let newfct = createFunctor("new"):
+      let fn = Function(
+        name: "",
+        sig: mksig([], [mod_type]),
+        kind: constF,
+        value: Value(kind: objV, obj: argument)
+      )
+      SimpleModule("module.new", [FunctionItem("", fn)])
+
+    self.items.add(ModuleItem("new", newfct))
+
+
+    let creator = createFunctor("create"):
 
       let ctx_item = argument["ctx"]
       if ctx_item.kind != tItem:
@@ -92,7 +109,7 @@ block:
 
       CustomModule("", getter, builder)
 
-    self.items.add(ModuleItem("new", creator))
+    self.items.add(ModuleItem("create", creator))
 
   globalModule("auro.module.item"):
     self[""] = item_type
@@ -109,6 +126,11 @@ block:
     self.addfn("code", [code_type], [item_type]):
       let code = CodeObj(args[0].obj)
       let obj = ItemObj(code: code)
+      args.ret Value(kind: objV, obj: obj)
+
+    self.addfn("module", [mod_type], [item_type]):
+      let m = Module(args[0].obj)
+      let obj = ItemObj(item: ModuleItem("", m))
       args.ret Value(kind: objV, obj: obj)
 
     self.addfn("isnull", [item_type], []):

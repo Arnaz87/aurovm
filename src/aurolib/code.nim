@@ -80,7 +80,7 @@ proc compile (self: CodeObj) =
     else:
       let f = self.code[i].fn.get_item.f
       var inst = Inst(kind: callI, f: f, ret: reg_count)
-      reg_count +=  f.sig.outs.len
+      reg_count += f.sig.outs.len
 
       for j in 0 ..< f.sig.ins.len:
         inst.args.add self.code[i+j].n

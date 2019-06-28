@@ -10,23 +10,16 @@ type _type = type_mod.``;
 item null_item () = item_mod.`null`;
 item type_item (_type) = item_mod.`type`;
 
-module type_new = type_mod.`new`;
-module string_type_mod_arg { `` = string; }
-module string_type_mod = type_new(string_type_mod_arg);
+module string_type_mod = (type_mod.`new`)({ `` = string; });
 _type get_string_type () = string_type_mod.``;
 
-module fn_base = import auro.function;
-module fn_arg { in0 = string; }
-module fn_mod = fn_base(fn_arg);
+module fn_mod = (import auro.function)({ in0 = string; });
 type fn = fn_mod.``;
 
-module fn_new_mod = fn_mod.`new`;
-module print_fn_arg { `0` = println; }
-module print_fn_mod = fn_new_mod(print_fn_arg);
+module print_fn_mod = (fn_mod.`new`)({ `0` = println; });
 fn get_print_fn () = print_fn_mod.``;
 
-module fn_item_base = item_mod.function;
-module fn_item_mod = fn_item_base(fn_arg);
+module fn_item_mod = (item_mod.function)({ in0 = string; });
 item fn_item_new (fn) = fn_item_mod.``;
 
 type code = code_mod.``;
