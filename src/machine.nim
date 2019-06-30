@@ -102,6 +102,7 @@ type
       builder*: BuilderFn
 
   CobreError* = object of Exception
+  CompileError* = object of CobreError
   RuntimeError* = object of CobreError
   StackOverflowError* = object of RuntimeError
   InfiniteLoopError* = object of RuntimeError

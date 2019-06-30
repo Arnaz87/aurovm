@@ -184,8 +184,8 @@ rtp getr (any) = anyrmod.get;
 
 void main () {
   btp b = bnew("foo");
-  any ab = anyb(b);
-  rtp r = getr(ab);
+  //any ab = anyb(b);
+  //rtp r = getr(ab);
 
-  //println(bget(r));
+  println(bget(b));
 }

@@ -9,6 +9,7 @@ from times import cpuTime
 from strutils import toHex, replace, join
 import osproc
 from ospaths import getEnv
+import typecheck
 
 import sequtils
 

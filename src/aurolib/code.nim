@@ -88,3 +88,4 @@ proc compile (self: CodeObj) =
       self.fn.code.add(inst)
 
   self.fn.reg_count = reg_count
+  self.fn.typeCheck()

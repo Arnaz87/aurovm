@@ -2,10 +2,12 @@
 ## Transforms the data structures output by parse into machine data structures
 
 import parse as P
+import machine
 import metadata
 import sourcemap
-import machine
+import typecheck
 import aurolib
+
 
 import options
 import sequtils
@@ -41,7 +43,6 @@ type
     static_types: seq[Type]
 
   UnsupportedError* = object of Exception
-  CompileError* = object of CobreError
   NotFoundError* = object of CompileError
   ModuleNotFoundError* = object of NotFoundError
     moduleinfo*: ModuleInfo
@@ -51,8 +52,6 @@ type
     codeinfo*: CodeInfo
   IncorrectSignatureError* = object of CompileError
     codeinfo*: CodeInfo
-  TypeError* = object of CompileError
-    instinfo*: InstInfo
 
 proc getType(self: State, i: int): Type
 proc getFunction(self: State, i: int): Function
@@ -215,79 +214,6 @@ proc getFunction(self: State, i: int): Function =
       fndata = FnData(kind: readyFn, f: result)
 
 
-proc typeCheck(self: State, fn: Function) =
-
-  proc check(t1: Type, t2: Type, index: int) =
-    if t1 != t2:
-      let n1 = if not t1.isNil: t1.name else: "<nil>"
-      let n2 = if not t2.isNil: t2.name else: "<nil>"
-      let instinfo = fn.codeinfo.getInst(index)
-      let msg = "Type Mismatch. Expected " & n2 & ", got " & n1 & ", at: " & $instinfo
-      var e = newException(TypeError, msg)
-      e.instinfo = instinfo
-      raise e
-
-  var regs = newSeq[Type](fn.reg_count)
-  var code = newSeq[machine.Inst](0)
-  var next_code = fn.code
-
-  for i in 0..fn.sig.ins.high:
-    regs[i] = fn.sig.ins[i]
-
-  # Repeat until the next code is equal to the current code
-  # in which case no progress was made
-  while next_code.len != code.len:
-    code = next_code
-    next_code = @[]
-
-    for index in 0..code.high:
-      let inst = code[index]
-      # Wether to cancel this instruction transfer
-      var cancel = false
-      case inst.kind
-      of varI, hltI: discard # Nothing to do
-      of dupI:
-        if not regs[inst.src].isNil:
-          regs[inst.dest] = regs[inst.src]
-        else: cancel = true
-      of setI:
-        if not regs[inst.src].isNil:
-          if regs[inst.dest].isNil:
-            regs[inst.dest] = regs[inst.src]
-          else:
-            check(regs[inst.src], regs[inst.dest], index)
-        else: cancel = true
-      of jmpI: discard
-      of jifI, nifI:
-        if not regs[inst.src].isNil:
-          check(regs[inst.src], aurolib.boolT, index)
-        else: cancel = true
-      of endI:
-        for i in 0 .. inst.args.high:
-          let xi = inst.args[i]
-          if regs[xi].isNil:
-            cancel = true
-            break
-          check(regs[xi], fn.sig.outs[i], index)
-      of callI:
-        for i in 0 .. inst.args.high:
-          let xi = inst.args[i]
-          if regs[xi].isNil:
-            cancel = true
-            break
-          check(regs[xi], inst.f.sig.ins[i], index)
-        if not cancel:
-          for i in 0 .. inst.f.sig.outs.high:
-            regs[i + inst.ret] = inst.f.sig.outs[i]
-
-      #echo "  ", regs, " ", inst, " ", cancel
-      if cancel:
-        next_code.add(inst)
-
-  if next_code.len > 0:
-    raise newException(Exception, "Could not typecheck " & $next_code & " in " & fn.name)
-
-
 proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
   var reg_count = ins
 
@@ -326,7 +252,7 @@ proc compileCode (self: State, fn: Function, ins: int, code: seq[P.Inst]) =
 
   fn.reg_count = reg_count
 
-  self.typeCheck(fn)
+  fn.typeCheck()
 
 proc compile* (parser: P.Parser, name: string): Module =
 
