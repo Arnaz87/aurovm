@@ -57,14 +57,11 @@ item get (bool ctx, string name) {
   }
 }
 
-module new_mod = module_mod.`new`;
-module b_arg {
+module B = module_mod.create({
   ctx = bool;
   build = build;
   get = get;
-}
-
-module B = new_mod(b_arg);
+});
 
 
 // Running
