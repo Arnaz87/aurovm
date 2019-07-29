@@ -72,8 +72,8 @@ proc compile (self: CodeObj) =
         inst.src = self.code[i+2].n
         i += 3
       of endI:
-        for j in 1 .. self.outs.len:
-          inst.args.add(self.code[i+j].n)
+        for j in 0 .. self.outs.high:
+          inst.args.add(self.code[i+j+1].n)
         i += self.outs.len + 1
       of callI: discard
       self.fn.code.add(inst)
@@ -82,9 +82,9 @@ proc compile (self: CodeObj) =
       var inst = Inst(kind: callI, f: f, ret: reg_count)
       reg_count += f.sig.outs.len
 
-      for j in 0 ..< f.sig.ins.len:
-        inst.args.add self.code[i+j].n
-      i += f.sig.ins.len
+      for j in 0 .. f.sig.ins.high:
+        inst.args.add self.code[i+j+1].n
+      i += f.sig.ins.len+1
       self.fn.code.add(inst)
 
   self.fn.reg_count = reg_count
