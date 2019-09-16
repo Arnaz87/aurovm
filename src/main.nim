@@ -4,6 +4,7 @@ import parse
 import compile
 
 import aurolib
+import ffi
 
 import os
 from strutils import replace

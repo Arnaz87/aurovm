@@ -1,0 +1,1 @@
+void foo () { printf("This is C"); }

@@ -1,0 +1,12 @@
+module ffi = import auro.ffi;
+module mylib = (ffi.`import`)({ `0` = mylib_name; });
+module foo_mod = (mylib.get)({ name = foo_name; });
+
+void foo () = foo_mod.``;
+
+string mylib_name () { return "./mylib"; }
+string foo_name () { return "foo"; }
+
+void main () {
+  foo();
+}
