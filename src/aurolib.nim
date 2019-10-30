@@ -96,9 +96,6 @@ template createFunctor (name: string, body: untyped): Module =
 template globalFunctor (name: string, body: untyped) =
   machine_modules.add(createFunctor(name.replace('.', '\x1f'), body))
 
-proc hash(t: Type): Hash = t.id.hash
-proc hash(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)
-
 let boolT*: Type = newType("bool")
 globalModule("auro.bool"):
   self["bool"] = boolT

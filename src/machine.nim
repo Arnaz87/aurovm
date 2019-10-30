@@ -227,7 +227,6 @@ proc `[]`* (m: Module, key: Name): Item =
   of customM:
     if not m.getter.isNil:
       return m.getter(key)
-  else: discard
   return Item(kind: nilItem)
 proc `[]`* (m: Module, key: string): Item = m[parseName(key)]
 
@@ -413,3 +412,8 @@ proc `==`* (a: Value, b: Value): bool =
   of functionV: a.fn == b.fn
   of objV: a.obj == b.obj
   of ptrV: a.pt == b.pt
+
+
+import hashes
+proc hash*(t: Type): Hash = t.id.hash
+proc hash*(sig: Signature): Hash = !$(sig.ins.hash !& sig.outs.hash)

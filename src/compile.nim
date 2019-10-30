@@ -95,7 +95,7 @@ proc getModule (self: State, index: int): Module =
           kind: machine.mItem,
           m: self.getModule(item.index)
         )
-        else: raise newException(UnsupportedError, "Non function/type items not supported")
+        #else: raise newException(UnsupportedError, "Non function/type items not supported")
         promises[i] = some(result)
         return result
       return Item(kind: machine.nilItem)
@@ -112,8 +112,6 @@ proc getModule (self: State, index: int): Module =
       let msg = "Module " & data.name & " not found in " & base.name
       raise newException(ModuleNotFoundError, msg)
     result = item.m
-  else:
-    raise newException(UnsupportedError, "Module kind " & $data.kind & " not yet supported")
 
   self.modules[index] = result
 

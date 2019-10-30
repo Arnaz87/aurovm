@@ -1,12 +1,22 @@
 module ffi = import auro.ffi;
 module mylib = (ffi.`import`)({ `0` = mylib_name; });
-module foo_mod = (mylib.get)({ name = foo_name; });
 
-void foo () = foo_mod.``;
+type i8 = ffi.i8;
+i8 to_i8 (int) = ffi.i8$`new`;
+int from_i8 (i8) = ffi.i8$get;
+
+module foo_mod = (mylib.get)({
+  name = foo_name;
+  in0 = i8;
+  out = i8;
+});
+
+i8 foo (i8) = foo_mod.``;
 
 string mylib_name () { return "./mylib"; }
 string foo_name () { return "foo"; }
 
 void main () {
-  foo();
+  int n = from_i8(foo(to_i8(42)));
+  println("This is auro: " + itos(n));
 }
